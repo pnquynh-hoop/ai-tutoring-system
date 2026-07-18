@@ -25,6 +25,7 @@ from django.contrib import admin
 
 api_v1_patterns = [
     path("auth/", include("accounts.urls")),
+    path("courses/", include("courses.urls")),
 ]
 
 urlpatterns = [
