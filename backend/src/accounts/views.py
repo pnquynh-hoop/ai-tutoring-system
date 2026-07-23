@@ -1,17 +1,18 @@
-from rest_framework import views, permissions, status
+from rest_framework import views, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from .models import User
 from .utils import set_auth_cookies, clear_auth_cookies, remove_tokens
 from django.conf import settings
-from .serializers import CustomTokenSerializer, LogoutResponseSerializer
-from rest_framework_simplejwt.tokens import AccessToken
+from .serializers import LogoutResponseSerializer, StudentSerializer
+from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 
 
 
 class LoginView(TokenObtainPairView):
-    serializer_class = CustomTokenSerializer
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
@@ -19,11 +20,6 @@ class LoginView(TokenObtainPairView):
         if response.status_code == 200:
             access_token = response.data.get("access")
             refresh_token = response.data.get("refresh")
-
-            role = AccessToken(access_token).get("role")
-            response.data["role"] = role
-            full_name = AccessToken(access_token).get("full_name")
-            response.data["full_name"] = full_name
 
             set_auth_cookies(
                 response,
@@ -56,7 +52,6 @@ class RefreshView(TokenRefreshView):
 
 
 class LogoutView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
         request=None, 
@@ -79,3 +74,13 @@ class LogoutView(views.APIView):
 
         clear_auth_cookies(response)
         return response
+
+class UserView(viewsets.ViewSet):
+    queryset = User.objects.filter(is_active=True)
+    serializer_class = StudentSerializer
+    
+    @action(methods=["get"], detail=False, url_path="me")
+    def get_me(self, request):
+        return Response(StudentSerializer(request.user).data, status=status.HTTP_200_OK)
+
+

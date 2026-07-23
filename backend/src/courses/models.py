@@ -2,6 +2,7 @@ from django.db import models
 from core.models import BaseModel
 from unidecode import unidecode
 from cloudinary.models import CloudinaryField
+from django.utils.text import slugify
 
 """
     Chứa các model Course, Enrollment, Chapter, Lesson, LearningResource, LearningProgress
@@ -44,6 +45,9 @@ class Enrollment(BaseModel):
             )
         ]
 
+    def __str__(self):
+        return f"{self.course} - {self.student}"
+
 
 class Chapter(BaseModel):
     course = models.ForeignKey(
@@ -61,6 +65,9 @@ class Chapter(BaseModel):
                 fields=["title", "course"], name="unique_course_title"
             ),
         ]
+    
+    def __str__(self):
+        return self.title
 
 
 class Lesson(BaseModel):
@@ -85,17 +92,20 @@ class Lesson(BaseModel):
             ),
         ]
 
+    def __str__(self):
+        return self.title
 
-def resource_upload_path(instance, filename):
+
+def resource_upload_path(instance):
     lesson = instance.lesson
     chapter = lesson.chapter
     course = chapter.course
 
-    course_name = unidecode(course.name).replace(" ", "_")
-    chapter_title = unidecode(chapter.title).replace(" ", "_")
-    lesson_title = unidecode(lesson.title).replace(" ", "_")
+    course_name = slugify(unidecode(course.name))
+    chapter_title = slugify(unidecode(chapter.title))
+    lesson_title = slugify(unidecode(lesson.title))
 
-    return f"tutoring_center/resources/{course_name}/{chapter_title}/{lesson_title}/{filename}"
+    return f"tutoring_center/resources/{course_name}/{chapter_title}/{lesson_title}"
 
 
 class LearningResource(BaseModel):
@@ -132,6 +142,9 @@ class LearningResource(BaseModel):
             ),
         ]
 
+    def __str__(self):
+        return self.title
+
 
 class LessonProgress(models.Model):
     student = models.ForeignKey("accounts.User", on_delete=models.PROTECT)
@@ -145,6 +158,9 @@ class LessonProgress(models.Model):
                 fields=["lesson", "student"], name="unique_lesson_student"
             )
         ]
+    
+    def __str__(self):
+        return f"{self.lesson} - {self.student}"
 
 
 class Comment(BaseModel):
@@ -159,3 +175,14 @@ class Comment(BaseModel):
     parent = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="replies"
     )
+    marked_right_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="marked_right_comments",
+    )
+    marked_right_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.lesson} - {self.created_by}"

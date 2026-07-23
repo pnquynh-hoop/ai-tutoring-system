@@ -1,7 +1,11 @@
 <script lang="ts">
-	import { Bot, Eye, EyeOff } from 'lucide-svelte';
-	import { loginApi } from '$lib/api/auth';
-	import { goto } from '$app/navigation';
+	import { ArrowRight, Bot, Eye, EyeOff, Loader2, XCircle } from 'lucide-svelte';
+	import { goto, invalidateAll } from '$app/navigation';
+	import axios from 'axios';
+	import { loginApi } from '$lib/api/calledAPI';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { getRouteByRole } from '$lib/utils/roleRedirect';
 
 	let username = $state('');
 	let password = $state('');
@@ -11,16 +15,21 @@
 
 	async function handleLogin(event: SubmitEvent) {
 		event.preventDefault();
-
 		isLoading = true;
 		errorMessage = '';
 
 		try {
-			await loginApi({username, password});
-			await goto('/');
-		} catch (err: any) {
-			console.error(err);
-			errorMessage = err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.';
+			await loginApi({ username, password });
+			await invalidateAll();
+			const user = page.data.user;
+			const path = user?.role ? getRouteByRole(user.role) : resolve('/login');
+			goto(path);
+		} catch (err) {
+			if (axios.isAxiosError(err)) {
+				errorMessage = err.response?.data?.message ?? 'Tên đăng nhập hoặc mật khẩu không đúng.';
+			} else {
+				errorMessage = 'Đã xảy ra lỗi.';
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -31,14 +40,12 @@
 	<title>Đăng nhập</title>
 </svelte:head>
 
-<div
-	class="flex min-h-screen items-center justify-center bg-[#f8fafc] p-4 sm:p-6 lg:p-8 font-sans"
->
+<div class="flex min-h-screen items-center justify-center bg-[#f8fafc] p-4 sm:p-6 lg:p-8 font-sans">
 	<div
 		class="w-full max-w-7xl bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col md:flex-row border border-slate-100 relative"
 	>
 		<div
-			class="hidden md:flex md:w-1/2 bg-gradient-to-br from-blue-50 to-indigo-50 p-16 flex-col justify-center items-center relative overflow-hidden"
+			class="hidden md:flex md:w-1/2 bg-linear-to-br from-blue-50 to-indigo-50 p-16 flex-col justify-center items-center relative overflow-hidden"
 		>
 			<div
 				class="absolute top-0 left-0 w-full h-full overflow-hidden opacity-60 pointer-events-none"
@@ -51,7 +58,7 @@
 
 			<div class="relative z-10 flex flex-col items-center text-center space-y-4">
 				<h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">
-					Trung Tâm Gia Sư CaSiu
+					TRUNG TÂM GIA SƯ
 				</h2>
 				<p class="text-slate-600 text-base leading-relaxed max-w-sm">
 					Kết nối tri thức, ươm mầm tương lai. Đăng nhập để tham gia học tập các khóa học thú vị của
@@ -71,7 +78,7 @@
 		</div>
 
 		<div
-			class="hidden md:block absolute left-1/2 -translate-x-1/2 top-0 h-full w-16 pointer-events-none z-20 bg-gradient-to-r from-transparent via-slate-300/30 to-transparent"
+			class="hidden md:block absolute left-1/2 -translate-x-1/2 top-0 h-full w-16 pointer-events-none z-20 bg-linear-to-r from-transparent via-slate-300/30 to-transparent"
 		>
 			<div
 				class="absolute left-1/2 -translate-x-1/2 top-0 h-full w-px bg-slate-200 shadow-[0_0_15px_3px_rgba(0,0,0,0.08)]"
@@ -84,7 +91,7 @@
 					Chào mừng quay lại!
 
 					<div
-						class="animate-float group relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-md shadow-indigo-200 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-300"
+						class="animate-float group relative flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-tr from-blue-600 to-indigo-500 shadow-md shadow-indigo-200 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-300"
 					>
 						<div
 							class="absolute inset-0 rounded-2xl bg-white/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -122,7 +129,7 @@
 							Mật khẩu
 						</label>
 						<a
-							href="#"
+							href={resolve('/login')}
 							class="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline transition-all"
 							>Quên mật khẩu?</a
 						>
@@ -158,13 +165,7 @@
 					<div
 						class="rounded-xl bg-red-50 p-4 border border-red-100 flex items-center gap-3 text-sm text-red-600"
 					>
-						<svg class="h-5 w-5 text-red-500 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-							<path
-								fill-rule="evenodd"
-								d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-								clip-rule="evenodd"
-							/>
-						</svg>
+						<XCircle class="h-5 w-5 text-red-500 shrink-0" />
 						<p>{errorMessage}</p>
 					</div>
 				{/if}
@@ -173,41 +174,14 @@
 					<button
 						type="submit"
 						disabled={isLoading}
-						class="group relative flex w-full justify-center items-center gap-2 rounded-xl bg-slate-900 px-4 py-3.5 text-sm font-bold text-white shadow-md hover:bg-slate-800 hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 transition-all duration-200 disabled:bg-slate-300 disabled:hover:translate-y-0 disabled:cursor-not-allowed"
+						class="group relative flex w-full justify-center items-center gap-2 rounded-xl bg-slate-900 px-4 py-3.5 text-sm font-bold text-white shadow-md hover:bg-slate-800 hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 transition-all duration-200 disabled:bg-slate-300 disabled:hover:translate-y-0 disabled:cursor-not-allowed"
 					>
 						{#if isLoading}
-							<svg
-								class="animate-spin h-5 w-5 text-white/70"
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<circle
-									class="opacity-25"
-									cx="12"
-									cy="12"
-									r="10"
-									stroke="currentColor"
-									stroke-width="4"
-								></circle>
-								<path
-									class="opacity-75"
-									fill="currentColor"
-									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-								></path>
-							</svg>
+							<Loader2 class="h-5 w-5 animate-spin text-white/70" />
 							<span>Đang xử lý...</span>
 						{:else}
 							<span>Đăng Nhập</span>
-							<svg
-								class="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2.5"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-							</svg>
+							<ArrowRight class="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
 						{/if}
 					</button>
 				</div>
@@ -223,7 +197,7 @@
 			transform: translateY(0);
 		}
 		50% {
-			transform: translateY(-10px); /* Độ cao khi bay lên */
+			transform: translateY(-10px);
 		}
 	}
 

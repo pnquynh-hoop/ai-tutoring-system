@@ -17,10 +17,18 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.email}"
-
+    
     @property
-    def full_name(self):
+    def full_name(self) -> str:
         return f"{self.last_name} {self.first_name}"
+    
+    @property
+    def is_student(self) -> bool:
+        return self.groups.filter(name="Student").exists()
+    
+    @property
+    def is_tutor(self) -> bool:
+        return self.groups.filter(name="Tutor").exists()
 
 
 class TutorProfile(BaseModel):
@@ -29,6 +37,9 @@ class TutorProfile(BaseModel):
     qualification = models.CharField("Trình độ", max_length=255)
     experience_years = models.IntegerField("Số năm kinh nghiệm", default=0)
     is_verified = models.BooleanField("Trạng thái xác minh", default=False)
+
+    def __str__(self):
+        return str(self.user)
 
 
 class StudentProfile(BaseModel):
@@ -46,3 +57,6 @@ class StudentProfile(BaseModel):
     academic_level = models.CharField(
         max_length=20, choices=AcademicLevel.choices, default=AcademicLevel.AVERAGE
     )
+
+    def __str__(self):
+        return str(self.user)

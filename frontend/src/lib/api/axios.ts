@@ -1,52 +1,51 @@
-import axios from "axios";
-import { ENDPOINTS } from "./endpoints";
-
-const BASE_URL = 'http://localhost:8000/api/v1/';
+import axios from 'axios';
+import { ENDPOINTS } from './endpoints';
+import { PUBLIC_BASE_URL } from '$env/static/public';
 
 const api = axios.create({
-    withCredentials: true,
-    baseURL: BASE_URL,
-    timeout: 10000,
-    headers: {
-        "Content-Type": "application/json",
-    },
+	withCredentials: true,
+	baseURL: PUBLIC_BASE_URL,
+	timeout: 10000,
+	headers: {
+		'Content-Type': 'application/json'
+	}
 });
 
-let isRefreshing = false;
-let refreshPromise: Promise<any> | null = null;
+let refreshPromise: Promise<unknown> | null = null;
 
 api.interceptors.response.use(
-    (response) => response,
+	(response) => response,
 
-    async (error) => {
-        const originalRequest = error.config;
+	async (error) => {
+		const originalRequest = error.config;
 
-        if (
-            error.response?.status === 401 &&
-            !originalRequest._retry &&
-            !originalRequest.url?.includes(ENDPOINTS.REFRESH)
-        ) {
-            originalRequest._retry = true;
+		const isUnauthorized = error.response?.status === 401;
 
-            try {
-                if (!isRefreshing) {
-                    isRefreshing = true;
-                    refreshPromise = api.post(ENDPOINTS.REFRESH, {}).finally(() => {
-                        isRefreshing = false;
-                    });
-                }
+		const isRefreshRequest = originalRequest?.url?.includes(ENDPOINTS.REFRESH);
+		const isLoginRequest = originalRequest?.url?.includes(ENDPOINTS.LOGIN);
 
-                await refreshPromise;
+		const alreadyRetried = originalRequest?._retry;
 
-                return api(originalRequest);
-            } catch (refreshError) {
-                window.location.href = "/login";
-                return Promise.reject(refreshError);
-            }
-        }
+		if (!isUnauthorized || isRefreshRequest || isLoginRequest || alreadyRetried) {
+			return Promise.reject(error);
+		}
 
-        return Promise.reject(error);
-    }
+		originalRequest._retry = true;
+
+		try {
+			if (!refreshPromise) {
+				refreshPromise = api.post(ENDPOINTS.REFRESH).finally(() => {
+					refreshPromise = null;
+				});
+			}
+
+			await refreshPromise;
+
+			return api(originalRequest);
+		} catch {
+			return Promise.reject(error);
+		}
+	}
 );
 
 export default api;

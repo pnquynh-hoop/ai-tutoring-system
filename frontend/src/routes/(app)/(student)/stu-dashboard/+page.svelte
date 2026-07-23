@@ -1,100 +1,115 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { logoutApi } from '$lib/api/auth';
+	import { logoutApi } from '$lib/api/calledAPI';
+	import type { Course } from '$lib/api/entities.js';
+	import Avatar from '$lib/components/Avatar.svelte';
+	import Chatbot from '$lib/components/Chatbot.svelte';
+	import { auth } from '$lib/stores/auth.svelte';
 	import {
-		Home,
-		MessageCircle,
-		History,
-		Search,
 		Bell,
-		Sparkles,
 		ChevronRight,
-		Flame,
 		ClipboardList,
-		Award,
-		Bot,
+		Flame,
+		Home,
 		LogOut,
 		Menu,
+		Sparkles,
 		User,
-		KeyRound
+		History
 	} from 'lucide-svelte';
 
-	let studentName = $state('An');
-	let currentStreak = $state(5);
+	let studentName = $derived(auth.user?.full_name);
+	let avatarUrl = $derived(auth.user?.avatar);
 	let showUserMenu = $state(false);
-    let sidebarCollapsed = $state(false);
+	let sidebarCollapsed = $state(false);
 
 	let navItems = $state([
-		{ id: 'home', label: 'Trang chủ', icon: Home },
-		{ id: 'assistant', label: 'Trợ lý ảo AI', icon: MessageCircle, badge: true },
-		{ id: 'history', label: 'Lịch sử làm bài', icon: History }
+		{ id: 'home', label: 'Trang chủ', icon: Home, href: '/stu-dashboard' },
+		{ id: 'history', label: 'Lịch sử làm bài với AI', icon: History, href: '/history' }
 	]);
 	let activeNav = $state('home');
+	let { data } = $props();
 
-	let quickStats = $state([
-		{ label: 'Khóa học đang học', value: '4', icon: ClipboardList, tone: 'indigo' },
-		{ label: 'Bài tập chờ làm', value: '3', icon: Bell, tone: 'amber' },
-		{ label: 'Điểm trung bình', value: '8.6', icon: Award, tone: 'teal' }
-	]);
+	let quickStats = $derived.by(() => {
+		const stats = data.stats;
 
-	// let courses = $state([]);
-	let courses = $state([
-		{
-			id: 1,
-			name: 'Tiếng Anh 12',
-			tutor: 'Nguyễn Văn Minh',
-			progress: 20,
-			tag: 'Từ vựng & Ngữ pháp',
-			accent: 'from-indigo-500 to-violet-500',
-			ring: '#4F46E5'
-		},
-		{
-			id: 2,
-			name: 'Toán 12',
-			tutor: 'Trần Thị Hoa',
-			progress: 65,
-			tag: 'Giải tích - Đạo hàm',
-			accent: 'from-teal-500 to-cyan-500',
-			ring: '#0D9488'
-		},
-		{
-			id: 3,
-			name: 'Vật Lý 11',
-			tutor: 'Lê Quốc Bảo',
-			progress: 42,
-			tag: 'Điện học',
-			accent: 'from-amber-500 to-orange-500',
-			ring: '#D97706'
-		},
-		{
-			id: 4,
-			name: 'Hóa học 12',
-			tutor: 'Phạm Thu Trang',
-			progress: 88,
-			tag: 'Hóa hữu cơ',
-			accent: 'from-rose-500 to-pink-500',
-			ring: '#E11D48'
+		const streakLabel =
+			stats.streak === 0
+				? 'Bắt đầu chuỗi học mới'
+				: stats.studied_today
+					? 'Ngày học liên tục'
+					: 'Ngày liên tục — học hôm nay!';
+
+		return [
+			{
+				label: 'Khóa học đang học',
+				value: String(stats.ongoing_courses_count),
+				icon: ClipboardList,
+				tone: 'indigo'
+			},
+			{
+				label: 'Bài tập chờ làm',
+				value: String(stats.pending_assignments_count),
+				icon: Bell,
+				tone: 'amber'
+			},
+			{
+				label: streakLabel,
+				value: String(stats.streak),
+				icon: Flame,
+				tone: 'orange'
+			}
+		];
+	});
+
+	function getTheme(index: number, total: number) {
+		const hue = (index * (360 / Math.max(total, 1))) % 360;
+		const hue2 = (hue + 40) % 360;
+
+		const ring = `hsl(${hue}, 70%, 50%)`;
+		const accent = `hsl(${hue}, 85%, 60%)`;
+		const accent2 = `hsl(${hue2}, 85%, 55%)`;
+
+		return { ring, accentFrom: accent, accentTo: accent2 };
+	}
+
+	let courses = $derived.by(() => {
+		const list: Course[] = data.courses ?? [];
+		return list.map((c, i: number) => {
+			const theme = getTheme(i, list.length);
+			return {
+				id: c.id,
+				name: c.name,
+				tutor: c.tutor_name ?? 'Chưa có gia sư',
+				progress: Number(c.progress),
+				ring: theme.ring,
+				accentFrom: theme.accentFrom,
+				accentTo: theme.accentTo
+			};
+		});
+	});
+
+	let isLoggingOut = false;
+
+	async function handleLogout() {
+		if (isLoggingOut) return;
+
+		isLoggingOut = true;
+
+		try {
+			await logoutApi();
+		} catch (err: unknown) {
+			console.error(err);
+		} finally {
+			isLoggingOut = false;
+			await goto('/login');
 		}
-	]);
+	}
 
-    let isLoggingOut = false;
-
-    async function handleLogout() {
-        if (isLoggingOut) return;
-
-        isLoggingOut = true;
-
-        try {
-            await logoutApi();
-        } catch (err: any) {
-            console.error(err);
-        } finally {
-            isLoggingOut = false;
-            await goto('/login');
-        }
-    }
-
-	
+	function navigateTo(item: (typeof navItems)[number]) {
+		activeNav = item.id;
+		goto(item.href);
+	}
 </script>
 
 <svelte:head>
@@ -104,7 +119,6 @@
 		href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap"
 		rel="stylesheet"
 	/>
-	<script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
 	<title>Trang chủ</title>
 </svelte:head>
 
@@ -115,7 +129,7 @@
 	>
 		<div class="flex items-center gap-3 px-5 py-6">
 			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 shadow-lg shadow-indigo-900/40"
+				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-tr from-indigo-500 to-violet-500 shadow-lg shadow-indigo-900/40"
 			>
 				<Sparkles class="h-5 w-5 text-white" />
 			</div>
@@ -127,9 +141,9 @@
 		</div>
 
 		<nav class="mt-2 flex-1 space-y-1 px-3">
-			{#each navItems as item}
+			{#each navItems as item (item.id)}
 				<button
-					onclick={() => (activeNav = item.id)}
+					onclick={() => navigateTo(item)}
 					class={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all
 						${
 							activeNav === item.id
@@ -138,12 +152,7 @@
 						}`}
 				>
 					<span class="relative shrink-0">
-						<item.icon class="h-[18px] w-[18px]" />
-						{#if item.badge}
-							<span
-								class="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-teal-400"
-							></span>
-						{/if}
+						<item.icon class="h-4.5 w-4.5" />
 					</span>
 					{#if !sidebarCollapsed}
 						<span class="truncate">{item.label}</span>
@@ -168,30 +177,21 @@
 	<div class="flex flex-1 flex-col">
 		<!-- TOP BAR -->
 		<header
-			class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
+			class="flex items-center justify-end border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 		>
-			<div class="flex w-full max-w-md items-center gap-2 rounded-full bg-slate-100 px-4 py-2">
-				<Search class="h-4 w-4 text-slate-400" />
-				<input
-					type="text"
-					placeholder="Tìm khóa học, bài tập..."
-					class="w-full bg-transparent text-sm text-slate-600 placeholder-slate-400 outline-none"
-				/>
-			</div>
 			<div class="flex items-center gap-4">
-				<button class="relative rounded-full p-2 text-slate-500 hover:bg-slate-100">
-					<Bell class="h-5 w-5" />
-					<span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500"></span>
-				</button>
 				<div class="relative">
 					<button
 						onclick={() => (showUserMenu = !showUserMenu)}
-						class="h-9 w-9 rounded-full bg-gradient-to-tr from-rose-400 to-orange-300"
+						class="flex items-center gap-2.5 rounded-full py-1 pl-3 pr-1 hover:bg-slate-100"
 						aria-label="Mở menu tài khoản"
-					></button>
+					>
+						<span class="text-sm font-medium text-slate-700">{studentName}</span>
+
+						<Avatar src={avatarUrl} name={studentName ?? ''} size="lg" />
+					</button>
 
 					{#if showUserMenu}
-						<!-- Lớp nền trong suốt để bấm ra ngoài là đóng menu -->
 						<button
 							class="fixed inset-0 z-40 cursor-default"
 							onclick={() => (showUserMenu = false)}
@@ -207,18 +207,11 @@
 								<User class="h-4 w-4" />
 								Xem hồ sơ
 							</button>
-							<button
-								class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50"
-							>
-								<KeyRound class="h-4 w-4" />
-								Đổi mật khẩu
-							</button>
-
 							<div class="my-1 border-t border-slate-100"></div>
 
 							<button
 								class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50"
-                                onclick={handleLogout}
+								onclick={handleLogout}
 							>
 								<LogOut class="h-4 w-4" />
 								Đăng xuất
@@ -243,17 +236,11 @@
 						Hôm nay là một ngày tốt để học thêm điều gì đó mới.
 					</p>
 				</div>
-				<div
-					class="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-2 text-sm font-semibold text-orange-600 ring-1 ring-orange-200/60"
-				>
-					<Flame class="h-4 w-4" />
-					{currentStreak} ngày học liên tiếp
-				</div>
 			</div>
 
 			<!-- QUICK STATS -->
 			<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-				{#each quickStats as stat}
+				{#each quickStats as stat (stat.label)}
 					<div
 						class="flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm shadow-slate-200/50"
 					>
@@ -261,7 +248,7 @@
 							class={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl
 								${stat.tone === 'indigo' ? 'bg-indigo-50 text-indigo-600' : ''}
 								${stat.tone === 'amber' ? 'bg-amber-50 text-amber-600' : ''}
-								${stat.tone === 'teal' ? 'bg-teal-50 text-teal-600' : ''}`}
+								${stat.tone === 'orange' ? 'bg-orange-50 text-orange-600' : ''}`}
 						>
 							<stat.icon class="h-5 w-5" />
 						</div>
@@ -278,9 +265,6 @@
 				<h2 class="text-base font-semibold text-slate-800" style="font-family:'Sora',sans-serif;">
 					Khóa học của bạn
 				</h2>
-				<button class="flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline">
-					Xem tất cả <ChevronRight class="h-4 w-4" />
-				</button>
 			</div>
 
 			{#if courses.length === 0}
@@ -289,19 +273,17 @@
 				</div>
 			{:else}
 				<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-					{#each courses as course}
+					{#each courses as course (course.id)}
 						<div
-							class="group relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50 transition-all hover:-translate-y-0.5 hover:shadow-md"
+							class="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50 transition-all hover:-translate-y-0.5 hover:shadow-md"
 						>
 							<div
-								class={`absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br opacity-10 ${course.accent}`}
+								class="absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-10"
+								style={`background: linear-gradient(to bottom right, ${course.accentFrom}, ${course.accentTo})`}
 							></div>
 
-							<div class="mb-5 flex items-start justify-between">
+							<div class="mb-5 flex flex-1 items-start justify-between">
 								<div>
-									<p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-										{course.tag}
-									</p>
 									<h3
 										class="mt-1 text-lg font-bold text-slate-900"
 										style="font-family:'Sora',sans-serif;"
@@ -324,10 +306,14 @@
 							</div>
 
 							<a
-								href="/course"
-								class="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white transition-colors group-hover:bg-indigo-600"
+								href={`/course/${course.id}`}
+								class={`mt-auto flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white transition-colors ${
+									course.progress >= 100
+										? 'bg-emerald-600 group-hover:bg-emerald-700'
+										: 'bg-slate-900 group-hover:bg-indigo-600'
+								}`}
 							>
-								Học tiếp
+								{course.progress >= 100 ? 'Xem khóa học' : 'Học tiếp'}
 								<ChevronRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
 							</a>
 						</div>
@@ -337,17 +323,5 @@
 		</main>
 	</div>
 
-	<div class="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-3 group">
-		<div
-			class="bg-white px-5 py-3 rounded-2xl shadow-xl text-sm font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity border border-indigo-100 pointer-events-none whitespace-nowrap shadow-indigo-100/50"
-		>
-			Chào {studentName}! Mình giúp gì được bạn? 👋
-		</div>
-
-		<button
-			class="flex h-16 w-16 items-center justify-center rounded-full bg-blue-700 text-white shadow-xl shadow-blue-900/40 transition-all hover:scale-110 hover:bg-blue-800"
-		>
-			<Bot class="h-8 w-8 animate-bounce" />
-		</button>
-	</div>
+	<Chatbot userName={auth.user?.full_name} />
 </div>

@@ -23,11 +23,11 @@ class Grade(BaseModel):
         return self.name
 
 
-def material_upload_path(instance, filename):
+def material_upload_path(instance):
     grade_name = unidecode(instance.grade.name).replace(" ", "_")
     subject_name = unidecode(instance.subject.name).replace(" ", "_")
 
-    return f"tutoring_center/materials/{grade_name}/{subject_name}/{filename}"
+    return f"tutoring_center/materials/{grade_name}/{subject_name}"
 
 
 class Material(BaseModel):
@@ -38,3 +38,6 @@ class Material(BaseModel):
     )
     grade = models.ForeignKey(Grade, on_delete=models.CASCADE, related_name="materials")
     is_rag_indexed = models.BooleanField("Đã RAG", default=False)
+
+    def __str__(self):
+        return self.name

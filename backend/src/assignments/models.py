@@ -16,6 +16,9 @@ class Assignment(BaseModel):
         related_name="assignments",
     )
 
+    def __str__(self):
+        return f"{self.chapter} - {self.title}"
+
 
 class Question(models.Model):
     class QuestionType(models.TextChoices):
@@ -35,11 +38,17 @@ class Question(models.Model):
     )
     explanation = models.TextField("Lời giải chi tiết")
 
+    def __str__(self):
+        return f"{self.assignment} - {self.content}"
+
 
 class Answer(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     content = models.TextField("Nội dung phương án")
     is_correct = models.BooleanField()
+
+    def __str__(self):
+        return f"{self.question} - {self.content}"
 
 
 class Submission(models.Model):
@@ -55,6 +64,9 @@ class Submission(models.Model):
             )
         ]
 
+    def __str__(self):
+        return f"{self.assignment} - {self.student}"
+
 
 class StudentAnswer(models.Model):
     answer_text = models.TextField(null=True, blank=True)
@@ -65,3 +77,6 @@ class StudentAnswer(models.Model):
     submission = models.ForeignKey(
         Submission, on_delete=models.CASCADE, related_name="stu_answers"
     )
+
+    def __str__(self):
+        return f"{self.submission} - {self.question}"

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Home, Menu, Clock, ChevronLeft, ChevronRight, Bot, Check } from 'lucide-svelte';
+	import { Home, Menu, Clock, ChevronLeft, ChevronRight, Check } from 'lucide-svelte';
 
 	let courseName = $state('Tiếng anh 12');
 	let studentName = $state('Quỳnh');
@@ -101,7 +101,7 @@
 			<!-- LƯỚI SỐ CÂU HỎI -->
 			<div class="flex-1 overflow-y-auto px-5 py-5">
 				<div class="grid grid-cols-4 gap-2.5">
-					{#each questions as question, i}
+					{#each questions as question, i (i)}
 						<button
 							onclick={() => goTo(i)}
 							class={`relative flex aspect-square w-full items-center justify-center rounded-2xl text-sm font-semibold transition-all
@@ -110,7 +110,7 @@
 							? 'bg-indigo-400 text-white shadow-lg shadow-indigo-900/30'
 							: question.selected !== null
 								? 'bg-white/10 text-white'
-								: 'bg-white/[0.04] text-indigo-100/40 hover:bg-white/10 hover:text-white'
+								: 'bg-white/4 text-indigo-100/40 hover:bg-white/10 hover:text-white'
 					}`}
 						>
 							{question.id}
@@ -140,7 +140,7 @@
 				class={`flex items-center rounded-xl py-2 hover:bg-white/5 ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-2'}`}
 			>
 				<div
-					class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-rose-400 to-orange-300 text-sm font-bold text-white"
+					class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-tr from-rose-400 to-orange-300 text-sm font-bold text-white"
 				>
 					{studentName[0]}
 				</div>
@@ -190,7 +190,7 @@
 				</p>
 
 				<div class="space-y-3">
-					{#each currentQuestion.options as option, i}
+					{#each currentQuestion.options as option, i (i)}
 						<button
 							onclick={() => selectAnswer(i)}
 							class={`flex w-full items-center gap-3 rounded-full border px-5 py-3.5 text-left text-sm font-medium transition-all

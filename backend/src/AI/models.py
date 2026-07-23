@@ -20,3 +20,6 @@ class Report(models.Model):
         "", max_length=255, choices=ReportStatus.choices, default=ReportStatus.REPORTED
     )
     reported_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.question} - {self.reporter}"

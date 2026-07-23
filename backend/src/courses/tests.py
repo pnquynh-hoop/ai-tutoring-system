@@ -1,3 +1,192 @@
-from django.test import TestCase
+import pytest
+from model_bakery import baker
+from .models import Course, LessonProgress
+from .services import get_courses_with_progress
 
-# Create your tests here.
+
+@pytest.mark.django_db
+class TestCourseServices:
+    @pytest.fixture
+    def student(self):
+        return baker.make("accounts.User")
+
+    @pytest.fixture
+    def tutor(self):
+        return baker.make("accounts.User")
+
+    @pytest.fixture
+    def course(self, tutor):
+        return baker.make("courses.Course", tutor=tutor)
+
+    @pytest.fixture
+    def chapter(self, course):
+        return baker.make("courses.Chapter", course=course)
+
+    @pytest.fixture
+    def course_query(self):
+        return Course.objects.all()
+
+    def enroll(self, course, student):
+        return baker.make("courses.Enrollment", course=course, student=student)
+
+    def make_lesson(self, chapter):
+        return baker.make("courses.Lesson", chapter=chapter)
+
+    # ---------- CASE 1: course chưa có lesson nào ----------
+    def test_course_without_lessons_returns_zero_progress(
+        self, student, course, course_query
+    ):
+        self.enroll(course, student)
+
+        result = list(get_courses_with_progress(student, course_query))
+
+        assert len(result) == 1
+        assert result[0].progress == 0
+
+    # ---------- CASE 2: có lesson nhưng chưa hoàn thành ----------
+    def test_course_with_lessons_without_progress(
+        self, student, course, course_query, chapter
+    ):
+        self.enroll(course, student)
+        self.make_lesson(chapter)
+        self.make_lesson(chapter)
+
+        result = list(get_courses_with_progress(student, course_query))
+
+        assert result[0].progress == 0
+
+    # ---------- CASE 3: hoàn thành một phần ----------
+    def test_partial_completion_progress(self, student, course, course_query, chapter):
+        self.enroll(course, student)
+        lesson1 = self.make_lesson(chapter)
+        lesson2 = self.make_lesson(chapter)
+        self.make_lesson(chapter)
+        self.make_lesson(chapter)
+        baker.make(LessonProgress, student=student, lesson=lesson1, is_completed=True)
+        baker.make(LessonProgress, student=student, lesson=lesson2, is_completed=True)
+
+        result = list(get_courses_with_progress(student, course_query))
+
+        assert result[0].progress == 50.0
+
+    # ---------- CASE 4: hoàn thành 100% ----------
+    def test_full_completion_progress(self, student, course, course_query, chapter):
+        self.enroll(course, student)
+        lesson1 = self.make_lesson(chapter)
+        lesson2 = self.make_lesson(chapter)
+        baker.make(LessonProgress, student=student, lesson=lesson1, is_completed=True)
+        baker.make(LessonProgress, student=student, lesson=lesson2, is_completed=True)
+
+        result = list(get_courses_with_progress(student, course_query))
+
+        assert result[0].progress == 100.0
+
+    # ---------- CASE 5: is_completed=False không được tính ----------
+    def test_incomplete_lesson_not_counted(
+        self, student, course, course_query, chapter
+    ):
+        self.enroll(course, student)
+        lesson1 = self.make_lesson(chapter)
+        self.make_lesson(chapter)
+        baker.make(LessonProgress, student=student, lesson=lesson1, is_completed=False)
+
+        result = list(get_courses_with_progress(student, course_query))
+
+        assert result[0].progress == 0
+
+    # ---------- CASE 6: chỉ trả về course đã enroll ----------
+    def test_only_returns_enrolled_courses(self, student, course, tutor, course_query):
+        baker.make("courses.Course", tutor=tutor)
+        self.enroll(course, student)
+
+        result = list(get_courses_with_progress(student, course_query))
+
+        assert len(result) == 1
+        assert result[0].id == course.id
+
+    # ---------- CASE 7: progress giữa các student không lẫn nhau ----------
+    def test_progress_isolated_per_student(
+        self, student, course, course_query, chapter
+    ):
+        other_student = baker.make("accounts.User")
+        self.enroll(course, student)
+        self.enroll(course, other_student)
+        lesson1 = self.make_lesson(chapter)
+        self.make_lesson(chapter)
+        baker.make(
+            LessonProgress, student=other_student, lesson=lesson1, is_completed=True
+        )
+
+        result = list(get_courses_with_progress(student, course_query))
+
+        assert result[0].progress == 0
+
+    # ---------- CASE 8: hàm sử dụng query đã filter sẵn từ bên ngoài ----------
+    def test_respects_prefiltered_query(self, student, tutor):
+        subject_a = baker.make("academics.Subject")
+        subject_b = baker.make("academics.Subject")
+        course_a = baker.make("courses.Course", tutor=tutor, subject=subject_a)
+        course_b = baker.make("courses.Course", tutor=tutor, subject=subject_b)
+        self.enroll(course_a, student)
+        self.enroll(course_b, student)
+
+        filtered_query = Course.objects.filter(subject=subject_a)
+        result = list(get_courses_with_progress(student, filtered_query))
+
+        assert len(result) == 1
+        assert result[0].id == course_a.id
+
+    # ---------- CASE 9: không N+1 query ----------
+    def test_no_n_plus_one_query(
+        self, student, tutor, course_query, django_assert_num_queries
+    ):
+        for i in range(5):
+            course = baker.make("courses.Course", tutor=tutor, name=f"Course {i}")
+            self.enroll(course, student)
+            chapter = baker.make("courses.Chapter", course=course)
+            lesson = self.make_lesson(chapter)
+            baker.make(
+                LessonProgress, student=student, lesson=lesson, is_completed=True
+            )
+
+        with django_assert_num_queries(1):
+            result = list(get_courses_with_progress(student, course_query))
+
+        assert len(result) == 5
+
+    # ---------- CASE 10: nhiều course tính đúng progress độc lập ----------
+    def test_multiple_courses_calculated_independently(
+        self, student, tutor, course_query
+    ):
+        course_a = baker.make("courses.Course", tutor=tutor)
+        course_b = baker.make("courses.Course", tutor=tutor)
+        self.enroll(course_a, student)
+        self.enroll(course_b, student)
+
+        chapter_a = baker.make("courses.Chapter", course=course_a)
+        chapter_b = baker.make("courses.Chapter", course=course_b)
+
+        lesson_a1 = self.make_lesson(chapter_a)
+        self.make_lesson(chapter_a)  # course_a: 1/2 hoàn thành = 50%
+
+        lesson_b1 = self.make_lesson(chapter_b)
+        lesson_b2 = self.make_lesson(chapter_b)
+        # course_b: 2/2 hoàn thành = 100%
+
+        baker.make(LessonProgress, student=student, lesson=lesson_a1, is_completed=True)
+        baker.make(LessonProgress, student=student, lesson=lesson_b1, is_completed=True)
+        baker.make(LessonProgress, student=student, lesson=lesson_b2, is_completed=True)
+
+        result = get_courses_with_progress(student, course_query)
+        progress_map = {c.id: c.progress for c in result}
+
+        assert progress_map[course_a.id] == 50.0
+        assert progress_map[course_b.id] == 100.0
+
+    # ---------- CASE 11: query rỗng ----------
+    def test_empty_query_returns_empty_list(self, student):
+        empty_query = Course.objects.none()
+
+        result = list(get_courses_with_progress(student, empty_query))
+
+        assert result == []
