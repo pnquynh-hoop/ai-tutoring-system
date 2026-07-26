@@ -182,7 +182,10 @@ class Comment(BaseModel):
         blank=True,
         related_name="marked_right_comments",
     )
-    marked_right_at = models.DateTimeField(auto_now_add=True)
-
+    marked_right_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    
     def __str__(self):
         return f"{self.lesson} - {self.created_by}"

@@ -10,5 +10,7 @@ export const ENDPOINTS = {
 	LESSONS_DETAIL: (lessonId: string | number) => `lessons/${lessonId}/`,
 	COMPLETE_LESSON: (lessonId: string | number) => `lessons/${lessonId}/complete/`,
 	COMMENTS: (lessonId: string | number) => `lessons/${lessonId}/comments/`,
-	TOGGLE_RIGHT: (commentId: string | number) => `comments/${commentId}/toggle-right/`,
+	TOGGLE_RIGHT: (commentId: string | number) => `comments/${commentId}/toggle-mark-right/`,
+	COURSE_OVERVIEW: (courseId: string | number) => `courses/${courseId}/overview/`,
+	CHAPTER_STATS: (courseId: string | number) => `courses/${courseId}/chapter-stats/`,
 };

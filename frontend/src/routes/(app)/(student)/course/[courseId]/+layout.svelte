@@ -10,5 +10,7 @@
 		student={data.user}
 		activeLessonId={null}
 	/>
-	{@render children()}
+	<div class="flex min-w-0 flex-1">
+		{@render children()}
+	</div>
 </div>

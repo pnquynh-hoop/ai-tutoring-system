@@ -19,6 +19,7 @@ class StudentCourseSerializer(serializers.ModelSerializer):
 
 class CourseDetailSerializer(StudentCourseSerializer):
     subject_name = serializers.CharField(source="subject.name", read_only=True)
+    grade = serializers.CharField(source="grade.name", read_only=True)
 
     class Meta:
         model = StudentCourseSerializer.Meta.model
@@ -82,16 +83,6 @@ class LessonDetailSerializer(serializers.ModelSerializer):
         model = Lesson
         fields = ["id", "title", "resources"]
 
-
-class LessonProgressSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LessonProgress
-        fields = ["id", "student", "lesson", "is_completed", "complete_at"]
-        extra_kwargs = {
-            "complete_at": {"read_only": True},
-            "student": {"required": False},
-        }
-
 class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
@@ -123,3 +114,28 @@ class CommentSerializer(serializers.ModelSerializer):
         data["created_by"] = request.user if request else None
         data["is_active"] = True
         return data
+
+class CourseProgressSerializer(serializers.Serializer):
+    total_lessons = serializers.IntegerField()
+    completed_lessons = serializers.IntegerField()
+    progress_percent = serializers.FloatField()
+    
+class CourseOverviewSerializer(serializers.Serializer):
+    progress = CourseProgressSerializer()
+    average_score = serializers.FloatField(allow_null=True)
+    pending_assignments_count = serializers.IntegerField()
+
+class ChapterStatSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    order = serializers.IntegerField()
+    total_lessons = serializers.IntegerField()
+    completed_lessons = serializers.IntegerField()
+    score = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        allow_null=True,
+        coerce_to_string=False,
+    )
+    pending_assignments = serializers.IntegerField()
+    first_incomplete_lesson_id = serializers.IntegerField(allow_null=True)

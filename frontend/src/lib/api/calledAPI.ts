@@ -58,3 +58,12 @@ export async function postComment(lessonId: number, content: string, parentId?: 
 export async function toggleCommentRight(commentId: number) {
 	return (await api.post(ENDPOINTS.TOGGLE_RIGHT(commentId))).data;
 }
+
+export async function getCourseOverview(courseId: number) {
+	return (await api.get(ENDPOINTS.COURSE_OVERVIEW(courseId))).data;
+}
+
+export async function getChapterStats(courseId: number) {
+	return (await api.get(ENDPOINTS.CHAPTER_STATS(courseId))).data;
+}
+

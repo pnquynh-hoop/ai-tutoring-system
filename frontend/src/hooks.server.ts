@@ -1,5 +1,5 @@
 import { getMeApi } from '$lib/api/calledAPI';
-import type { Handle } from '@sveltejs/kit';
+import { redirect, type Handle } from '@sveltejs/kit';
 
 // Là cổng chặn cho toàn server frontend, chặn từng request kiểm tra trạng thái đăng nhập, lấy thông tin user lưu vào locals
 export const handle: Handle = async ({ event, resolve }) => {
@@ -16,6 +16,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	} else {
 		event.locals.user = null;
+	}
+
+	if (event.url.pathname === '/') {
+		redirect(307, event.locals.user ? '/stu-dashboard' : '/login');
 	}
 	return resolve(event);
 };

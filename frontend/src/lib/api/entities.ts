@@ -11,7 +11,7 @@ export interface Course {
 export interface CourseDetail {
 	id: number;
 	name: string;
-	tutor_name: string;
+	tutor_name?: string | null;
 	description: string;
 	subject_name: string;
 	grade: number;
@@ -71,3 +71,26 @@ export interface Comment {
 	lesson: number;
 	is_active: boolean;
 }
+
+export interface QuizOption {
+	id: number;
+	content: string;
+}
+
+export interface QuizQuestion {
+	id: number;
+	content: string;
+	options: QuizOption[];
+	selected: number | null;
+	isCorrect: boolean | null;
+}
+
+export interface QuizDetail {
+	id: number;
+	title: string;
+	course_name: string;
+	chapter_title: string;
+	time_limit_seconds: number | null;
+	questions: QuizQuestion[];
+}
+

@@ -22,10 +22,14 @@
 		class={`flex items-center border-b border-white/10 py-6 ${sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-5'}`}
 	>
 		{#if !sidebarCollapsed}
-			<span class="truncate font-semibold tracking-tight" style="font-family:'Sora',sans-serif;">
-				{course.name}
-			</span>
-		{/if}
+    <a
+        href={`/course/${course.id}`}
+        class="truncate font-semibold tracking-tight text-white hover:text-indigo-200"
+        style="font-family:'Sora',sans-serif;"
+    >
+        {course.name}
+    </a>
+{/if}
 		<button
 			onclick={() => (sidebarCollapsed = !sidebarCollapsed)}
 			class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20"
@@ -37,8 +41,7 @@
 	{#if sidebarCollapsed}
 		<div class="flex-1"></div>
 	{:else}
-		<nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-			<!-- FIX: thêm key (chapter.id) -->
+		<nav class="sidebar-nav flex-1 space-y-1 overflow-y-auto px-3 py-4 scrollbar-gutter:stable">	
 			{#each course.chapters as chapter (chapter.id)}
 				<div>
 					<button
@@ -95,3 +98,23 @@
 		</div>
 	</div>
 </aside>
+
+<style>
+	.sidebar-nav {
+		scrollbar-width: thin;
+		scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+	}
+
+	.sidebar-nav::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.sidebar-nav::-webkit-scrollbar-thumb {
+		background-color: rgba(255, 255, 255, 0.15);
+		border-radius: 9999px;
+	}
+
+	.sidebar-nav::-webkit-scrollbar-track {
+		background: transparent;
+	}
+</style>
