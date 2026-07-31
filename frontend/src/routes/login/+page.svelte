@@ -57,9 +57,7 @@
 			</div>
 
 			<div class="relative z-10 flex flex-col items-center text-center space-y-4">
-				<h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">
-					TRUNG TÂM GIA SƯ
-				</h2>
+				<h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">TRUNG TÂM GIA SƯ</h2>
 				<p class="text-slate-600 text-base leading-relaxed max-w-sm">
 					Kết nối tri thức, ươm mầm tương lai. Đăng nhập để tham gia học tập các khóa học thú vị của
 					bạn.
@@ -181,7 +179,9 @@
 							<span>Đang xử lý...</span>
 						{:else}
 							<span>Đăng Nhập</span>
-							<ArrowRight class="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+							<ArrowRight
+								class="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
+							/>
 						{/if}
 					</button>
 				</div>

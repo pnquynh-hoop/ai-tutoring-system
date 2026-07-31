@@ -10,74 +10,187 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('courses', '0001_initial'),
+        ("courses", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Assignment',
+            name="Assignment",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('is_active', models.BooleanField(default=False)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('title', models.CharField(max_length=255, verbose_name='Tiêu đề bài tập')),
-                ('due_date', models.DateTimeField()),
-                ('chapter', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='courses.chapter')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("is_active", models.BooleanField(default=False)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "title",
+                    models.CharField(max_length=255, verbose_name="Tiêu đề bài tập"),
+                ),
+                ("due_date", models.DateTimeField()),
+                (
+                    "chapter",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="courses.chapter",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Question',
+            name="Question",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('content', models.TextField(verbose_name='Nội dung câu hỏi')),
-                ('question_type', models.CharField(choices=[('MULTIPLE_CHOICE', 'Trắc nghiệm'), ('FILL_IN_BLANK', 'Điền khuyết'), ('ESSAY', 'Tự luận')], default='MULTIPLE_CHOICE', max_length=255, verbose_name='Loại câu hỏi')),
-                ('explanation', models.TextField(verbose_name='Lời giải chi tiết')),
-                ('assignment', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='questions', to='assignments.assignment')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("content", models.TextField(verbose_name="Nội dung câu hỏi")),
+                (
+                    "question_type",
+                    models.CharField(
+                        choices=[
+                            ("MULTIPLE_CHOICE", "Trắc nghiệm"),
+                            ("FILL_IN_BLANK", "Điền khuyết"),
+                            ("ESSAY", "Tự luận"),
+                        ],
+                        default="MULTIPLE_CHOICE",
+                        max_length=255,
+                        verbose_name="Loại câu hỏi",
+                    ),
+                ),
+                ("explanation", models.TextField(verbose_name="Lời giải chi tiết")),
+                (
+                    "assignment",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="questions",
+                        to="assignments.assignment",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Answer',
+            name="Answer",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('content', models.TextField(verbose_name='Nội dung phương án')),
-                ('is_correct', models.BooleanField()),
-                ('question', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='assignments.question')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("content", models.TextField(verbose_name="Nội dung phương án")),
+                ("is_correct", models.BooleanField()),
+                (
+                    "question",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="assignments.question",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Submission',
+            name="Submission",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('score', models.DecimalField(decimal_places=1, max_digits=3)),
-                ('submitted_at', models.DateTimeField(auto_now_add=True)),
-                ('assignment', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='assignments.assignment')),
-                ('student', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("score", models.DecimalField(decimal_places=1, max_digits=3)),
+                ("submitted_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "assignment",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="assignments.assignment",
+                    ),
+                ),
+                (
+                    "student",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='StudentAnswer',
+            name="StudentAnswer",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('answer_text', models.TextField(blank=True, null=True)),
-                ('tutor_comment', models.TextField(blank=True, null=True)),
-                ('point', models.DecimalField(decimal_places=2, max_digits=4)),
-                ('answer', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='assignments.answer')),
-                ('question', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='assignments.question')),
-                ('submission', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='stu_answers', to='assignments.submission')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("answer_text", models.TextField(blank=True, null=True)),
+                ("tutor_comment", models.TextField(blank=True, null=True)),
+                ("point", models.DecimalField(decimal_places=2, max_digits=4)),
+                (
+                    "answer",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="assignments.answer",
+                    ),
+                ),
+                (
+                    "question",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="assignments.question",
+                    ),
+                ),
+                (
+                    "submission",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="stu_answers",
+                        to="assignments.submission",
+                    ),
+                ),
             ],
         ),
         migrations.AddField(
-            model_name='assignment',
-            name='students',
-            field=models.ManyToManyField(related_name='assignments', through='assignments.Submission', to=settings.AUTH_USER_MODEL),
+            model_name="assignment",
+            name="students",
+            field=models.ManyToManyField(
+                related_name="assignments",
+                through="assignments.Submission",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddConstraint(
-            model_name='submission',
-            constraint=models.UniqueConstraint(fields=('assignment', 'student'), name='unique_assignment_student'),
+            model_name="submission",
+            constraint=models.UniqueConstraint(
+                fields=("assignment", "student"), name="unique_assignment_student"
+            ),
         ),
     ]

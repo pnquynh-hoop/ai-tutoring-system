@@ -1,0 +1,8 @@
+# Công cụ chỉ dùng khi phát triển / chạy test.
+# Cài kèm: pip install -r requirements.txt -r requirements-dev.txt
+black==26.5.1
+coverage==7.15.2
+model-bakery==1.24.0
+pytest==9.1.1
+pytest-cov==7.1.0
+pytest-django==4.12.0

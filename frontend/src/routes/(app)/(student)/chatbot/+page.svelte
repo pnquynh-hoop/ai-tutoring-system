@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { logoutApi } from '$lib/api/calledAPI';
+	import { askAI, getCourseTree, logoutApi } from '$lib/api/calledAPI';
+	import { getApiErrorMessage } from '$lib/api/errors';
+	import type { Chapter } from '$lib/api/entities';
 	import { auth } from '$lib/stores/auth.svelte';
+	import type { PageProps } from './$types';
 	import {
 		History,
 		Home,
@@ -46,24 +49,6 @@
 		reported?: boolean;
 	}
 
-	interface Lesson {
-		id: number;
-		title: string;
-		ragReady: boolean;
-	}
-
-	interface Chapter {
-		id: number;
-		title: string;
-		lessons: Lesson[];
-	}
-
-	interface Course {
-		id: number;
-		name: string;
-		chapters: Chapter[];
-	}
-
 	interface GeneratedAnswer {
 		id: number;
 		content: string;
@@ -104,53 +89,44 @@
 		}
 	}
 
-	// --- Mock: khóa học đang học + cấu trúc chương/bài (map với Course/Chapter/Lesson) ---
-	const courses: Course[] = [
-		{
-			id: 1,
-			name: 'Luyện Thi THPT QG Toán Học 2026',
-			chapters: [
-				{
-					id: 11,
-					title: 'Chương 1: Phương trình - Bất phương trình',
-					lessons: [
-						{ id: 111, title: 'Bài 1: Phương trình mũ', ragReady: true },
-						{ id: 112, title: 'Bài 2: Phương trình logarit', ragReady: true },
-						{ id: 113, title: 'Bài 3: Bất phương trình mũ - logarit', ragReady: false }
-					]
-				},
-				{
-					id: 12,
-					title: 'Chương 2: Hàm số',
-					lessons: [{ id: 121, title: 'Bài 1: Khảo sát hàm số', ragReady: true }]
-				}
-			]
-		},
-		{
-			id: 2,
-			name: 'IELTS Foundation',
-			chapters: [
-				{
-					id: 21,
-					title: 'Chương 1: Writing',
-					lessons: [{ id: 211, title: 'Bài 1: Task 2 - Cấu trúc bài luận', ragReady: true }]
-				}
-			]
-		}
-	];
+	// --- Khóa học thật của học sinh: GET /courses/ + GET /courses/{id}/tree/ ---
+	let { data }: PageProps = $props();
+
+	let courses = $derived(data.courses);
 
 	// --- State chat ---
 	let mode = $state<Mode>('qa');
-	let selectedCourseId = $state<number>(courses[0].id);
+	let selectedCourseId = $state<number | null>(null);
 	let selectedLessonId = $state<number | null>(null); // null = toàn khóa học
+	let chapters = $state<Chapter[]>([]);
 
-	let selectedCourse = $derived(courses.find((c) => c.id === selectedCourseId));
-	let allLessons = $derived(selectedCourse?.chapters.flatMap((c) => c.lessons) ?? []);
+	// Chọn sẵn khóa học đầu tiên kèm cây chương/bài đã tải cùng trang.
+	$effect(() => {
+		selectedCourseId = data.courses[0]?.id ?? null;
+		chapters = data.firstTree?.chapters ?? [];
+	});
+
+	let selectedCourse = $derived(courses.find((c) => c.id === selectedCourseId) ?? null);
+	let allLessons = $derived(chapters.flatMap((c) => c.lessons));
 	let selectedLesson = $derived(allLessons.find((l) => l.id === selectedLessonId) ?? null);
 	let contextLabel = $derived(
-		selectedLesson ? selectedLesson.title : `Toàn bộ khóa học: ${selectedCourse?.name}`
+		selectedLesson ? selectedLesson.title : `Toàn bộ khóa học: ${selectedCourse?.name ?? ''}`
 	);
-	let ragWarning = $derived(!!selectedLesson && !selectedLesson.ragReady);
+
+	/** Đổi khóa học thì nạp lại cây chương/bài của khóa đó. */
+	async function loadChapters(courseId: number | null) {
+		selectedLessonId = null;
+		if (!courseId) {
+			chapters = [];
+			return;
+		}
+		try {
+			chapters = (await getCourseTree(courseId)).chapters;
+		} catch (err) {
+			chapters = [];
+			pushSystemMessage(getApiErrorMessage(err, 'Không tải được nội dung khóa học.'));
+		}
+	}
 
 	let messages = $state<ChatMessage[]>([
 		{
@@ -190,27 +166,38 @@
 		return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 	}
 
-	// TODO: thay bằng gọi API RAG thật, truyền kèm lesson.id để backend truy vấn LearningResource đã index
-	async function mockAIReply(prompt: string): Promise<string> {
-		await new Promise((r) => setTimeout(r, 900 + Math.random() * 600));
-		return `Dựa trên nội dung "${contextLabel}": đây là câu trả lời minh hoạ cho câu hỏi "${prompt}". (Phản hồi thật sẽ được truy xuất từ tài nguyên bài học đã lập chỉ mục RAG.)`;
+	function pushSystemMessage(text: string) {
+		messages.push({ id: Date.now(), role: 'ai', text, time: nowTime() });
 	}
 
 	async function sendPrompt(text?: string): Promise<void> {
 		const content = (text ?? draft).trim();
 		if (!content || isThinking) return;
+
+		if (!selectedCourseId) {
+			pushSystemMessage('Bạn cần chọn một khóa học trước khi đặt câu hỏi.');
+			return;
+		}
+
 		messages.push({ id: Date.now(), role: 'user', text: content, time: nowTime() });
 		draft = '';
 		isThinking = true;
-		const reply = await mockAIReply(content);
-		messages.push({
-			id: Date.now() + 1,
-			role: 'ai',
-			text: reply,
-			time: nowTime(),
-			sourceLesson: selectedLesson?.title
-		});
-		isThinking = false;
+
+		try {
+			// POST /rag/ask/ - backend chỉ trả lời dựa trên tài liệu của khóa/bài học này.
+			const res = await askAI(content, selectedCourseId, selectedLesson?.id);
+			messages.push({
+				id: Date.now() + 1,
+				role: 'ai',
+				text: res.answer,
+				time: nowTime(),
+				sourceLesson: selectedLesson?.title
+			});
+		} catch (err) {
+			pushSystemMessage(getApiErrorMessage(err, 'Trợ lý AI chưa trả lời được, bạn thử lại nhé.'));
+		} finally {
+			isThinking = false;
+		}
 	}
 
 	function handleKeydown(e: KeyboardEvent): void {
@@ -473,7 +460,7 @@
 			<select
 				class="text-[13px] border border-slate-200 rounded-lg px-3 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
 				bind:value={selectedCourseId}
-				onchange={() => (selectedLessonId = null)}
+				onchange={() => loadChapters(selectedCourseId)}
 			>
 				{#each courses as c (c.id)}
 					<option value={c.id}>{c.name}</option>
@@ -485,20 +472,20 @@
 				bind:value={selectedLessonId}
 			>
 				<option value={null}>Toàn bộ khóa học</option>
-				{#each selectedCourse?.chapters ?? [] as ch (ch.id)}
+				{#each chapters as ch (ch.id)}
 					<optgroup label={ch.title}>
 						{#each ch.lessons as l (l.id)}
-							<option value={l.id}>{l.title}{l.ragReady ? '' : ' (chưa lập chỉ mục)'}</option>
+							<option value={l.id}>{l.title}</option>
 						{/each}
 					</optgroup>
 				{/each}
 			</select>
 
-			{#if ragWarning}
+			{#if courses.length === 0}
 				<span
 					class="text-[12px] text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1"
 				>
-					⚠ Bài học này chưa được lập chỉ mục RAG, câu trả lời có thể chưa chính xác
+					⚠ Bạn chưa ghi danh khóa học nào nên trợ lý AI chưa có tài liệu để trả lời
 				</span>
 			{/if}
 

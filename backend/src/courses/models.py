@@ -1,5 +1,5 @@
 from django.db import models
-from core.models import BaseModel
+from core.models import BaseModel, PublishableModel
 from unidecode import unidecode
 from cloudinary.models import CloudinaryField
 from django.utils.text import slugify
@@ -49,7 +49,7 @@ class Enrollment(BaseModel):
         return f"{self.course} - {self.student}"
 
 
-class Chapter(BaseModel):
+class Chapter(BaseModel, PublishableModel):
     course = models.ForeignKey(
         Course, on_delete=models.CASCADE, related_name="chapters"
     )
@@ -57,6 +57,7 @@ class Chapter(BaseModel):
     order = models.IntegerField("Thứ tự chương")
 
     class Meta:
+        ordering = ["order"]
         constraints = [
             models.UniqueConstraint(
                 fields=["order", "course"], name="unique_course_order"
@@ -65,12 +66,12 @@ class Chapter(BaseModel):
                 fields=["title", "course"], name="unique_course_title"
             ),
         ]
-    
+
     def __str__(self):
         return self.title
 
 
-class Lesson(BaseModel):
+class Lesson(BaseModel, PublishableModel):
     chapter = models.ForeignKey(
         Chapter, on_delete=models.CASCADE, related_name="lessons"
     )
@@ -83,6 +84,7 @@ class Lesson(BaseModel):
     )
 
     class Meta:
+        ordering = ["order"]
         constraints = [
             models.UniqueConstraint(
                 fields=["order", "chapter"], name="unique_chapter_order"
@@ -108,7 +110,7 @@ def resource_upload_path(instance):
     return f"tutoring_center/resources/{course_name}/{chapter_title}/{lesson_title}"
 
 
-class LearningResource(BaseModel):
+class LearningResource(BaseModel, PublishableModel):
     class ResourceType(models.TextChoices):
         VIDEO_URL = "VIDEO_URL", "Video URL"
         PDF_FILE = "PDF_FILE", "PDF File"
@@ -150,7 +152,8 @@ class LessonProgress(models.Model):
     student = models.ForeignKey("accounts.User", on_delete=models.PROTECT)
     lesson = models.ForeignKey(Lesson, on_delete=models.PROTECT)
     is_completed = models.BooleanField("Đánh dấu hoàn thành bài học", default=False)
-    complete_at = models.DateTimeField(auto_now_add=True)
+    # Thời điểm học sinh thực sự hoàn thành bài học, chỉ được ghi khi is_completed=True.
+    complete_at = models.DateTimeField("Thời điểm hoàn thành", null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -158,7 +161,7 @@ class LessonProgress(models.Model):
                 fields=["lesson", "student"], name="unique_lesson_student"
             )
         ]
-    
+
     def __str__(self):
         return f"{self.lesson} - {self.student}"
 
@@ -186,6 +189,6 @@ class Comment(BaseModel):
         null=True,
         blank=True,
     )
-    
+
     def __str__(self):
         return f"{self.lesson} - {self.created_by}"

@@ -14,9 +14,13 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+import cloudinary
+import pymysql
 from dotenv import load_dotenv
 
 load_dotenv()
+
+pymysql.install_as_MySQLdb()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,7 +35,12 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False").strip().lower() == "true"
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
+# Bỏ các phần tử rỗng để ALLOWED_HOSTS không thành [""] khi thiếu biến môi trường.
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
+]
 
 
 # Application definition
@@ -96,7 +105,11 @@ DATABASES = {
         "NAME": os.environ.get("DB_NAME"),
         "USER": os.environ.get("DB_USER"),
         "PASSWORD": os.environ.get("DB_PASSWORD"),
-        "HOST": "",
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", ""),
+        # Giữ lại kết nối để mỗi request không phải bắt tay với MySQL từ đầu.
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", 60)),
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 
@@ -143,12 +156,6 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-import pymysql  # noqa: E402
-
-pymysql.install_as_MySQLdb()
-
-import cloudinary  # noqa: E402
-
 cloudinary.config(
     cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
     api_key=os.environ.get("CLOUDINARY_API_KEY"),
@@ -158,7 +165,28 @@ cloudinary.config(
 
 AUTH_USER_MODEL = "accounts.User"
 
-CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# Thư mục lưu vector store của ChromaDB (mặc định nằm cạnh thư mục src).
+CHROMA_DB_PATH = os.environ.get("CHROMA_DB_PATH", str(BASE_DIR.parent / "chroma_db"))
+
+# Kiến thức nền cho RAG: các file PDF đặt sẵn trong backend/data.
+# Mặc định chỉ lấy bản đã làm sạch; đổi pattern thành "*.pdf" nếu muốn nạp tất cả.
+RAG_DATA_DIR = Path(os.environ.get("RAG_DATA_DIR", BASE_DIR.parent / "data"))
+RAG_DATA_PATTERN = os.environ.get("RAG_DATA_PATTERN", "*clean*.pdf")
+
+# Cho phép trợ lý trả lời bằng kiến thức chung khi tài liệu không có thông tin.
+# Câu trả lời dạng này luôn được gắn nhãn để học sinh biết nó nằm ngoài giáo trình.
+# Đặt "False" nếu muốn siết lại, chỉ trả lời đúng những gì có trong tài liệu.
+RAG_ALLOW_GENERAL_KNOWLEDGE = (
+    os.environ.get("RAG_ALLOW_GENERAL_KNOWLEDGE", "True").strip().lower() == "true"
+)
+
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",")
+    if origin.strip()
+]
 CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
@@ -169,6 +197,13 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        # Giới hạn riêng cho các endpoint gọi LLM (tốn chi phí).
+        "ai": os.environ.get("AI_THROTTLE_RATE", "30/hour"),
+    },
 }
 
 SPECTACULAR_SETTINGS = {
@@ -178,8 +213,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
-    # "ACCESS_TOKEN_LIFETIME": timedelta(seconds=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -196,7 +230,6 @@ AUTH_COOKIE = {
 }
 
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SECURE = True
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-]
+# Dev chạy http://localhost nên chỉ bật Secure khi tắt DEBUG.
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS

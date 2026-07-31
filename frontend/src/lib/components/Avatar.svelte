@@ -7,7 +7,13 @@
 		toColor?: string;
 	}
 
-	let { src = null, name, size = 'md', fromColor = 'from-rose-400', toColor = 'to-orange-300' }: Props = $props();
+	let {
+		src = null,
+		name,
+		size = 'md',
+		fromColor = 'from-rose-400',
+		toColor = 'to-orange-300'
+	}: Props = $props();
 
 	let imgError = $state(false);
 

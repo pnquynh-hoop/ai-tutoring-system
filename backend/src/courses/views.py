@@ -1,224 +1,279 @@
-from rest_framework import status, viewsets, generics, views
-from assignments.models import Assignment, Submission
-from .services import get_course_tree, get_courses_with_progress, get_quick_stats
-from .models import Comment, Course, Lesson, LessonProgress
+from drf_spectacular.utils import extend_schema
+from rest_framework import generics, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+
+from core.permissions import (
+    IsCourseMember,
+    IsCourseMemberOrTutorWrite,
+    IsCourseTutor,
+    IsRelatedCourseMember,
+    IsRelatedCourseTutor,
+    IsStudentOrTutor,
+    IsTutor,
+)
+from core.querysets import only_published
+
+from .models import Chapter, Comment, Course, LearningResource, Lesson
 from .serializers import (
+    ChapterSerializer,
     ChapterStatSerializer,
     CommentSerializer,
     CourseDetailSerializer,
     CourseOverviewSerializer,
     CourseTreeSerializer,
     LessonDetailSerializer,
-    QuickStatsSerializer,
+    LessonSerializer,
+    ResourceSerializer,
     StudentCourseSerializer,
+    StudentQuickStatsSerializer,
+    TutorCourseDetailSerializer,
+    TutorCourseSerializer,
+    TutorCourseStatsSerializer,
+    TutorQuickStatsSerializer,
 )
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from drf_spectacular.utils import extend_schema
-from django.utils import timezone
-from django.shortcuts import get_object_or_404
-from django.db.models.functions import Round
-from django.db.models import Avg
+from .services import (
+    get_chapter_stats,
+    get_course_overview,
+    get_course_tree,
+    get_course_tutor_stats,
+    get_courses_with_progress,
+    get_quick_stats,
+    get_tutor_courses,
+    get_tutor_quick_stats,
+    mark_lesson_completed,
+    toggle_comment_right,
+)
 
-class CourseView(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
+
+class CourseView(
+    viewsets.ViewSet,
+    generics.ListAPIView,
+    generics.RetrieveAPIView,
+):
     queryset = Course.objects.filter(is_active=True)
+
+    def get_permissions(self):
+        if self.action == "tutor_stats":
+            return [IsTutor(), IsCourseTutor()]
+        return [IsStudentOrTutor(), IsCourseMember()]
 
     def get_queryset(self):
         query = super().get_queryset()
-
         user = self.request.user
-        if user.is_authenticated:
-            if user.is_student:
-                query = get_courses_with_progress(student=user, query=query)
-            elif user.is_tutor:
-                query = query.filter(tutors=user)
-        # print(query.query)
+
+        if self.action == "retrieve":
+            query = query.select_related("subject", "grade", "tutor__tutorprofile")
+
+        if user.is_tutor:
+            return get_tutor_courses(tutor=user, query=query)
+        if user.is_student:
+            return get_courses_with_progress(student=user, query=query)
         return query
 
     def get_serializer_class(self):
-        if self.action == "retrieve":
-            return CourseDetailSerializer
-        return StudentCourseSerializer
+        user = self.request.user
+        is_tutor = user.is_authenticated and user.is_tutor
 
+        if self.action == "retrieve":
+            return TutorCourseDetailSerializer if is_tutor else CourseDetailSerializer
+        return TutorCourseSerializer if is_tutor else StudentCourseSerializer
+
+    @extend_schema(responses=CourseTreeSerializer)
     @action(methods=["get"], url_path="tree", detail=True)
     def get_tree(self, request, pk):
-        course = get_course_tree(course_id=pk, student=request.user)
-        return Response(CourseTreeSerializer(course).data, status=status.HTTP_200_OK)
-
-    @action(methods=["get"], url_path="overview", detail=True)
-    def course_overview(self, request, pk):
-        course = self.get_object()
-        student = request.user
-
-        lessons = Lesson.objects.filter(chapter__course=course)
-        total_lessons = lessons.count()
-        completed_lessons = LessonProgress.objects.filter(
-            lesson__in=lessons, student=student, is_completed=True
-        ).count()
-        progress_percent = (
-            round(completed_lessons / total_lessons * 100, 1) if total_lessons else 0
+        self.get_object()
+        course = get_course_tree(
+            course_id=pk, student=request.user, include_drafts=request.user.is_tutor
         )
-
-        assignment_ids = list(
-            Assignment.objects.filter(chapter__course=course).values_list(
-                "id", flat=True
-            )
-        )
-
-        submitted_ids = set(
-            Submission.objects.filter(
-                assignment_id__in=assignment_ids, student=student
-            ).values_list("assignment_id", flat=True)
-        )
-
-        pending_assignments_count = Assignment.objects.filter(
-            id__in=set(assignment_ids) - submitted_ids,
-            due_date__gte=timezone.now(),
-        ).count()
-
-        avg_result = Submission.objects.filter(
-            assignment_id__in=assignment_ids, student=student
-        ).aggregate(avg=Round(Avg("score"), 2))
-        average_score = avg_result["avg"]
-
-        data = {
-            "progress": {
-                "total_lessons": total_lessons,
-                "completed_lessons": completed_lessons,
-                "progress_percent": progress_percent,
-            },
-            "average_score": average_score,
-            "pending_assignments_count": pending_assignments_count,
-        }
-        return Response(CourseOverviewSerializer(data).data, status=status.HTTP_200_OK)
-
-    @action(methods=["get"], url_path="chapter-stats", detail=True)
-    def chapter_stat(self, request, pk):
-        course = self.get_object()
-        student = request.user
-
-        result = []
-
-        chapters = course.chapters.order_by("order").prefetch_related("lessons")
-
-        for chapter in chapters:
-            lessons = list(chapter.lessons.all())
-
-            total_lessons = len(lessons)
-
-            completed_lessons = LessonProgress.objects.filter(
-                lesson__in=lessons,
-                student=student,
-                is_completed=True,
-            ).count()
-
-            first_incomplete = next(
-                (
-                    lesson.id
-                    for lesson in lessons
-                    if not LessonProgress.objects.filter(
-                        lesson=lesson,
-                        student=student,
-                        is_completed=True,
-                    ).exists()
-                ),
-                None,
-            )
-
-            assignments = Assignment.objects.filter(chapter=chapter)
-
-            submitted = Submission.objects.filter(
-                assignment__in=assignments,
-                student=student,
-            )
-
-            pending_assignments = assignments.exclude(
-                id__in=submitted.values_list("assignment_id", flat=True)
-            ).count()
-
-            score = submitted.aggregate(avg=Round(Avg("score"), 2))["avg"]
-
-            result.append(
-                {
-                    "id": chapter.id,
-                    "title": chapter.title,
-                    "order": chapter.order,
-                    "total_lessons": total_lessons,
-                    "completed_lessons": completed_lessons,
-                    "score": score,
-                    "pending_assignments": pending_assignments,
-                    "first_incomplete_lesson_id": first_incomplete,
-                }
-            )
-
         return Response(
-            ChapterStatSerializer(result, many=True).data,
+            CourseTreeSerializer(course, context=self.get_serializer_context()).data,
             status=status.HTTP_200_OK,
         )
 
-@extend_schema(responses=QuickStatsSerializer)
-class QuickStatsView(views.APIView):
+    @extend_schema(responses=CourseOverviewSerializer)
+    @action(methods=["get"], url_path="overview", detail=True)
+    def course_overview(self, request, pk):
+        data = get_course_overview(
+            course=self.get_object(),
+            student=request.user,
+            include_drafts=request.user.is_tutor,
+        )
+        return Response(
+            CourseOverviewSerializer(data, context=self.get_serializer_context()).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(responses=TutorCourseStatsSerializer)
+    @action(methods=["get"], url_path="stats", detail=True)
+    def tutor_stats(self, request, pk):
+        """Thống kê khóa học dành cho gia sư phụ trách."""
+        data = get_course_tutor_stats(course=self.get_object())
+        return Response(
+            TutorCourseStatsSerializer(
+                data, context=self.get_serializer_context()
+            ).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(responses=ChapterStatSerializer(many=True))
+    @action(methods=["get"], url_path="chapter-stats", detail=True)
+    def chapter_stat(self, request, pk):
+        data = get_chapter_stats(
+            course=self.get_object(),
+            student=request.user,
+            include_drafts=request.user.is_tutor,
+        )
+        return Response(
+            ChapterStatSerializer(
+                data, many=True, context=self.get_serializer_context()
+            ).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(responses=StudentQuickStatsSerializer)
+class QuickStatsView(generics.GenericAPIView):
+    permission_classes = [IsStudentOrTutor]
+    serializer_class = StudentQuickStatsSerializer
+
     def get(self, request):
-        student = request.user
-        stat_data = get_quick_stats(student)
-        return Response(QuickStatsSerializer(stat_data).data, status=status.HTTP_200_OK)
+        user = request.user
+
+        if user.is_tutor:
+            data = get_tutor_quick_stats(tutor=user)
+            serializer_class = TutorQuickStatsSerializer
+        else:
+            data = get_quick_stats(student=user)
+            serializer_class = StudentQuickStatsSerializer
+
+        return Response(
+            serializer_class(data, context=self.get_serializer_context()).data,
+            status=status.HTTP_200_OK,
+        )
 
 
-class LessonView(viewsets.ViewSet, generics.RetrieveAPIView):
-    serializer_class = LessonDetailSerializer
+class LessonView(
+    viewsets.ViewSet,
+    generics.RetrieveAPIView,
+    generics.CreateAPIView,
+    generics.UpdateAPIView,
+    generics.DestroyAPIView,
+):
     queryset = Lesson.objects.filter(is_active=True)
+    write_parent_lookup = ("chapter", Chapter)
 
+    def get_permissions(self):
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [IsTutor(), IsRelatedCourseTutor(), IsCourseTutor()]
+        return [IsStudentOrTutor(), IsCourseMember()]
+
+    def get_queryset(self):
+        query = super().get_queryset()
+        if self.request.user.is_student:
+            query = only_published(query, "chapter")
+        if self.action == "retrieve":
+            return query.prefetch_related("resources")
+        return query
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return LessonSerializer
+        if self.action == "get_comments":
+            return CommentSerializer
+        return LessonDetailSerializer
+
+    @extend_schema(request=None, responses=CommentSerializer)
     @action(methods=["post"], url_path="complete", detail=True)
     def mark_complete(self, request, pk):
-        progress, _ = LessonProgress.objects.update_or_create(
-            student=request.user,
-            lesson=self.get_object(),
-            defaults={
-                "is_completed": True,
-            },
-        )
+        progress = mark_lesson_completed(student=request.user, lesson=self.get_object())
         return Response(
             {
                 "lesson_id": progress.lesson_id,
                 "is_completed": progress.is_completed,
+                "complete_at": progress.complete_at,
             },
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(responses=CommentSerializer(many=True))
     @action(methods=["get", "post"], url_path="comments", detail=True)
     def get_comments(self, request, pk):
-        if request.method == "POST":
-            s = CommentSerializer(
-                data={
-                    **request.data,
-                    "lesson": pk,
-                },
-                context={"request": request},
-            )
-            s.is_valid(raise_exception=True)
-            c = s.save()
-            return Response(CommentSerializer(c).data, status=status.HTTP_200_OK)
+        lesson = self.get_object()
 
-        comments = self.get_object().comments.filter(is_active=True).all()
+        if request.method == "POST":
+            # created_by do serializer tự gán từ context request, client không gửi lên.
+            serializer = self.get_serializer(data={**request.data, "lesson": lesson.id})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        comments = (
+            lesson.comments.filter(is_active=True)
+            .select_related("created_by")
+            .order_by("created_at")
+        )
         return Response(
-            CommentSerializer(comments, many=True).data, status=status.HTTP_200_OK
+            self.get_serializer(comments, many=True).data, status=status.HTTP_200_OK
         )
 
 
-class CommentView(viewsets.ViewSet):
-    @action(methods=["patch"], url_path="toggle-mark-right", detail=True)
+class CommentView(viewsets.ViewSet, generics.GenericAPIView):
+    queryset = Comment.objects.filter(is_active=True)
+    serializer_class = CommentSerializer
+    permission_classes = [IsCourseTutor]
+
+    @extend_schema(request=None, responses=CommentSerializer)
+    @action(methods=["post"], url_path="toggle-mark-right", detail=True)
     def toggle_right(self, request, pk):
-        comment = get_object_or_404(Comment, pk=pk)
+        comment = toggle_comment_right(comment=self.get_object(), user=request.user)
+        return Response(self.get_serializer(comment).data, status=status.HTTP_200_OK)
 
-        comment.is_right = not comment.is_right
 
-        if comment.is_right:
-            comment.marked_right_by = request.user
-            comment.marked_right_at = timezone.now()
-        else:
-            comment.marked_right_by = None
-            comment.marked_right_at = None
+class ChapterView(
+    viewsets.ViewSet,
+    generics.CreateAPIView,
+    generics.UpdateAPIView,
+    generics.DestroyAPIView,
+):
+    queryset = Chapter.objects.filter(is_active=True)
+    serializer_class = ChapterSerializer
+    write_parent_lookup = ("course", Course)
+    permission_classes = [IsTutor, IsRelatedCourseTutor, IsCourseTutor]
 
-        comment.save()
 
-        return Response({"message": "Cập nhật thành công"}, status=status.HTTP_200_OK)
+class ResourceView(
+    viewsets.ViewSet,
+    generics.ListAPIView,
+    generics.CreateAPIView,
+    generics.UpdateAPIView,
+    generics.DestroyAPIView,
+):
+    queryset = LearningResource.objects.filter(is_active=True)
+    serializer_class = ResourceSerializer
+    read_parent_lookup = ("lesson", Lesson)
+    write_parent_lookup = ("lesson", Lesson)
+    permission_classes = [
+        IsStudentOrTutor,
+        IsRelatedCourseMember,
+        IsRelatedCourseTutor,
+        IsCourseMemberOrTutorWrite,
+    ]
+
+    def list(self, request, *args, **kwargs):
+        # Bắt buộc chỉ rõ bài học để permission có căn cứ chặn trước khi truy vấn.
+        lesson_id = request.query_params.get("lesson", "")
+        if not lesson_id.isdigit():
+            raise ValidationError(
+                {"lesson": "Bắt buộc truyền ?lesson=<id> để lấy tài nguyên bài học."}
+            )
+        return super().list(request, *args, **kwargs)
+
+    def get_queryset(self):
+        query = super().get_queryset().select_related("lesson__chapter__course")
+        if self.request.user.is_student:
+            query = only_published(query, "lesson", "lesson__chapter")
+        if self.action == "list":
+            query = query.filter(lesson_id=self.request.query_params.get("lesson"))
+        return query

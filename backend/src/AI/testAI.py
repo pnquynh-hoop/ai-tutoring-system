@@ -1,63 +1,57 @@
+"""Script thử nghiệm pipeline RAG ngoài Django (chạy tay trong terminal).
+
+Cách chạy:
+    python AI/testAI.py [đường_dẫn_pdf]
+hoặc đặt biến môi trường RAG_TEST_PDF. Mặc định lấy file trong backend/data/.
+
+Script chỉ chạy khi được gọi trực tiếp, import module này sẽ không thực thi gì.
+"""
+
 import os
 import sys
+from pathlib import Path
+
 import chromadb
-import fitz  # PyMuPDF - Thư viện trị dứt điểm lỗi Font PDF
+import fitz  # PyMuPDF - đọc lớp text của PDF, tránh lỗi font
 from dotenv import load_dotenv
-
-# 1. Load biến môi trường từ file .env
-load_dotenv()
-
-# 2. Import công cụ chuẩn LangChain & Google Gemini
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_chroma import Chroma
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# =====================================================================
-# 1. KIỂM TRA ĐƯỜNG DẪN FILE & GOOGLE API KEY
-# =====================================================================
-PDF_FILE_PATH = r"D:\NHUQUYNH\HK3_25\ai-tutoring-system\backend\data\SGK_12_clean.pdf"
-CHROMA_PATH = "./chroma_db_test"
-
-if not os.path.exists(PDF_FILE_PATH):
-    print(f"❌ LỖI: Không tìm thấy file PDF tại đường dẫn: {PDF_FILE_PATH}")
-    sys.exit(1)
-
-api_key = os.getenv("GOOGLE_API_KEY")
-if not api_key:
-    print("❌ LỖI: Chưa lấy được GOOGLE_API_KEY từ file .env!")
-    sys.exit(1)
-
-# =====================================================================
-# 2. KHỞI TẠO EMBEDDING & VECTOR DB BẰNG GOOGLE GEMINI
-# =====================================================================
-print("⏳ Đang khởi tạo Gemini Embeddings (text-embedding-004) & ChromaDB...")
-
-embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/text-embedding-004", google_api_key=api_key, api_version="v1beta"
-)
-
-client = chromadb.PersistentClient(path=CHROMA_PATH)
-vector_store = Chroma(
-    client=client,
-    collection_name="test_materials_gemini",
-    embedding_function=embeddings,
-)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+DEFAULT_PDF_PATH = BASE_DIR / "data" / "SGK_12_clean.pdf"
+CHROMA_PATH = str(BASE_DIR / "chroma_db_test")
 
 
-# =====================================================================
-# 3. BƯỚC INGEST: ĐỌC FILE PDF CỤC BỘ BẰNG PYMUPDF (FITZ)
-# =====================================================================
-def ingest_file_directly(file_path: str):
-    print(f"📄 Đang bóc tách chữ từ PDF bằng PyMuPDF (fitz): {file_path}...")
+def resolve_pdf_path() -> Path:
+    if len(sys.argv) > 1:
+        return Path(sys.argv[1])
+    return Path(os.getenv("RAG_TEST_PDF", DEFAULT_PDF_PATH))
+
+
+def build_vector_store(api_key: str):
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model=os.getenv("GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-001"),
+        google_api_key=api_key,
+    )
+    client = chromadb.PersistentClient(path=CHROMA_PATH)
+    return Chroma(
+        client=client,
+        collection_name="test_materials_gemini",
+        embedding_function=embeddings,
+    )
+
+
+def ingest_file_directly(vector_store, file_path: Path) -> bool:
+    print(f"📄 Đang bóc tách chữ từ PDF bằng PyMuPDF: {file_path}...")
 
     docs = []
     try:
-        # Mở file PDF bằng engine fitz
         doc = fitz.open(file_path)
         for page_num, page in enumerate(doc, start=1):
-            text = page.get_text("text")  # Bóc tách lớp chữ
+            text = page.get_text("text")
             if text and text.strip():
                 docs.append(Document(page_content=text, metadata={"page": page_num}))
     except Exception as e:
@@ -71,11 +65,7 @@ def ingest_file_directly(file_path: str):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
     chunks = text_splitter.split_documents(docs)
 
-    print(f"✂️  Thành công! Đã chia nhỏ thành {len(chunks)} đoạn văn bản (chunks).")
-
-    if not chunks:
-        print("❌ LỖI: Chunks bị rỗng!")
-        return False
+    print(f"✂️  Đã chia nhỏ thành {len(chunks)} đoạn văn bản (chunks).")
 
     print("💾 Đang gửi Gemini nhúng Vector và lưu vào ChromaDB local...")
     vector_store.add_documents(chunks)
@@ -83,71 +73,88 @@ def ingest_file_directly(file_path: str):
     return True
 
 
-# Chạy Ingest nạp dữ liệu từ file PDF
-is_success = ingest_file_directly(PDF_FILE_PATH)
+def chat_loop(vector_store, api_key: str):
+    llm = ChatGoogleGenerativeAI(
+        model=os.getenv("GEMINI_LLM_MODEL", "gemini-flash-latest"),
+        google_api_key=api_key,
+        temperature=0.3,
+    )
 
-if not is_success:
-    print("\n⛔ Không thể tiếp tục do chưa nạp được dữ liệu vào Vector DB.")
-    sys.exit(1)
+    prompt = ChatPromptTemplate.from_template("""
+        You are a professional AI learning assistant for an educational platform.
+        RULES:
+        1) Use ONLY the information provided in the lesson context to answer.
+        2) If the answer is not clearly contained in the context, respond exactly:
+           "Tôi không tìm thấy thông tin này trong tài liệu SGK được cung cấp."
+        3) Do NOT use outside knowledge, assumptions, guesses, or web information.
+        4) Keep explanations clear, accurate, concise, and in Vietnamese.
 
-# =====================================================================
-# 4. BƯỚC VÒNG LẶP HỎI ĐÁP (CHAT IN TERMINAL)
-# =====================================================================
-llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
-    google_api_key=api_key,
-    temperature=0.3,
-)
+        Lesson Context:
+        {context}
 
-prompt = ChatPromptTemplate.from_template(
-    """
-    You are a professional AI learning assistant for an educational platform.
-    RULES:
-    1) Use ONLY the information provided in the lesson context to answer.
-    2) If the answer is not clearly contained in the context, respond exactly:
-       "Tôi không tìm thấy thông tin này trong tài liệu SGK được cung cấp."
-    3) Do NOT use outside knowledge, assumptions, guesses, or web information.
-    4) Keep explanations clear, accurate, concise, and in Vietnamese.
+        Student Question:
+        {question}
+        """)
 
-    Lesson Context:
-    {context}
+    chain = prompt | llm
 
-    Student Question:
-    {question}
-    """
-)
+    print("=========================================================")
+    print("🤖 HỆ THỐNG RAG DẠY HỌC (GEMINI) ĐÃ SẴN SÀNG TEST!")
+    print("💡 Gõ câu hỏi và nhấn Enter. Gõ 'exit' hoặc 'quit' để thoát.")
+    print("=========================================================\n")
 
-chain = prompt | llm
+    while True:
+        try:
+            user_query = input("\n👤 Bạn hỏi: ").strip()
 
-print("=========================================================")
-print("🤖 HỆ THỐNG RAG DẠY HỌC (GEMINI 100%) ĐÃ SẴN SÀNG TEST!")
-print("💡 Gõ câu hỏi của bạn và nhấn Enter. Gõ 'exit' hoặc 'quit' để thoát.")
-print("=========================================================\n")
+            if not user_query:
+                continue
 
-while True:
-    try:
-        user_query = input("\n👤 Bạn hỏi: ").strip()
+            if user_query.lower() in ["exit", "quit", "q"]:
+                print("👋 Tạm biệt!")
+                break
 
-        if not user_query:
-            continue
+            print("🔍 AI đang tra cứu trong tài liệu...")
 
-        if user_query.lower() in ["exit", "quit", "q"]:
-            print("👋 Tạm biệt!")
+            docs = vector_store.similarity_search(user_query, k=3)
+            context = "\n\n".join([doc.page_content for doc in docs]) if docs else ""
+
+            response = chain.invoke({"context": context, "question": user_query})
+
+            print("\n🤖 AI Trả lời:")
+            print(response.content)
+            print("-" * 50)
+
+        except KeyboardInterrupt:
+            print("\n👋 Đã dừng chương trình!")
             break
+        except Exception as e:
+            print(f"❌ Lỗi xử lý: {e}")
 
-        print("🔍 AI đang tra cứu trong SGK Tiếng Anh 12...")
 
-        docs = vector_store.similarity_search(user_query, k=3)
-        context = "\n\n".join([doc.page_content for doc in docs]) if docs else ""
+def main() -> int:
+    load_dotenv()
 
-        response = chain.invoke({"context": context, "question": user_query})
+    pdf_path = resolve_pdf_path()
+    if not pdf_path.exists():
+        print(f"❌ LỖI: Không tìm thấy file PDF tại: {pdf_path}")
+        return 1
 
-        print("\n🤖 AI Trả lời:")
-        print(response.content)
-        print("-" * 50)
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        print("❌ LỖI: Chưa lấy được GOOGLE_API_KEY từ file .env!")
+        return 1
 
-    except KeyboardInterrupt:
-        print("\n👋 Đã dừng chương trình!")
-        break
-    except Exception as e:
-        print(f"❌ Lỗi xử lý: {e}")
+    print("⏳ Đang khởi tạo Gemini Embeddings & ChromaDB...")
+    vector_store = build_vector_store(api_key)
+
+    if not ingest_file_directly(vector_store, pdf_path):
+        print("\n⛔ Không thể tiếp tục do chưa nạp được dữ liệu vào Vector DB.")
+        return 1
+
+    chat_loop(vector_store, api_key)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

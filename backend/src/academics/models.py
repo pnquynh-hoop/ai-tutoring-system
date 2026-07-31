@@ -17,7 +17,14 @@ class Subject(BaseModel):
 
 
 class Grade(BaseModel):
-    name = models.CharField("Khối lớp", max_length=255, unique=True)
+    number = models.PositiveSmallIntegerField("Khối lớp", unique=True)
+
+    class Meta:
+        ordering = ["number"]
+
+    @property
+    def name(self) -> str:
+        return f"Lớp {self.number}"
 
     def __str__(self):
         return self.name

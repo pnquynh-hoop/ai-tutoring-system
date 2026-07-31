@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('courses', '0002_comment_marked_right_at_comment_marked_right_by'),
+        ("courses", "0002_comment_marked_right_at_comment_marked_right_by"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='comment',
-            name='marked_right_at',
+            model_name="comment",
+            name="marked_right_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
     ]

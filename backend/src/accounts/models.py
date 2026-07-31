@@ -4,12 +4,12 @@ from cloudinary.models import CloudinaryField
 from core.models import BaseModel
 
 """
-    Chứa model User, TutorProfile
+    Chứa model User, TutorProfile, StudentProfile
 """
 
 
 class User(AbstractUser):
-    email = models.CharField("Địa chỉ thư điện tử", max_length=150, unique=True)
+    email = models.EmailField("Địa chỉ thư điện tử", max_length=150, unique=True)
     avatar = CloudinaryField(
         "Ảnh đại diện", null=True, blank=True, folder="tutoring_center/users/"
     )
@@ -17,15 +17,15 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.email}"
-    
+
     @property
     def full_name(self) -> str:
         return f"{self.last_name} {self.first_name}"
-    
+
     @property
     def is_student(self) -> bool:
         return self.groups.filter(name="Student").exists()
-    
+
     @property
     def is_tutor(self) -> bool:
         return self.groups.filter(name="Tutor").exists()

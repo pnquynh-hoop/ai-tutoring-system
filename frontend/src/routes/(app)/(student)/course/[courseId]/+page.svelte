@@ -6,9 +6,11 @@
 		Target,
 		ClipboardCheck,
 		AlertTriangle,
+		BadgeCheck,
 		Lock,
-		CheckCircle2,
+		CheckCircle2
 	} from 'lucide-svelte';
+	import Avatar from '$lib/components/Avatar.svelte';
 	import Chatbot from '$lib/components/Chatbot.svelte';
 	import type { PageData } from './$types';
 	import type { ChapterStat } from '$lib/api/types';
@@ -87,12 +89,42 @@
 						{course.description}
 					</p>
 
-					<p class="text-xs text-slate-400">
-						Gia sư phụ trách:
-						<span class="font-medium text-slate-600">
-							{course.tutor_name ?? 'Chưa phân công'}
-						</span>
-					</p>
+					{#if course.tutor}
+						<div
+							class="mt-4 flex items-start gap-3 rounded-xl border border-slate-200/70 bg-slate-50/60 p-3"
+						>
+							<Avatar src={course.tutor.avatar} name={course.tutor.full_name} size="lg" />
+
+							<div class="min-w-0">
+								<div class="flex flex-wrap items-center gap-2">
+									<p class="text-sm font-semibold text-slate-900">{course.tutor.full_name}</p>
+									{#if course.tutor.tutor_profile?.is_verified}
+										<span
+											class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600"
+										>
+											<BadgeCheck class="h-3 w-3" />
+											Đã xác minh
+										</span>
+									{/if}
+								</div>
+
+								<p class="mt-0.5 text-xs text-slate-500">
+									{course.tutor.tutor_profile?.qualification ?? 'Gia sư phụ trách'}
+									{#if course.tutor.tutor_profile?.experience_years}
+										· {course.tutor.tutor_profile.experience_years} năm kinh nghiệm
+									{/if}
+								</p>
+
+								{#if course.tutor.tutor_profile?.bio}
+									<p class="mt-1.5 text-xs leading-relaxed text-slate-500">
+										{course.tutor.tutor_profile.bio}
+									</p>
+								{/if}
+							</div>
+						</div>
+					{:else}
+						<p class="mt-4 text-xs text-slate-400">Chưa phân công gia sư phụ trách</p>
+					{/if}
 				</div>
 			</div>
 
@@ -100,7 +132,8 @@
 				<div class="mb-1.5 flex items-center justify-between text-xs">
 					<span class="font-medium text-slate-600">Tiến độ khóa học</span>
 					<span class="font-semibold text-[#0C1550]">
-						{overview.progress.completed_lessons}/{overview.progress.total_lessons} bài · {overview.progress.progress_percent}%
+						{overview.progress.completed_lessons}/{overview.progress.total_lessons} bài · {overview
+							.progress.progress_percent}%
 					</span>
 				</div>
 				<div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">
@@ -117,7 +150,6 @@
 			<div
 				class="flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm shadow-slate-200/50"
 			>
-
 				<div
 					class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"
 				>
@@ -134,7 +166,6 @@
 			<div
 				class="flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm shadow-slate-200/50"
 			>
-
 				<div
 					class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600"
 				>

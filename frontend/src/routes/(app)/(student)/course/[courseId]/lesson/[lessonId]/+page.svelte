@@ -295,8 +295,8 @@
 								<iframe class="h-full w-full" src={res.file_url} title={res.title}></iframe>
 							</div>
 						</div>
-					{:else if res.resource_type === 'TEXT' && res.content}
-						<!-- BÀI ĐỌC DẠNG TEXT: nội dung do gia sư soạn, hiển thị trực tiếp -->
+					{:else if res.resource_type === 'OTHERS' && res.content}
+						<!-- BÀI ĐỌC DẠNG VĂN BẢN: nội dung do gia sư soạn, hiển thị trực tiếp -->
 						<div
 							class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 						>

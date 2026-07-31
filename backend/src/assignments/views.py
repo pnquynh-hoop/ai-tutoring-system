@@ -1,24 +1,201 @@
-from rest_framework import viewsets, status, generics
+from django.db.models import Count
+from drf_spectacular.utils import extend_schema
+from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
-from assignments.models import Assignment, Submission
-from assignments.serializers import AssignmentSerializer
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
 
-class AssignmentView(viewsets.ViewSet, generics.RetrieveAPIView):
+from assignments.models import Assignment, Question, Submission
+from assignments.serializers import (
+    AssignmentDetailSerializer,
+    AssignmentWriteSerializer,
+    AttemptSerializer,
+    GradeSubmissionSerializer,
+    QuestionSerializer,
+    QuestionWriteSerializer,
+    SubmissionDetailSerializer,
+    SubmissionSerializer,
+    SubmitAssignmentSerializer,
+)
+from assignments.services import grade_submission, start_attempt, submit_assignment
+from core.permissions import (
+    IsCourseMember,
+    IsCourseTutor,
+    IsRelatedCourseTutor,
+    IsStudent,
+    IsStudentOrTutor,
+    IsSubmissionOwnerOrCourseTutor,
+    IsTutor,
+)
+from core.querysets import only_published
+from courses.models import Chapter
+
+WRITE_ACTIONS = ("create", "update", "partial_update", "destroy")
+
+
+class AssignmentView(
+    viewsets.ViewSet,
+    generics.RetrieveAPIView,
+    generics.CreateAPIView,
+    generics.UpdateAPIView,
+    generics.DestroyAPIView,
+):
     queryset = Assignment.objects.filter(is_active=True)
-    serializer_class = AssignmentSerializer
+    serializer_class = AssignmentDetailSerializer
+    write_parent_lookup = ("chapter", Chapter)
 
+    def get_permissions(self):
+        if self.action in WRITE_ACTIONS:
+            return [IsTutor(), IsRelatedCourseTutor(), IsCourseTutor()]
+        if self.action in ("start", "submit"):
+            return [IsStudent(), IsCourseMember()]
+        return [IsStudentOrTutor, IsCourseMember]
+
+    def get_queryset(self):
+        query = super().get_queryset().select_related("chapter__course")
+        if self.request.user.is_student:
+            query = only_published(query, "chapter")
+        if self.action == "retrieve":
+            query = query.annotate(total_questions=Count("questions"))
+        return query
+
+    def get_serializer_class(self):
+        if self.action in WRITE_ACTIONS:
+            return AssignmentWriteSerializer
+        if self.action == "get_questions":
+            return QuestionSerializer
+        if self.action == "submit":
+            return SubmitAssignmentSerializer
+        if self.action == "start":
+            return AttemptSerializer
+        return AssignmentDetailSerializer
+
+    @extend_schema(responses=QuestionSerializer(many=True))
+    @action(methods=["get"], url_path="questions", detail=True)
+    def get_questions(self, request, pk):
+        questions = self.get_object().questions.prefetch_related("answers").all()
+        return Response(
+            self.get_serializer(questions, many=True).data, status=status.HTTP_200_OK
+        )
+
+    @extend_schema(request=None, responses=AttemptSerializer)
+    @action(methods=["post"], url_path="start", detail=True)
+    def start(self, request, pk):
+        attempt = start_attempt(student=request.user, assignment=self.get_object())
+        return Response(self.get_serializer(attempt).data, status=status.HTTP_200_OK)
+
+    @extend_schema(request=SubmitAssignmentSerializer, responses=SubmissionSerializer)
     @action(methods=["post"], url_path="submit", detail=True)
     def submit(self, request, pk):
-        ...
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-    @action(methods=["get"], url_path="submission", detail=True)
-    def get_submission(self, request, pk):
-        ...
+        submission = submit_assignment(
+            student=request.user,
+            answers_data=serializer.validated_data["answers"],
+            assignment=self.get_object(),
+        )
+        return Response(
+            SubmissionSerializer(
+                submission, context=self.get_serializer_context()
+            ).data,
+            status=status.HTTP_201_CREATED,
+        )
 
-class SubmissionView(viewsets.ViewSet, generics.ListAPIView):
-    
+
+class QuestionView(
+    viewsets.ViewSet,
+    generics.ListAPIView,
+    generics.RetrieveAPIView,
+    generics.CreateAPIView,
+    generics.UpdateAPIView,
+    generics.DestroyAPIView,
+):
+    """Soạn câu hỏi cho bài tập - chỉ gia sư phụ trách khóa học."""
+
+    queryset = Question.objects.prefetch_related("answers")
+    serializer_class = QuestionWriteSerializer
+    permission_classes = [IsTutor, IsRelatedCourseTutor, IsCourseTutor]
+    read_parent_lookup = ("assignment", Assignment)
+    write_parent_lookup = ("assignment", Assignment)
+
+    def list(self, request, *args, **kwargs):
+        # Bắt buộc chỉ rõ bài tập để permission có căn cứ chặn trước khi truy vấn.
+        assignment_id = request.query_params.get("assignment", "")
+        if not assignment_id.isdigit():
+            raise ValidationError(
+                {
+                    "assignment": "Bắt buộc truyền ?assignment=<id> để lấy danh sách câu hỏi."
+                }
+            )
+        return super().list(request, *args, **kwargs)
+
     def get_queryset(self):
-        query = Submission.objects.filter(student=self.request.user)
+        query = super().get_queryset()
+        if self.action == "list":
+            query = query.filter(
+                assignment_id=self.request.query_params.get("assignment")
+            )
         return query
-    
 
+
+class SubmissionView(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
+    queryset = Submission.objects.filter(submitted_at__isnull=False)
+    serializer_class = SubmissionSerializer
+    permission_classes = [IsStudentOrTutor, IsSubmissionOwnerOrCourseTutor]
+
+    def get_permissions(self):
+        if self.action == "grade":
+            return [IsTutor(), IsCourseTutor()]
+        return super().get_permissions()
+
+    def get_serializer_class(self):
+        if self.action == "grade":
+            return GradeSubmissionSerializer
+        if self.action == "retrieve":
+            return SubmissionDetailSerializer
+        return SubmissionSerializer
+
+    def get_queryset(self):
+        """Học sinh xem bài của mình, gia sư xem bài nộp trong khóa mình phụ trách."""
+        user = self.request.user
+        query = (
+            super()
+            .get_queryset()
+            .select_related("assignment__chapter__course", "student")
+        )
+
+        if user.is_tutor:
+            query = query.filter(assignment__chapter__course__tutor=user)
+            assignment_id = self.request.query_params.get("assignment")
+            if assignment_id:
+                query = query.filter(assignment_id=assignment_id)
+            course_id = self.request.query_params.get("course")
+            if course_id:
+                query = query.filter(assignment__chapter__course_id=course_id)
+        else:
+            query = query.filter(student=user)
+
+        if self.action == "retrieve":
+            query = query.prefetch_related("stu_answers__question__answers")
+
+        return query.order_by("-submitted_at")
+
+    @extend_schema(
+        request=GradeSubmissionSerializer, responses=SubmissionDetailSerializer
+    )
+    @action(methods=["patch"], url_path="grade", detail=True)
+    def grade(self, request, pk):
+        submission = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        graded = grade_submission(
+            submission=submission, answers_data=serializer.validated_data["answers"]
+        )
+        return Response(
+            SubmissionDetailSerializer(
+                graded, context=self.get_serializer_context()
+            ).data,
+            status=status.HTTP_200_OK,
+        )

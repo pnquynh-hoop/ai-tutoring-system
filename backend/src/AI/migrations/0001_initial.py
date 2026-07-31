@@ -7,17 +7,36 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Report',
+            name="Report",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('note', models.TextField()),
-                ('status', models.CharField(choices=[('REPORTED', 'Đã báo cáo'), ('REVIEWING', 'Đang xem xét'), ('SOLVED', 'Đã xử lý')], default='REPORTED', max_length=255, verbose_name='')),
-                ('reported_at', models.DateTimeField(auto_now_add=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("note", models.TextField()),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("REPORTED", "Đã báo cáo"),
+                            ("REVIEWING", "Đang xem xét"),
+                            ("SOLVED", "Đã xử lý"),
+                        ],
+                        default="REPORTED",
+                        max_length=255,
+                        verbose_name="",
+                    ),
+                ),
+                ("reported_at", models.DateTimeField(auto_now_add=True)),
             ],
         ),
     ]

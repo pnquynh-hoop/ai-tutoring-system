@@ -14,6 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.urls import path, include
 from django.views.generic import RedirectView
 from drf_spectacular.views import (
@@ -25,7 +26,10 @@ from django.contrib import admin
 
 api_v1_patterns = [
     path("", include("accounts.urls")),
+    path("", include("academics.urls")),
     path("", include("courses.urls")),
+    path("", include("assignments.urls")),
+    path("", include("AI.urls")),
 ]
 
 urlpatterns = [

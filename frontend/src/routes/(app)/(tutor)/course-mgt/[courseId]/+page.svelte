@@ -1,10 +1,29 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { logoutApi } from '$lib/api/calledAPI';
+	import {
+		createChapter,
+		createLesson,
+		createResource,
+		deleteChapter,
+		deleteLesson,
+		deleteResource,
+		getCourseTree,
+		getLessonResources,
+		getListComments,
+		logoutApi,
+		postComment,
+		toggleCommentRight,
+		updateChapter,
+		updateLesson
+	} from '$lib/api/calledAPI';
+	import { getApiErrorMessage } from '$lib/api/errors';
+	import type { Chapter, Comment, Lesson, LessonResource, ResourceType } from '$lib/api/entities';
+	import { nextOrder } from '$lib/utils/order';
 	import { auth } from '$lib/stores/auth.svelte';
 	import { showToast } from '$lib/stores/toast.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import MarkRightButton from '$lib/components/MarkRightButton.svelte';
+	import type { PageProps } from './$types';
 	import {
 		Menu,
 		LogOut,
@@ -18,55 +37,29 @@
 		PlayCircle,
 		FileText,
 		Paperclip,
-		Send
+		Send,
+		ClipboardEdit,
+		BarChart3,
+		ClipboardCheck,
+		Network
 	} from 'lucide-svelte';
 
 	// ============================================================
 	// Gia sư quản lý cây khóa học: Chapter <-> Lesson <-> LearningResource
 	// + trả lời/đánh dấu đúng Comment của học sinh dưới mỗi bài học.
-	// Toàn bộ field đúng theo model thật, mock data trước, gắn API sau.
+	//
+	// Lưu ý theo model backend: Assignment gắn 1-1 với CHƯƠNG (không phải bài học),
+	// nên thao tác bài tập nằm ở cấp chương.
 	// ============================================================
 
-	type ResourceType = 'VIDEO_URL' | 'PDF_FILE' | 'OTHERS';
+	let { data }: PageProps = $props();
 
-	interface ResourceItem {
-		id: number;
-		title: string;
-		resource_type: ResourceType;
-		content: string | null;
-		video_url: string | null;
-		file_url: string | null;
-	}
+	let courseId = $derived(data.courseId);
+	let courseName = $derived(data.course.name);
+	let studentsCount = $derived(data.course.students_count);
 
-	interface LessonItem {
-		id: number;
-		title: string;
-		order: number;
-		resources: ResourceItem[];
-	}
-
-	interface ChapterItem {
-		id: number;
-		title: string;
-		order: number;
-		lessons: LessonItem[];
-	}
-
-	interface CommentAuthor {
-		id: number;
-		full_name: string;
-		avatar: string | null;
-	}
-
-	interface CommentItem {
-		id: number;
-		content: string;
-		is_right: boolean;
-		lesson_id: number;
-		created_by: CommentAuthor;
-		parent: number | null;
-		created_at: string;
-	}
+	// Cây chương/bài học lấy từ GET /courses/{id}/tree/
+	let chapters = $state<Chapter[]>([]);
 
 	// --- User thật (gia sư) ---
 	let tutorName = $derived(auth.user?.full_name);
@@ -87,52 +80,29 @@
 		}
 	}
 
-	// --- MOCK: cây khóa học (Course giả định đã chọn từ trang danh sách khóa học) ---
-	const courseName = 'Luyện Thi THPT QG Toán Học 2026';
 	let sidebarCollapsed = $state(false);
 
-	let chapters = $state<ChapterItem[]>([
-		{
-			id: 11,
-			title: 'Chương 1: Phương trình - Bất phương trình',
-			order: 1,
-			lessons: [
-				{
-					id: 111,
-					title: 'Bài 1: Phương trình mũ',
-					order: 1,
-					resources: [
-						{
-							id: 1,
-							title: 'Video giảng lý thuyết',
-							resource_type: 'VIDEO_URL',
-							content: null,
-							video_url: 'https://youtube.com/watch?v=abc123',
-							file_url: null
-						},
-						{
-							id: 2,
-							title: 'Slide bài giảng',
-							resource_type: 'PDF_FILE',
-							content: null,
-							video_url: null,
-							file_url: 'https://res.cloudinary.com/demo/bai1.pdf'
-						}
-					]
-				},
-				{ id: 112, title: 'Bài 2: Phương trình logarit', order: 2, resources: [] }
-			]
-		},
-		{
-			id: 12,
-			title: 'Chương 2: Hàm số',
-			order: 2,
-			lessons: [{ id: 121, title: 'Bài 1: Khảo sát hàm số', order: 1, resources: [] }]
-		}
-	]);
+	function goStats() {
+		goto(`/course-mgt/${courseId}/stats`);
+	}
+	function goGrading() {
+		goto(`/course-mgt/${courseId}/grading`);
+	}
+	function goChapterAssignment(chapterId: number) {
+		// Bài tập thuộc về chương, mang theo chapter để trang bài tập biết đích danh.
+		goto(`/course-mgt/${courseId}/assignment-mgt?chapter=${chapterId}`);
+	}
 
-	let expandedChapterId = $state<number | null>(11);
-	let selectedLessonId = $state<number | null>(111);
+	let expandedChapterId = $state<number | null>(null);
+	let selectedLessonId = $state<number | null>(null);
+
+	// Nạp cây từ server và chọn sẵn bài học đầu tiên; chạy lại khi đổi khóa học.
+	$effect(() => {
+		const tree = data.tree.chapters;
+		chapters = tree;
+		expandedChapterId = tree[0]?.id ?? null;
+		selectedLessonId = tree[0]?.lessons[0]?.id ?? null;
+	});
 
 	let allLessons = $derived(chapters.flatMap((c) => c.lessons));
 	let selectedLesson = $derived(allLessons.find((l) => l.id === selectedLessonId) ?? null);
@@ -144,50 +114,72 @@
 		selectedLessonId = lessonId;
 	}
 
+	/** Tải lại cây sau mỗi thao tác thêm/sửa/xoá để order và id luôn khớp server. */
+	async function reloadTree() {
+		chapters = (await getCourseTree(courseId)).chapters;
+	}
+
 	// --- CRUD Chương ---
 	let addingChapter = $state(false);
 	let newChapterTitle = $state('');
 	let editingChapterId = $state<number | null>(null);
 	let editChapterTitle = $state('');
+	let isSavingTree = $state(false);
 
 	function startAddChapter() {
 		addingChapter = true;
 		newChapterTitle = '';
 	}
 
-	function confirmAddChapter() {
-		if (!newChapterTitle.trim()) return;
-		// TODO: POST /api/chapters/ { course, title, order }
-		chapters.push({
-			id: Date.now(),
-			title: newChapterTitle.trim(),
-			order: chapters.length + 1,
-			lessons: []
-		});
-		addingChapter = false;
-		showToast('Đã thêm chương', 'success');
+	async function confirmAddChapter() {
+		if (!newChapterTitle.trim() || isSavingTree) return;
+		isSavingTree = true;
+		try {
+			await createChapter({
+				course: courseId,
+				title: newChapterTitle.trim(),
+				order: nextOrder(chapters)
+			});
+			await reloadTree();
+			addingChapter = false;
+			showToast('Đã thêm chương', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Thêm chương không thành công.'), 'error');
+		} finally {
+			isSavingTree = false;
+		}
 	}
 
-	function startEditChapter(ch: ChapterItem) {
+	function startEditChapter(ch: Chapter) {
 		editingChapterId = ch.id;
 		editChapterTitle = ch.title;
 	}
 
-	function confirmEditChapter(ch: ChapterItem) {
-		if (!editChapterTitle.trim()) return;
-		// TODO: PATCH /api/chapters/{id}/ { title }
-		ch.title = editChapterTitle.trim();
-		editingChapterId = null;
+	async function confirmEditChapter(ch: Chapter) {
+		if (!editChapterTitle.trim() || isSavingTree) return;
+		isSavingTree = true;
+		try {
+			await updateChapter(ch.id, { title: editChapterTitle.trim() });
+			ch.title = editChapterTitle.trim();
+			editingChapterId = null;
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Đổi tên chương không thành công.'), 'error');
+		} finally {
+			isSavingTree = false;
+		}
 	}
 
-	function deleteChapter(ch: ChapterItem) {
-		if (!window.confirm(`Xoá chương "${ch.title}"? Toàn bộ bài học bên trong cũng sẽ bị xoá.`)) return;
-		// TODO: DELETE /api/chapters/{id}/
-		chapters = chapters.filter((c) => c.id !== ch.id);
-		if (selectedLesson && ch.lessons.some((l) => l.id === selectedLesson!.id)) {
-			selectedLessonId = null;
+	async function removeChapter(ch: Chapter) {
+		if (!window.confirm(`Xoá chương "${ch.title}"? Toàn bộ bài học bên trong cũng sẽ bị xoá.`))
+			return;
+		try {
+			await deleteChapter(ch.id);
+			if (ch.lessons.some((l) => l.id === selectedLessonId)) selectedLessonId = null;
+			await reloadTree();
+			showToast('Đã xoá chương', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Xoá chương không thành công.'), 'error');
 		}
-		showToast('Đã xoá chương', 'success');
 	}
 
 	// --- CRUD Bài học ---
@@ -201,41 +193,61 @@
 		newLessonTitle = '';
 	}
 
-	function confirmAddLesson(ch: ChapterItem) {
-		if (!newLessonTitle.trim()) return;
-		// TODO: POST /api/lessons/ { chapter, title, order }
-		ch.lessons.push({
-			id: Date.now(),
-			title: newLessonTitle.trim(),
-			order: ch.lessons.length + 1,
-			resources: []
-		});
-		addingLessonChapterId = null;
-		showToast('Đã thêm bài học', 'success');
+	async function confirmAddLesson(ch: Chapter) {
+		if (!newLessonTitle.trim() || isSavingTree) return;
+		isSavingTree = true;
+		try {
+			await createLesson({
+				chapter: ch.id,
+				title: newLessonTitle.trim(),
+				order: nextOrder(ch.lessons)
+			});
+			await reloadTree();
+			addingLessonChapterId = null;
+			showToast('Đã thêm bài học', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Thêm bài học không thành công.'), 'error');
+		} finally {
+			isSavingTree = false;
+		}
 	}
 
-	function startEditLesson(lesson: LessonItem) {
+	function startEditLesson(lesson: Lesson) {
 		editingLessonId = lesson.id;
 		editLessonTitle = lesson.title;
 	}
 
-	function confirmEditLesson(lesson: LessonItem) {
-		if (!editLessonTitle.trim()) return;
-		// TODO: PATCH /api/lessons/{id}/ { title }
-		lesson.title = editLessonTitle.trim();
-		editingLessonId = null;
+	async function confirmEditLesson(lesson: Lesson) {
+		if (!editLessonTitle.trim() || isSavingTree) return;
+		isSavingTree = true;
+		try {
+			await updateLesson(lesson.id, { title: editLessonTitle.trim() });
+			lesson.title = editLessonTitle.trim();
+			editingLessonId = null;
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Đổi tên bài học không thành công.'), 'error');
+		} finally {
+			isSavingTree = false;
+		}
 	}
 
-	function deleteLesson(ch: ChapterItem, lesson: LessonItem) {
+	async function removeLesson(lesson: Lesson) {
 		if (!window.confirm(`Xoá bài học "${lesson.title}"?`)) return;
-		// TODO: DELETE /api/lessons/{id}/
-		ch.lessons = ch.lessons.filter((l) => l.id !== lesson.id);
-		if (selectedLessonId === lesson.id) selectedLessonId = null;
-		showToast('Đã xoá bài học', 'success');
+		try {
+			await deleteLesson(lesson.id);
+			if (selectedLessonId === lesson.id) selectedLessonId = null;
+			await reloadTree();
+			showToast('Đã xoá bài học', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Xoá bài học không thành công.'), 'error');
+		}
 	}
 
 	// --- CRUD Tài nguyên bài học ---
+	// Tài nguyên và bình luận nạp theo bài học đang chọn (GET /resources/?lesson=...).
+	let resources = $state<LessonResource[]>([]);
 	let addingResource = $state(false);
+	let isSavingResource = $state(false);
 	let newResource = $state<{
 		title: string;
 		resource_type: ResourceType;
@@ -252,61 +264,82 @@
 
 	function startAddResource() {
 		addingResource = true;
-		newResource = { title: '', resource_type: 'VIDEO_URL', content: '', video_url: '', file_url: '' };
+		newResource = {
+			title: '',
+			resource_type: 'VIDEO_URL',
+			content: '',
+			video_url: '',
+			file_url: ''
+		};
 	}
 
-	function confirmAddResource() {
-		if (!selectedLesson || !newResource.title.trim()) return;
-		// TODO: POST /api/learning-resources/ { lesson, title, resource_type, content/video_url/file_url }
-		selectedLesson.resources.push({
-			id: Date.now(),
-			title: newResource.title.trim(),
-			resource_type: newResource.resource_type,
-			content: newResource.content || null,
-			video_url: newResource.resource_type === 'VIDEO_URL' ? newResource.video_url || null : null,
-			file_url: newResource.resource_type === 'PDF_FILE' ? newResource.file_url || null : null
-		});
-		addingResource = false;
-		showToast('Đã thêm tài nguyên', 'success');
-	}
-
-	function deleteResource(resource: ResourceItem) {
-		if (!selectedLesson) return;
-		if (!window.confirm(`Xoá tài nguyên "${resource.title}"?`)) return;
-		// TODO: DELETE /api/learning-resources/{id}/
-		selectedLesson.resources = selectedLesson.resources.filter((r) => r.id !== resource.id);
-		showToast('Đã xoá tài nguyên', 'success');
-	}
-
-	// --- Bình luận (copy logic từ trang học sinh, canEdit luôn true vì đây là gia sư) ---
-	let comments = $state<CommentItem[]>([
-		{
-			id: 1,
-			content: 'Thầy ơi cho em hỏi vì sao 2^x=8 lại ra x=3 vậy ạ?',
-			is_right: false,
-			lesson_id: 111,
-			created_by: { id: 5, full_name: 'Trần Thị Bích', avatar: null },
-			parent: null,
-			created_at: '2026-07-20T10:00:00'
-		},
-		{
-			id: 2,
-			content: 'Vì 8 = 2^3, nên khi cùng cơ số 2 thì số mũ bằng nhau: x = 3 nhé em.',
-			is_right: true,
-			lesson_id: 111,
-			created_by: { id: 1, full_name: 'Thầy Nguyễn Văn A', avatar: null },
-			parent: 1,
-			created_at: '2026-07-20T10:15:00'
+	async function confirmAddResource() {
+		if (!selectedLessonId || !newResource.title.trim() || isSavingResource) return;
+		isSavingResource = true;
+		try {
+			await createResource({
+				lesson: selectedLessonId,
+				title: newResource.title.trim(),
+				resource_type: newResource.resource_type,
+				content: newResource.resource_type === 'OTHERS' ? newResource.content || null : null,
+				video_url: newResource.resource_type === 'VIDEO_URL' ? newResource.video_url || null : null,
+				file_url: newResource.resource_type === 'PDF_FILE' ? newResource.file_url || null : null
+			});
+			resources = await getLessonResources(selectedLessonId);
+			addingResource = false;
+			showToast('Đã thêm tài nguyên', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Thêm tài nguyên không thành công.'), 'error');
+		} finally {
+			isSavingResource = false;
 		}
-	]);
+	}
 
-	let topLevelComments = $derived(
-		comments.filter((c) => c.lesson_id === selectedLessonId && c.parent === null)
-	);
+	async function removeResource(resource: LessonResource) {
+		if (!window.confirm(`Xoá tài nguyên "${resource.title}"?`)) return;
+		try {
+			await deleteResource(resource.id);
+			resources = resources.filter((r) => r.id !== resource.id);
+			showToast('Đã xoá tài nguyên', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Xoá tài nguyên không thành công.'), 'error');
+		}
+	}
 
-	function getReplies(parentId: number): CommentItem[] {
+	// --- Bình luận (diễn đàn thảo luận đi theo bài học) ---
+	let comments = $state<Comment[]>([]);
+
+	let topLevelComments = $derived(comments.filter((c) => c.parent === null));
+
+	function getReplies(parentId: number): Comment[] {
 		return comments.filter((c) => c.parent === parentId);
 	}
+
+	// Đổi bài học thì nạp lại tài nguyên + bình luận của đúng bài học đó.
+	$effect(() => {
+		const lessonId = selectedLessonId;
+		if (!lessonId) {
+			resources = [];
+			comments = [];
+			return;
+		}
+
+		let cancelled = false;
+		Promise.all([getLessonResources(lessonId), getListComments(lessonId)])
+			.then(([resourceList, commentList]) => {
+				if (cancelled) return;
+				resources = resourceList;
+				comments = commentList;
+			})
+			.catch((err) => {
+				if (!cancelled)
+					showToast(getApiErrorMessage(err, 'Không tải được nội dung bài học.'), 'error');
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	function formatCommentDate(iso: string): string {
 		return new Date(iso).toLocaleString('vi-VN', {
@@ -330,32 +363,27 @@
 		if (!replyContent.trim() || isSubmittingReply || !selectedLessonId) return;
 		isSubmittingReply = true;
 		try {
-			// TODO: POST /api/comments/ { lesson, content, parent }
-			await new Promise((r) => setTimeout(r, 400));
-			comments.push({
-				id: Date.now(),
-				content: replyContent.trim(),
-				is_right: false,
-				lesson_id: selectedLessonId,
-				created_by: { id: 1, full_name: tutorName ?? 'Gia sư', avatar: avatarUrl ?? null },
-				parent: parentId,
-				created_at: new Date().toISOString()
-			});
+			// created_by do backend gán từ user của request, không gửi lên.
+			const created = await postComment(selectedLessonId, replyContent.trim(), parentId);
+			comments = [...comments, created];
 			replyContent = '';
 			replyingToId = null;
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Gửi phản hồi không thành công.'), 'error');
 		} finally {
 			isSubmittingReply = false;
 		}
 	}
 
 	let markingRightId = $state<number | null>(null);
-	async function toggleMarkRight(comment: CommentItem) {
+	async function toggleMarkRight(comment: Comment) {
 		if (markingRightId !== null) return;
 		markingRightId = comment.id;
 		try {
-			// TODO: PATCH /api/comments/{id}/mark-right/
-			await new Promise((r) => setTimeout(r, 400));
-			comment.is_right = !comment.is_right;
+			const updated = await toggleCommentRight(comment.id);
+			comment.is_right = updated.is_right;
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Cập nhật không thành công.'), 'error');
 		} finally {
 			markingRightId = null;
 		}
@@ -366,14 +394,14 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
 	<link
-		href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=Sora:wght@600;700;800&display=swap"
+		href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@600;700;800&display=swap"
 		rel="stylesheet"
 	/>
 	<title>Quản lý khóa học</title>
 </svelte:head>
 
-<div class="flex h-screen w-full bg-[#F5F6FA]" style="font-family:'Inter',sans-serif;">
-	<!-- SIDEBAR: cây khóa học có CRUD -->
+<div class="flex h-screen w-full bg-[#F4F5F8]" style="font-family:'Inter',sans-serif;">
+	<!-- SIDEBAR: cây khóa học có CRUD (đặc thù của trang này, không phải nav chung) -->
 	<aside
 		class={`relative flex h-full shrink-0 flex-col overflow-hidden bg-[#0C1550] text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-80'}`}
 	>
@@ -411,10 +439,16 @@
 							bind:value={newChapterTitle}
 							onkeydown={(e) => e.key === 'Enter' && confirmAddChapter()}
 						/>
-						<button onclick={confirmAddChapter} class="rounded-lg bg-emerald-500/80 p-1.5 hover:bg-emerald-500">
+						<button
+							onclick={confirmAddChapter}
+							class="rounded-lg bg-emerald-500/80 p-1.5 hover:bg-emerald-500"
+						>
 							<Check class="h-3.5 w-3.5" />
 						</button>
-						<button onclick={() => (addingChapter = false)} class="rounded-lg bg-white/10 p-1.5 hover:bg-white/20">
+						<button
+							onclick={() => (addingChapter = false)}
+							class="rounded-lg bg-white/10 p-1.5 hover:bg-white/20"
+						>
 							<X class="h-3.5 w-3.5" />
 						</button>
 					</div>
@@ -434,10 +468,16 @@
 										bind:value={editChapterTitle}
 										onkeydown={(e) => e.key === 'Enter' && confirmEditChapter(chapter)}
 									/>
-									<button onclick={() => confirmEditChapter(chapter)} class="rounded-lg p-1 hover:bg-white/10">
+									<button
+										onclick={() => confirmEditChapter(chapter)}
+										class="rounded-lg p-1 hover:bg-white/10"
+									>
 										<Check class="h-3.5 w-3.5 text-emerald-400" />
 									</button>
-									<button onclick={() => (editingChapterId = null)} class="rounded-lg p-1 hover:bg-white/10">
+									<button
+										onclick={() => (editingChapterId = null)}
+										class="rounded-lg p-1 hover:bg-white/10"
+									>
 										<X class="h-3.5 w-3.5 text-indigo-100/50" />
 									</button>
 								{:else}
@@ -453,6 +493,13 @@
 										{/if}
 										<span class="truncate">{chapter.title}</span>
 									</button>
+									{#if chapter.assignment !== null}
+										<span
+											class="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-indigo-100/60"
+										>
+											BT
+										</span>
+									{/if}
 									<button
 										onclick={() => startEditChapter(chapter)}
 										class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-white/10 group-hover:opacity-100"
@@ -460,7 +507,7 @@
 										<Pencil class="h-3 w-3 text-indigo-100/60" />
 									</button>
 									<button
-										onclick={() => deleteChapter(chapter)}
+										onclick={() => removeChapter(chapter)}
 										class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-rose-500/20 group-hover:opacity-100"
 									>
 										<Trash2 class="h-3 w-3 text-rose-300" />
@@ -483,10 +530,16 @@
 													bind:value={editLessonTitle}
 													onkeydown={(e) => e.key === 'Enter' && confirmEditLesson(lesson)}
 												/>
-												<button onclick={() => confirmEditLesson(lesson)} class="rounded-lg p-1 hover:bg-white/10">
+												<button
+													onclick={() => confirmEditLesson(lesson)}
+													class="rounded-lg p-1 hover:bg-white/10"
+												>
 													<Check class="h-3.5 w-3.5 text-emerald-400" />
 												</button>
-												<button onclick={() => (editingLessonId = null)} class="rounded-lg p-1 hover:bg-white/10">
+												<button
+													onclick={() => (editingLessonId = null)}
+													class="rounded-lg p-1 hover:bg-white/10"
+												>
 													<X class="h-3.5 w-3.5 text-indigo-100/50" />
 												</button>
 											{:else}
@@ -507,7 +560,7 @@
 													<Pencil class="h-3 w-3 text-indigo-100/60" />
 												</button>
 												<button
-													onclick={() => deleteLesson(chapter, lesson)}
+													onclick={() => removeLesson(lesson)}
 													class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-rose-500/20 group-hover:opacity-100"
 												>
 													<Trash2 class="h-3 w-3 text-rose-300" />
@@ -572,8 +625,32 @@
 	<!-- MAIN -->
 	<div class="flex flex-1 flex-col min-w-0">
 		<header
-			class="flex items-center justify-end border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
+			class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 		>
+			<!-- SUB-NAV: 3 khu vực làm việc của khóa học này -->
+			<div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+				<span
+					class="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#0C1550] shadow-sm"
+				>
+					<Network class="h-3.5 w-3.5" />
+					Cây khóa học
+				</span>
+				<button
+					onclick={goStats}
+					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-800"
+				>
+					<BarChart3 class="h-3.5 w-3.5" />
+					Thống kê
+				</button>
+				<button
+					onclick={goGrading}
+					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-800"
+				>
+					<ClipboardCheck class="h-3.5 w-3.5" />
+					Bài tập & chấm điểm
+				</button>
+			</div>
+
 			<div class="relative">
 				<button
 					onclick={() => (showUserMenu = !showUserMenu)}
@@ -583,7 +660,11 @@
 					<Avatar src={avatarUrl} name={tutorName ?? ''} size="lg" />
 				</button>
 				{#if showUserMenu}
-					<button class="fixed inset-0 z-40 cursor-default" onclick={() => (showUserMenu = false)}>===</button>
+					<button
+						class="fixed inset-0 z-40 cursor-default"
+						onclick={() => (showUserMenu = false)}
+						aria-label="Đóng menu"
+					></button>
 					<div
 						class="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-2xl border border-slate-200/70 bg-white py-2 shadow-xl shadow-slate-200/70"
 					>
@@ -607,8 +688,12 @@
 			{:else}
 				<div class="mx-auto max-w-4xl space-y-6">
 					<!-- THÔNG TIN BÀI HỌC -->
-					<div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50">
-						<p class="text-xs text-slate-400">{selectedChapter?.title}</p>
+					<div
+						class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
+					>
+						<p class="text-xs text-slate-400">
+							{selectedChapter?.title} · {studentsCount} học sinh trong khóa
+						</p>
 						<div class="mt-1 flex items-center gap-2">
 							{#if editingLessonId === selectedLesson.id}
 								<input
@@ -622,7 +707,10 @@
 									<Check class="h-4 w-4" />
 								</button>
 							{:else}
-								<h1 class="flex-1 text-xl font-bold text-slate-900" style="font-family:'Sora',sans-serif;">
+								<h1
+									class="flex-1 text-xl font-bold text-slate-900"
+									style="font-family:'Sora',sans-serif;"
+								>
 									{selectedLesson.title}
 								</h1>
 								<button
@@ -632,19 +720,34 @@
 									<Pencil class="h-3.5 w-3.5" />
 									Đổi tên
 								</button>
+								<!-- Assignment gắn 1-1 với chương nên thao tác bài tập đặt ở cấp chương -->
+								<button
+									onclick={() => goChapterAssignment(selectedChapter!.id)}
+									class="flex items-center gap-1.5 rounded-xl bg-[#0C1550] px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+								>
+									<ClipboardEdit class="h-3.5 w-3.5" />
+									{selectedChapter?.assignment !== null
+										? 'Sửa bài tập chương'
+										: 'Tạo bài tập chương'}
+								</button>
 							{/if}
 						</div>
 					</div>
 
 					<!-- TÀI NGUYÊN BÀI HỌC -->
-					<div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50">
+					<div
+						class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
+					>
 						<div class="mb-4 flex items-center justify-between">
-							<h2 class="text-sm font-semibold text-slate-800" style="font-family:'Sora',sans-serif;">
+							<h2
+								class="text-sm font-semibold text-slate-800"
+								style="font-family:'Sora',sans-serif;"
+							>
 								Tài nguyên bài học
 							</h2>
 							<button
 								onclick={startAddResource}
-								class="flex items-center gap-1.5 rounded-xl bg-[#0C1550] px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-600"
+								class="flex items-center gap-1.5 rounded-xl bg-[#0C1550] px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
 							>
 								<Plus class="h-3.5 w-3.5" />
 								Thêm tài nguyên
@@ -685,8 +788,7 @@
 										rows="2"
 										class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-300"
 										placeholder="Nội dung văn bản"
-										bind:value={newResource.content}
-									></textarea>
+										bind:value={newResource.content}></textarea>
 								{/if}
 								<div class="flex justify-end gap-2">
 									<button
@@ -706,8 +808,10 @@
 						{/if}
 
 						<div class="space-y-2">
-							{#each selectedLesson.resources as res (res.id)}
-								<div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+							{#each resources as res (res.id)}
+								<div
+									class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"
+								>
 									<div class="flex min-w-0 items-center gap-3">
 										<div
 											class={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
@@ -730,13 +834,15 @@
 											<p class="truncate text-sm font-medium text-slate-700">{res.title}</p>
 											<p class="truncate text-xs text-slate-400">
 												{resourceTypeLabel[res.resource_type]}
-												{#if res.video_url} • {res.video_url}{/if}
-												{#if res.file_url} • {res.file_url}{/if}
+												{#if res.video_url}
+													• {res.video_url}{/if}
+												{#if res.file_url}
+													• {res.file_url}{/if}
 											</p>
 										</div>
 									</div>
 									<button
-										onclick={() => deleteResource(res)}
+										onclick={() => removeResource(res)}
 										class="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
 									>
 										<Trash2 class="h-4 w-4" />
@@ -744,16 +850,23 @@
 								</div>
 							{/each}
 
-							{#if selectedLesson.resources.length === 0 && !addingResource}
-								<p class="py-6 text-center text-sm text-slate-400">Bài học này chưa có tài nguyên nào.</p>
+							{#if resources.length === 0 && !addingResource}
+								<p class="py-6 text-center text-sm text-slate-400">
+									Bài học này chưa có tài nguyên nào.
+								</p>
 							{/if}
 						</div>
 					</div>
 
-					<!-- BÌNH LUẬN HỌC SINH -->
-					<div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50">
-						<h2 class="mb-4 text-sm font-semibold text-slate-800" style="font-family:'Sora',sans-serif;">
-							Bình luận học sinh
+					<!-- DIỄN ĐÀN THẢO LUẬN (đi theo bài học) -->
+					<div
+						class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
+					>
+						<h2
+							class="mb-4 text-sm font-semibold text-slate-800"
+							style="font-family:'Sora',sans-serif;"
+						>
+							Thảo luận của học sinh
 						</h2>
 
 						<div class="space-y-5">
@@ -761,12 +874,20 @@
 								<div>
 									<div class="flex items-start justify-between gap-3">
 										<div class="flex items-start gap-3">
-											<Avatar src={comment.created_by.avatar} name={comment.created_by.full_name} size="md" />
+											<Avatar
+												src={comment.created_by.avatar}
+												name={comment.created_by.full_name}
+												size="md"
+											/>
 											<div class="min-w-0 flex-1">
-												<p class="text-xs font-semibold text-slate-700">{comment.created_by.full_name}</p>
+												<p class="text-xs font-semibold text-slate-700">
+													{comment.created_by.full_name}
+												</p>
 												<p class="text-sm text-slate-600">{comment.content}</p>
 												<div class="mt-1 flex items-center gap-3">
-													<p class="text-[11px] text-slate-400">{formatCommentDate(comment.created_at)}</p>
+													<p class="text-[11px] text-slate-400">
+														{formatCommentDate(comment.created_at)}
+													</p>
 													<button
 														onclick={() => toggleReplyBox(comment.id)}
 														class="text-[11px] font-medium text-slate-500 hover:text-indigo-600"
@@ -817,9 +938,13 @@
 															toColor="to-sky-300"
 														/>
 														<div class="min-w-0 flex-1">
-															<p class="text-xs font-semibold text-slate-700">{reply.created_by.full_name}</p>
+															<p class="text-xs font-semibold text-slate-700">
+																{reply.created_by.full_name}
+															</p>
 															<p class="text-sm text-slate-600">{reply.content}</p>
-															<p class="mt-1 text-[11px] text-slate-400">{formatCommentDate(reply.created_at)}</p>
+															<p class="mt-1 text-[11px] text-slate-400">
+																{formatCommentDate(reply.created_at)}
+															</p>
 														</div>
 													</div>
 													<MarkRightButton

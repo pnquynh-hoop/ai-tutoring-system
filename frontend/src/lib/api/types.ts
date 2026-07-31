@@ -1,22 +1,11 @@
-import type { Comment, Course, CourseTree, Student } from './entities';
+import type { Student } from './entities';
 
 export interface LoginRequest {
 	username: string;
 	password: string;
 }
 
-export interface LoginResponse {
-	access: string;
-	refresh: string;
-}
-
-export type CourseListResponse = Course[];
-
-export type CourseDetailResponse = CourseTree;
-
 export type MeResponse = Student;
-
-export type ProgressMap = Record<string, { is_completed: boolean }>;
 
 export type Toast = {
 	id: number;
@@ -24,8 +13,7 @@ export type Toast = {
 	type: 'success' | 'error' | 'info';
 };
 
-export type CommentListResponse = Comment;
-
+/** GET /courses/{id}/chapter-stats/ */
 export interface ChapterStat {
 	id: number;
 	title: string;
@@ -37,25 +25,28 @@ export interface ChapterStat {
 	first_incomplete_lesson_id: number | null;
 }
 
-export interface QuizAnswerResult {
-	question_id: number;
-	selected_option_id: number | null;
-	correct_option_id: number;
-	is_correct: boolean;
-	explanation?: string | null;
+/** GET /courses/{id}/overview/ */
+export interface CourseOverview {
+	progress: {
+		total_lessons: number;
+		completed_lessons: number;
+		progress_percent: number;
+	};
+	average_score: number | null;
+	pending_assignments_count: number;
 }
 
-export interface QuizResult {
-	score: number;
-	total: number;
-	duration_seconds: number;
-	answers: QuizAnswerResult[];
+/** GET /courses/statistic/ khi user là học sinh */
+export interface StudentQuickStats {
+	ongoing_courses_count: number;
+	pending_assignments_count: number;
+	streak: number;
+	studied_today: boolean;
 }
 
-export type QuestionCellStatus = 'unanswered' | 'answered' | 'correct' | 'incorrect';
-
-export interface QuestionCell {
-	id: number;
-	label: number;
-	status: QuestionCellStatus;
+/** GET /courses/statistic/ khi user là gia sư */
+export interface TutorQuickStats {
+	teaching_course_count: number;
+	students_count: number;
+	pending_submission_count: number;
 }
