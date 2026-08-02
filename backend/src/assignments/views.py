@@ -1,5 +1,4 @@
 from django.db.models import Count
-from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -13,11 +12,11 @@ from assignments.serializers import (
     GradeSubmissionSerializer,
     QuestionSerializer,
     QuestionWriteSerializer,
+    StartAttemptSerializer,
     SubmissionDetailSerializer,
     SubmissionSerializer,
     SubmitAssignmentSerializer,
 )
-from assignments.services import grade_submission, start_attempt, submit_assignment
 from core.permissions import (
     IsCourseMember,
     IsCourseTutor,
@@ -27,7 +26,6 @@ from core.permissions import (
     IsSubmissionOwnerOrCourseTutor,
     IsTutor,
 )
-from core.querysets import only_published
 from courses.models import Chapter
 
 WRITE_ACTIONS = ("create", "update", "partial_update", "destroy")
@@ -41,7 +39,6 @@ class AssignmentView(
     generics.DestroyAPIView,
 ):
     queryset = Assignment.objects.filter(is_active=True)
-    serializer_class = AssignmentDetailSerializer
     write_parent_lookup = ("chapter", Chapter)
 
     def get_permissions(self):
@@ -54,7 +51,9 @@ class AssignmentView(
     def get_queryset(self):
         query = super().get_queryset().select_related("chapter__course")
         if self.request.user.is_student:
-            query = only_published(query, "chapter")
+            query = query.filter(
+                published_at__isnull=False, chapter__published_at__isnull=False
+            )
         if self.action == "retrieve":
             query = query.annotate(total_questions=Count("questions"))
         return query
@@ -70,7 +69,6 @@ class AssignmentView(
             return AttemptSerializer
         return AssignmentDetailSerializer
 
-    @extend_schema(responses=QuestionSerializer(many=True))
     @action(methods=["get"], url_path="questions", detail=True)
     def get_questions(self, request, pk):
         questions = self.get_object().questions.prefetch_related("answers").all()
@@ -78,23 +76,30 @@ class AssignmentView(
             self.get_serializer(questions, many=True).data, status=status.HTTP_200_OK
         )
 
-    @extend_schema(request=None, responses=AttemptSerializer)
     @action(methods=["post"], url_path="start", detail=True)
     def start(self, request, pk):
-        attempt = start_attempt(student=request.user, assignment=self.get_object())
-        return Response(self.get_serializer(attempt).data, status=status.HTTP_200_OK)
+        serializer = StartAttemptSerializer(
+            data={},
+            context={"assignment": self.get_object(), "student": request.user},
+        )
+        serializer.is_valid(raise_exception=True)
+        attempt = serializer.save()
 
-    @extend_schema(request=SubmitAssignmentSerializer, responses=SubmissionSerializer)
+        return Response(AttemptSerializer(attempt).data, status=status.HTTP_200_OK)
+
     @action(methods=["post"], url_path="submit", detail=True)
     def submit(self, request, pk):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        submission = submit_assignment(
-            student=request.user,
-            answers_data=serializer.validated_data["answers"],
-            assignment=self.get_object(),
+        serializer = self.get_serializer(
+            data=request.data,
+            context={
+                **self.get_serializer_context(),
+                "assignment": self.get_object(),
+                "student": request.user,
+            },
         )
+        serializer.is_valid(raise_exception=True)
+        submission = serializer.save()
+
         return Response(
             SubmissionSerializer(
                 submission, context=self.get_serializer_context()
@@ -181,18 +186,12 @@ class SubmissionView(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
 
         return query.order_by("-submitted_at")
 
-    @extend_schema(
-        request=GradeSubmissionSerializer, responses=SubmissionDetailSerializer
-    )
     @action(methods=["patch"], url_path="grade", detail=True)
     def grade(self, request, pk):
-        submission = self.get_object()
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(self.get_object(), data=request.data)
         serializer.is_valid(raise_exception=True)
+        graded = serializer.save()
 
-        graded = grade_submission(
-            submission=submission, answers_data=serializer.validated_data["answers"]
-        )
         return Response(
             SubmissionDetailSerializer(
                 graded, context=self.get_serializer_context()

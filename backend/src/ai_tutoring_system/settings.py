@@ -168,10 +168,8 @@ AUTH_USER_MODEL = "accounts.User"
 # Thư mục lưu vector store của ChromaDB (mặc định nằm cạnh thư mục src).
 CHROMA_DB_PATH = os.environ.get("CHROMA_DB_PATH", str(BASE_DIR.parent / "chroma_db"))
 
-# Kiến thức nền cho RAG: các file PDF đặt sẵn trong backend/data.
-# Mặc định chỉ lấy bản đã làm sạch; đổi pattern thành "*.pdf" nếu muốn nạp tất cả.
 RAG_DATA_DIR = Path(os.environ.get("RAG_DATA_DIR", BASE_DIR.parent / "data"))
-RAG_DATA_PATTERN = os.environ.get("RAG_DATA_PATTERN", "*clean*.pdf")
+RAG_DATA_PATTERN = os.environ.get("RAG_DATA_PATTERN", "*.pdf")
 
 # Cho phép trợ lý trả lời bằng kiến thức chung khi tài liệu không có thông tin.
 # Câu trả lời dạng này luôn được gắn nhãn để học sinh biết nó nằm ngoài giáo trình.

@@ -47,7 +47,6 @@ class RefreshTokenSerializer(TokenRefreshSerializer):
         access = AccessToken(data["access"])
         user = (
             User.objects.select_related("studentprofile__grade_level")
-            .prefetch_related("groups")
             .filter(pk=access.payload.get(api_settings.USER_ID_CLAIM))
             .first()
         )
@@ -75,11 +74,6 @@ class SimpleUserSerializer(serializers.ModelSerializer):
             except AttributeError:
                 data["avatar"] = str(instance.avatar)
         return data
-
-
-class ChoiceSerializer(serializers.Serializer):
-    value = serializers.CharField()
-    label = serializers.CharField()
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):
@@ -111,22 +105,18 @@ class TutorSerializer(SimpleUserSerializer):
 
 class MeSerializer(SimpleUserSerializer):
     role = serializers.SerializerMethodField()
-    grade = serializers.CharField(
-        source="studentprofile.grade_level.name", read_only=True, default=None
-    )
     student_profile = StudentProfileSerializer(
         source="studentprofile", read_only=True, default=None
     )
 
     def get_role(self, user) -> Optional[str]:
-        group = next(iter(user.groups.all()), None)
+        group = user.groups.first()
         return group.name if group else None
 
     class Meta:
         model = User
         fields = SimpleUserSerializer.Meta.fields + [
             "role",
-            "grade",
             "student_profile",
             "username",
             "first_name",

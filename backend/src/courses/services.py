@@ -21,7 +21,6 @@ from django.utils import timezone
 
 from accounts.models import User
 from assignments.models import Assignment, Submission
-from core.querysets import only_published
 
 from .models import Chapter, Course, Enrollment, Lesson, LessonProgress
 
@@ -200,7 +199,7 @@ def _lessons_with_completion(student, include_drafts=False):
     """Queryset Lesson kèm cờ is_completed theo học sinh đang đăng nhập."""
     query = Lesson.objects.filter(is_active=True)
     if not include_drafts:
-        query = only_published(query)
+        query = query.filter(published_at__isnull=False)
 
     return (
         query.annotate(
@@ -220,7 +219,7 @@ def get_course_tree(course_id, student, include_drafts=False):
     """Cây thư mục khóa học dùng cho sidebar, kèm tiến độ của học sinh đang đăng nhập."""
     chapters = Chapter.objects.filter(is_active=True)
     if not include_drafts:
-        chapters = only_published(chapters)
+        chapters = chapters.filter(published_at__isnull=False)
 
     chapters = chapters.prefetch_related(
         Prefetch("lessons", queryset=_lessons_with_completion(student, include_drafts))
@@ -239,7 +238,9 @@ def get_course_overview(course, student, include_drafts=False):
         chapter__course=course, chapter__is_active=True, is_active=True
     )
     if not include_drafts:
-        lessons = only_published(lessons, "chapter")
+        lessons = lessons.filter(
+            published_at__isnull=False, chapter__published_at__isnull=False
+        )
 
     lesson_stats = lessons.aggregate(
         total=Count("id", distinct=True),
@@ -266,7 +267,9 @@ def get_course_overview(course, student, include_drafts=False):
         due_date__gte=timezone.now(),
     )
     if not include_drafts:
-        assignments = only_published(assignments, "chapter")
+        assignments = assignments.filter(
+            published_at__isnull=False, chapter__published_at__isnull=False
+        )
 
     pending_assignments_count = assignments.exclude(
         submission__student=student, submission__submitted_at__isnull=False
@@ -311,8 +314,8 @@ def get_chapter_stats(course, student, include_drafts=False):
 
     if not include_drafts:
         visible_lesson &= Q(lessons__published_at__isnull=False)
-        chapter_assignments = only_published(chapter_assignments)
-        chapters = only_published(chapters)
+        chapter_assignments = chapter_assignments.filter(published_at__isnull=False)
+        chapters = chapters.filter(published_at__isnull=False)
 
     chapters = chapters.prefetch_related(
         Prefetch("lessons", queryset=_lessons_with_completion(student, include_drafts))

@@ -7,7 +7,24 @@ from rest_framework.exceptions import ValidationError
 from core.testing import auth_client
 
 from .models import Question, StudentAnswer
-from .services import grade_submission, submit_assignment
+from .serializers import GradeSubmissionSerializer, SubmitAssignmentSerializer
+
+
+def run_submit(student, answers, assignment):
+    """Nộp bài qua đúng luồng của view."""
+    serializer = SubmitAssignmentSerializer(
+        data={"answers": answers},
+        context={"assignment": assignment, "student": student},
+    )
+    serializer.is_valid(raise_exception=True)
+    return serializer.save()
+
+
+def run_grade(submission, answers):
+    """Chấm bài qua đúng luồng của view."""
+    serializer = GradeSubmissionSerializer(submission, data={"answers": answers})
+    serializer.is_valid(raise_exception=True)
+    return serializer.save()
 
 
 @pytest.fixture
@@ -36,7 +53,7 @@ def essay_assignment(assignment):
 class TestGradeSubmission:
     def submit(self, student, data):
         assignment, choice, right, essay = data
-        return submit_assignment(
+        return run_submit(
             student,
             [
                 {"question_id": choice.id, "answer_id": right.id},
@@ -57,7 +74,7 @@ class TestGradeSubmission:
         submission = self.submit(enrolled_student, essay_assignment)
         essay_answer = submission.stu_answers.get(point__isnull=True)
 
-        graded = grade_submission(
+        graded = run_grade(
             submission,
             [{"id": essay_answer.id, "point": Decimal("5"), "tutor_comment": "Tốt"}],
         )
@@ -71,7 +88,7 @@ class TestGradeSubmission:
         submission = self.submit(enrolled_student, essay_assignment)
         essay_answer = submission.stu_answers.get(point__isnull=True)
 
-        graded = grade_submission(
+        graded = run_grade(
             submission, [{"id": essay_answer.id, "point": Decimal("2.5")}]
         )
         assert graded.score == Decimal("7.5")
@@ -80,7 +97,7 @@ class TestGradeSubmission:
         StudentAnswer.objects.filter(submission=submission).exclude(
             pk=essay_answer.pk
         ).update(point=None)
-        regraded = grade_submission(
+        regraded = run_grade(
             submission, [{"id": essay_answer.id, "point": Decimal("2.5")}]
         )
         assert regraded.score is None
@@ -92,7 +109,7 @@ class TestGradeSubmission:
         essay_answer = submission.stu_answers.get(point__isnull=True)
 
         with pytest.raises(ValidationError):
-            grade_submission(
+            run_grade(
                 submission, [{"id": essay_answer.id, "point": Decimal("6")}]
             )
 
@@ -106,7 +123,7 @@ class TestGradeSubmission:
         foreign_answer = other_submission.stu_answers.first()
 
         with pytest.raises(ValidationError):
-            grade_submission(
+            run_grade(
                 submission, [{"id": foreign_answer.id, "point": Decimal("1")}]
             )
 
@@ -119,14 +136,14 @@ class TestGradeSubmission:
         )
 
         with pytest.raises(ValidationError):
-            grade_submission(attempt, [])
+            run_grade(attempt, [])
 
 
 @pytest.mark.django_db
 class TestGradeApi:
     def make_submission(self, student, data):
         assignment, choice, right, essay = data
-        return submit_assignment(
+        return run_submit(
             student,
             [
                 {"question_id": choice.id, "answer_id": right.id},

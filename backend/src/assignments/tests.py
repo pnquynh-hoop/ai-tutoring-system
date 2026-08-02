@@ -7,12 +7,31 @@ from model_bakery import baker
 from rest_framework.exceptions import ValidationError
 
 from .models import Question, Submission
-from .services import (
+from .serializers import (
     MAX_ATTEMPTS,
+    StartAttemptSerializer,
+    SubmitAssignmentSerializer,
     count_submitted_attempts,
-    start_attempt,
-    submit_assignment,
 )
+
+
+def run_submit(student, answers, assignment):
+    """Nộp bài qua đúng luồng của view."""
+    serializer = SubmitAssignmentSerializer(
+        data={"answers": answers},
+        context={"assignment": assignment, "student": student},
+    )
+    serializer.is_valid(raise_exception=True)
+    return serializer.save()
+
+
+def run_start(student, assignment):
+    """Mở lượt làm bài qua đúng luồng của view."""
+    serializer = StartAttemptSerializer(
+        data={}, context={"assignment": assignment, "student": student}
+    )
+    serializer.is_valid(raise_exception=True)
+    return serializer.save()
 
 
 @pytest.mark.django_db
@@ -63,7 +82,7 @@ class TestSubmitAssignment:
             question, right, _ = self.make_choice_question(assignment, order)
             answers.append({"question_id": question.id, "answer_id": right.id})
 
-        submission = submit_assignment(student, answers, assignment)
+        submission = run_submit(student, answers, assignment)
 
         assert submission.score == Decimal("10.0")
         assert submission.submitted_at is not None
@@ -73,7 +92,7 @@ class TestSubmitAssignment:
         q1, right1, _ = self.make_choice_question(assignment, 1)
         q2, _, wrong2 = self.make_choice_question(assignment, 2)
 
-        submission = submit_assignment(
+        submission = run_submit(
             student,
             [
                 {"question_id": q1.id, "answer_id": right1.id},
@@ -89,7 +108,7 @@ class TestSubmitAssignment:
         q1, right1, _ = self.make_choice_question(assignment, 1)
         self.make_choice_question(assignment, 2)
 
-        submission = submit_assignment(
+        submission = run_submit(
             student, [{"question_id": q1.id, "answer_id": right1.id}], assignment
         )
 
@@ -100,7 +119,7 @@ class TestSubmitAssignment:
     def test_fill_in_blank_is_case_insensitive(self, student, assignment):
         question = self.make_fill_question(assignment, 1)
 
-        submission = submit_assignment(
+        submission = run_submit(
             student,
             [{"question_id": question.id, "answer_text": "  hà nội "}],
             assignment,
@@ -118,7 +137,7 @@ class TestSubmitAssignment:
             order=2,
         )
 
-        submission = submit_assignment(
+        submission = run_submit(
             student,
             [
                 {"question_id": q1.id, "answer_id": right1.id},
@@ -138,7 +157,7 @@ class TestSubmitAssignment:
         question, right, _ = self.make_choice_question(assignment, 1)
 
         with pytest.raises(ValidationError):
-            submit_assignment(
+            run_submit(
                 student,
                 [{"question_id": question.id, "answer_id": right.id}],
                 assignment,
@@ -147,7 +166,7 @@ class TestSubmitAssignment:
     # ---------- CASE 7: bài tập chưa có câu hỏi ----------
     def test_assignment_without_questions_raises(self, student, assignment):
         with pytest.raises(ValidationError):
-            submit_assignment(student, [], assignment)
+            run_submit(student, [], assignment)
 
     # ---------- CASE 8: câu hỏi không thuộc bài tập ----------
     def test_unknown_question_id_raises(self, student, assignment):
@@ -158,7 +177,7 @@ class TestSubmitAssignment:
         other_question, other_answer, _ = self.make_choice_question(other_assignment, 1)
 
         with pytest.raises(ValidationError):
-            submit_assignment(
+            run_submit(
                 student,
                 [{"question_id": other_question.id, "answer_id": other_answer.id}],
                 assignment,
@@ -170,7 +189,7 @@ class TestSubmitAssignment:
         _, foreign_right, _ = self.make_choice_question(assignment, 2)
 
         with pytest.raises(ValidationError):
-            submit_assignment(
+            run_submit(
                 student,
                 [{"question_id": q1.id, "answer_id": foreign_right.id}],
                 assignment,
@@ -181,7 +200,7 @@ class TestSubmitAssignment:
         question, right, _ = self.make_choice_question(assignment, 1)
 
         with pytest.raises(ValidationError):
-            submit_assignment(
+            run_submit(
                 student,
                 [
                     {"question_id": question.id, "answer_id": right.id},
@@ -205,7 +224,7 @@ class TestSubmitAssignment:
         )
 
         with pytest.raises(ValidationError):
-            submit_assignment(
+            run_submit(
                 student,
                 [{"question_id": question.id, "answer_id": right.id}],
                 assignment,
@@ -225,7 +244,7 @@ class TestSubmitAssignment:
             started_at=timezone.now() - timedelta(minutes=5),
         )
 
-        submission = submit_assignment(
+        submission = run_submit(
             student, [{"question_id": question.id, "answer_id": right.id}], assignment
         )
 
@@ -236,8 +255,8 @@ class TestSubmitAssignment:
     def test_start_attempt_reuses_open_attempt(self, student, assignment):
         self.make_choice_question(assignment, 1)
 
-        first = start_attempt(student, assignment)
-        second = start_attempt(student, assignment)
+        first = run_start(student, assignment)
+        second = run_start(student, assignment)
 
         assert first.id == second.id
         assert (
@@ -249,11 +268,11 @@ class TestSubmitAssignment:
     def test_new_attempt_after_submit(self, student, assignment):
         question, right, _ = self.make_choice_question(assignment, 1)
 
-        first = start_attempt(student, assignment)
-        submit_assignment(
+        first = run_start(student, assignment)
+        run_submit(
             student, [{"question_id": question.id, "answer_id": right.id}], assignment
         )
-        second = start_attempt(student, assignment)
+        second = run_start(student, assignment)
 
         assert first.id != second.id
         assert Submission.objects.filter(submitted_at__isnull=False).count() == 1
@@ -264,10 +283,10 @@ class TestSubmitAssignment:
         answers = [{"question_id": question.id, "answer_id": right.id}]
 
         for _ in range(MAX_ATTEMPTS):
-            submit_assignment(student, answers, assignment)
+            run_submit(student, answers, assignment)
 
         with pytest.raises(ValidationError):
-            submit_assignment(student, answers, assignment)
+            run_submit(student, answers, assignment)
 
         assert count_submitted_attempts(student, assignment) == MAX_ATTEMPTS
 
@@ -277,10 +296,10 @@ class TestSubmitAssignment:
         answers = [{"question_id": question.id, "answer_id": right.id}]
 
         for _ in range(MAX_ATTEMPTS):
-            submit_assignment(student, answers, assignment)
+            run_submit(student, answers, assignment)
 
         with pytest.raises(ValidationError):
-            start_attempt(student, assignment)
+            run_start(student, assignment)
 
     # ---------- CASE 17: giới hạn tính riêng theo từng học sinh ----------
     def test_attempt_limit_is_per_student(self, student, assignment):
@@ -289,9 +308,9 @@ class TestSubmitAssignment:
         other_student = baker.make("accounts.User")
 
         for _ in range(MAX_ATTEMPTS):
-            submit_assignment(student, answers, assignment)
+            run_submit(student, answers, assignment)
 
-        submission = submit_assignment(other_student, answers, assignment)
+        submission = run_submit(other_student, answers, assignment)
 
         assert submission.score == Decimal("10.0")
         assert count_submitted_attempts(other_student, assignment) == 1

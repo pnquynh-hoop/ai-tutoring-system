@@ -1,4 +1,3 @@
-from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -13,7 +12,6 @@ from core.permissions import (
     IsStudentOrTutor,
     IsTutor,
 )
-from core.querysets import only_published
 
 from .models import Chapter, Comment, Course, LearningResource, Lesson
 from .serializers import (
@@ -80,7 +78,6 @@ class CourseView(
             return TutorCourseDetailSerializer if is_tutor else CourseDetailSerializer
         return TutorCourseSerializer if is_tutor else StudentCourseSerializer
 
-    @extend_schema(responses=CourseTreeSerializer)
     @action(methods=["get"], url_path="tree", detail=True)
     def get_tree(self, request, pk):
         self.get_object()
@@ -92,7 +89,6 @@ class CourseView(
             status=status.HTTP_200_OK,
         )
 
-    @extend_schema(responses=CourseOverviewSerializer)
     @action(methods=["get"], url_path="overview", detail=True)
     def course_overview(self, request, pk):
         data = get_course_overview(
@@ -105,7 +101,6 @@ class CourseView(
             status=status.HTTP_200_OK,
         )
 
-    @extend_schema(responses=TutorCourseStatsSerializer)
     @action(methods=["get"], url_path="stats", detail=True)
     def tutor_stats(self, request, pk):
         """Thống kê khóa học dành cho gia sư phụ trách."""
@@ -117,7 +112,6 @@ class CourseView(
             status=status.HTTP_200_OK,
         )
 
-    @extend_schema(responses=ChapterStatSerializer(many=True))
     @action(methods=["get"], url_path="chapter-stats", detail=True)
     def chapter_stat(self, request, pk):
         data = get_chapter_stats(
@@ -133,7 +127,6 @@ class CourseView(
         )
 
 
-@extend_schema(responses=StudentQuickStatsSerializer)
 class QuickStatsView(generics.GenericAPIView):
     permission_classes = [IsStudentOrTutor]
     serializer_class = StudentQuickStatsSerializer
@@ -172,7 +165,9 @@ class LessonView(
     def get_queryset(self):
         query = super().get_queryset()
         if self.request.user.is_student:
-            query = only_published(query, "chapter")
+            query = query.filter(
+                published_at__isnull=False, chapter__published_at__isnull=False
+            )
         if self.action == "retrieve":
             return query.prefetch_related("resources")
         return query
@@ -184,7 +179,6 @@ class LessonView(
             return CommentSerializer
         return LessonDetailSerializer
 
-    @extend_schema(request=None, responses=CommentSerializer)
     @action(methods=["post"], url_path="complete", detail=True)
     def mark_complete(self, request, pk):
         progress = mark_lesson_completed(student=request.user, lesson=self.get_object())
@@ -197,7 +191,6 @@ class LessonView(
             status=status.HTTP_200_OK,
         )
 
-    @extend_schema(responses=CommentSerializer(many=True))
     @action(methods=["get", "post"], url_path="comments", detail=True)
     def get_comments(self, request, pk):
         lesson = self.get_object()
@@ -224,7 +217,6 @@ class CommentView(viewsets.ViewSet, generics.GenericAPIView):
     serializer_class = CommentSerializer
     permission_classes = [IsCourseTutor]
 
-    @extend_schema(request=None, responses=CommentSerializer)
     @action(methods=["post"], url_path="toggle-mark-right", detail=True)
     def toggle_right(self, request, pk):
         comment = toggle_comment_right(comment=self.get_object(), user=request.user)
@@ -273,7 +265,11 @@ class ResourceView(
     def get_queryset(self):
         query = super().get_queryset().select_related("lesson__chapter__course")
         if self.request.user.is_student:
-            query = only_published(query, "lesson", "lesson__chapter")
+            query = query.filter(
+                published_at__isnull=False,
+                lesson__published_at__isnull=False,
+                lesson__chapter__published_at__isnull=False,
+            )
         if self.action == "list":
             query = query.filter(lesson_id=self.request.query_params.get("lesson"))
         return query

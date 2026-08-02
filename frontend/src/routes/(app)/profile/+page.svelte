@@ -143,8 +143,8 @@
 					</h1>
 					<p class="mt-0.5 text-sm text-slate-500">
 						{me.role === 'Tutor' ? 'Gia sư' : 'Học sinh'}
-						{#if me.grade}
-							· {me.grade}
+						{#if me.student_profile?.grade_name}
+							· {me.student_profile.grade_name}
 						{/if}
 					</p>
 				</div>

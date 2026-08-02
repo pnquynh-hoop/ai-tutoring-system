@@ -1,5 +1,4 @@
 from django.conf import settings
-from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions, status, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -10,9 +9,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .models import StudentProfile, User
 from .serializers import (
     ChangePasswordSerializer,
-    ChoiceSerializer,
     LoginTokenSerializer,
-    LogoutResponseSerializer,
     MeSerializer,
     RefreshTokenSerializer,
     UpdateMeSerializer,
@@ -61,10 +58,6 @@ class RefreshView(TokenRefreshView):
 class LogoutView(views.APIView):
     permission_classes = [permissions.AllowAny]
 
-    @extend_schema(
-        request=None,
-        responses={200: LogoutResponseSerializer},
-    )
     def post(self, request):
         refresh = request.COOKIES.get(settings.AUTH_COOKIE["REFRESH_NAME"])
 
@@ -94,7 +87,6 @@ class UserView(viewsets.ViewSet, generics.GenericAPIView):
             return UpdateMeSerializer
         return MeSerializer
 
-    @extend_schema(responses=MeSerializer)
     @action(methods=["get", "patch"], detail=False, url_path="me")
     def get_me(self, request):
         if request.method == "PATCH":
@@ -109,7 +101,6 @@ class UserView(viewsets.ViewSet, generics.GenericAPIView):
             status=status.HTTP_200_OK,
         )
 
-    @extend_schema(responses=ChoiceSerializer(many=True))
     @action(
         methods=["get"],
         detail=False,
@@ -124,9 +115,6 @@ class UserView(viewsets.ViewSet, generics.GenericAPIView):
             status=status.HTTP_200_OK,
         )
 
-    @extend_schema(
-        request=ChangePasswordSerializer, responses={200: LogoutResponseSerializer}
-    )
     @action(methods=["post"], detail=False, url_path="change-password")
     def change_password(self, request):
         serializer = self.get_serializer(data=request.data)

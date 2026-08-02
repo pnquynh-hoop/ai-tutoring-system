@@ -298,7 +298,6 @@ export interface Me {
 	phone: string;
 	avatar: string | null;
 	role: Role | null;
-	grade: string | null;
 	student_profile: StudentProfile | null;
 	tutor_profile: TutorProfile | null;
 }

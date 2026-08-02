@@ -1,6 +1,5 @@
 import logging
 
-from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
@@ -16,7 +15,6 @@ from courses.models import Course
 
 from .rag_service import generate_exercises_rag, query_rag_answer
 from .serializers import (
-    GenerateExercisesResponseSerializer,
     GenerateExercisesSerializer,
     RAGAnswerSerializer,
     RAGAskSerializer,
@@ -40,12 +38,6 @@ class RAGAskQuestionView(GenericAPIView):
     write_parent_lookup = ("course_id", Course)
     permission_classes = [IsStudentOrTutor, IsRelatedCourseMember]
 
-    @extend_schema(
-        summary="Hỏi đáp AI theo khóa học / bài học (RAG)",
-        description="Trả lời câu hỏi dựa trên ngữ cảnh bài học. Học sinh phải đăng ký khóa học mới có quyền truy cập.",
-        request=RAGAskSerializer,
-        responses={200: RAGAnswerSerializer},
-    )
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -79,12 +71,6 @@ class RAGGenerateExercisesView(GenericAPIView):
     write_parent_lookup = ("course_id", Course)
     permission_classes = [IsTutor, IsRelatedCourseTutor]
 
-    @extend_schema(
-        summary="Tạo bộ câu hỏi bài tập tự động bằng AI",
-        description="Sinh danh sách câu hỏi kèm đáp án và lời giải chi tiết dựa trên nội dung bài học.",
-        request=GenerateExercisesSerializer,
-        responses={200: GenerateExercisesResponseSerializer},
-    )
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
