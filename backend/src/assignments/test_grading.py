@@ -7,24 +7,15 @@ from rest_framework.exceptions import ValidationError
 from core.testing import auth_client
 
 from .models import Question, StudentAnswer
-from .serializers import GradeSubmissionSerializer, SubmitAssignmentSerializer
+from .services import grade_submission, submit_assignment
 
 
 def run_submit(student, answers, assignment):
-    """Nộp bài qua đúng luồng của view."""
-    serializer = SubmitAssignmentSerializer(
-        data={"answers": answers},
-        context={"assignment": assignment, "student": student},
-    )
-    serializer.is_valid(raise_exception=True)
-    return serializer.save()
+    return submit_assignment(student=student, assignment=assignment, answers=answers)
 
 
 def run_grade(submission, answers):
-    """Chấm bài qua đúng luồng của view."""
-    serializer = GradeSubmissionSerializer(submission, data={"answers": answers})
-    serializer.is_valid(raise_exception=True)
-    return serializer.save()
+    return grade_submission(submission=submission, answers=answers)
 
 
 @pytest.fixture
@@ -109,9 +100,7 @@ class TestGradeSubmission:
         essay_answer = submission.stu_answers.get(point__isnull=True)
 
         with pytest.raises(ValidationError):
-            run_grade(
-                submission, [{"id": essay_answer.id, "point": Decimal("6")}]
-            )
+            run_grade(submission, [{"id": essay_answer.id, "point": Decimal("6")}])
 
     def test_answer_from_other_submission_is_rejected(
         self, essay_assignment, enrolled_student, make_student, course
@@ -123,9 +112,7 @@ class TestGradeSubmission:
         foreign_answer = other_submission.stu_answers.first()
 
         with pytest.raises(ValidationError):
-            run_grade(
-                submission, [{"id": foreign_answer.id, "point": Decimal("1")}]
-            )
+            run_grade(submission, [{"id": foreign_answer.id, "point": Decimal("1")}])
 
     def test_cannot_grade_unsubmitted_attempt(self, assignment, enrolled_student):
         attempt = baker.make(

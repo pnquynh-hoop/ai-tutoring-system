@@ -12,11 +12,11 @@ from assignments.serializers import (
     GradeSubmissionSerializer,
     QuestionSerializer,
     QuestionWriteSerializer,
-    StartAttemptSerializer,
     SubmissionDetailSerializer,
     SubmissionSerializer,
     SubmitAssignmentSerializer,
 )
+from assignments.services import grade_submission, start_attempt, submit_assignment
 from core.permissions import (
     IsCourseMember,
     IsCourseTutor,
@@ -78,27 +78,22 @@ class AssignmentView(
 
     @action(methods=["post"], url_path="start", detail=True)
     def start(self, request, pk):
-        serializer = StartAttemptSerializer(
-            data={},
-            context={"assignment": self.get_object(), "student": request.user},
-        )
-        serializer.is_valid(raise_exception=True)
-        attempt = serializer.save()
+        attempt = start_attempt(student=request.user, assignment=self.get_object())
 
-        return Response(AttemptSerializer(attempt).data, status=status.HTTP_200_OK)
+        return Response(self.get_serializer(attempt).data, status=status.HTTP_200_OK)
 
     @action(methods=["post"], url_path="submit", detail=True)
     def submit(self, request, pk):
-        serializer = self.get_serializer(
-            data=request.data,
-            context={
-                **self.get_serializer_context(),
-                "assignment": self.get_object(),
-                "student": request.user,
-            },
-        )
+        # Lấy object trước để permission chặn bằng 403 thay vì lộ lỗi payload 400.
+        assignment = self.get_object()
+
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        submission = serializer.save()
+        submission = submit_assignment(
+            student=request.user,
+            assignment=assignment,
+            answers=serializer.validated_data["answers"],
+        )
 
         return Response(
             SubmissionSerializer(
@@ -188,9 +183,15 @@ class SubmissionView(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
 
     @action(methods=["patch"], url_path="grade", detail=True)
     def grade(self, request, pk):
-        serializer = self.get_serializer(self.get_object(), data=request.data)
+        # Lấy object trước để permission chặn bằng 403 thay vì lộ lỗi payload 400.
+        submission = self.get_object()
+
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        graded = serializer.save()
+        graded = grade_submission(
+            submission=submission,
+            answers=serializer.validated_data["answers"],
+        )
 
         return Response(
             SubmissionDetailSerializer(

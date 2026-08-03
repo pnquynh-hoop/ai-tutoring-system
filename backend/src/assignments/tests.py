@@ -7,31 +7,20 @@ from model_bakery import baker
 from rest_framework.exceptions import ValidationError
 
 from .models import Question, Submission
-from .serializers import (
+from .services import (
     MAX_ATTEMPTS,
-    StartAttemptSerializer,
-    SubmitAssignmentSerializer,
     count_submitted_attempts,
+    start_attempt,
+    submit_assignment,
 )
 
 
 def run_submit(student, answers, assignment):
-    """Nộp bài qua đúng luồng của view."""
-    serializer = SubmitAssignmentSerializer(
-        data={"answers": answers},
-        context={"assignment": assignment, "student": student},
-    )
-    serializer.is_valid(raise_exception=True)
-    return serializer.save()
+    return submit_assignment(student=student, assignment=assignment, answers=answers)
 
 
 def run_start(student, assignment):
-    """Mở lượt làm bài qua đúng luồng của view."""
-    serializer = StartAttemptSerializer(
-        data={}, context={"assignment": assignment, "student": student}
-    )
-    serializer.is_valid(raise_exception=True)
-    return serializer.save()
+    return start_attempt(student=student, assignment=assignment)
 
 
 @pytest.mark.django_db
