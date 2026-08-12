@@ -1,13 +1,12 @@
+from django.db.models import Prefetch
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
+from core.paginators import CommentPaginator, ItemPaginator
 from core.permissions import (
     IsCourseMember,
-    IsCourseMemberOrTutorWrite,
     IsCourseTutor,
-    IsRelatedCourseMember,
     IsRelatedCourseTutor,
     IsStudentOrTutor,
     IsTutor,
@@ -21,6 +20,7 @@ from .serializers import (
     CourseDetailSerializer,
     CourseOverviewSerializer,
     CourseTreeSerializer,
+    LearningResourceSerializer,
     LessonDetailSerializer,
     LessonSerializer,
     ResourceSerializer,
@@ -50,7 +50,8 @@ class CourseView(
     generics.ListAPIView,
     generics.RetrieveAPIView,
 ):
-    queryset = Course.objects.filter(is_active=True)
+    queryset = Course.objects.filter(is_active=True).order_by("id")
+    pagination_class = ItemPaginator
 
     def get_permissions(self):
         if self.action == "tutor_stats":
@@ -80,9 +81,10 @@ class CourseView(
 
     @action(methods=["get"], url_path="tree", detail=True)
     def get_tree(self, request, pk):
-        self.get_object()
         course = get_course_tree(
-            course_id=pk, student=request.user, include_drafts=request.user.is_tutor
+            course=self.get_object(),
+            student=request.user,
+            include_drafts=request.user.is_tutor,
         )
         return Response(
             CourseTreeSerializer(course, context=self.get_serializer_context()).data,
@@ -169,7 +171,16 @@ class LessonView(
                 published_at__isnull=False, chapter__published_at__isnull=False
             )
         if self.action == "retrieve":
-            return query.prefetch_related("resources")
+            return query.prefetch_related(
+                Prefetch("resources", queryset=self.visible_resources())
+            )
+        return query
+
+    def visible_resources(self):
+        """Tài nguyên bài học: học sinh chỉ thấy bản đã công khai, gia sư thấy cả nháp."""
+        query = LearningResource.objects.filter(is_active=True)
+        if self.request.user.is_student:
+            query = query.filter(published_at__isnull=False)
         return query
 
     def get_serializer_class(self):
@@ -177,7 +188,16 @@ class LessonView(
             return LessonSerializer
         if self.action == "get_comments":
             return CommentSerializer
+        if self.action == "get_resources":
+            return LearningResourceSerializer
         return LessonDetailSerializer
+
+    @action(methods=["get"], url_path="resources", detail=True)
+    def get_resources(self, request, pk):
+        resources = self.visible_resources().filter(lesson=self.get_object())
+        return Response(
+            self.get_serializer(resources, many=True).data, status=status.HTTP_200_OK
+        )
 
     @action(methods=["post"], url_path="complete", detail=True)
     def mark_complete(self, request, pk):
@@ -196,8 +216,14 @@ class LessonView(
         lesson = self.get_object()
 
         if request.method == "POST":
-            # created_by do serializer tự gán từ context request, client không gửi lên.
-            serializer = self.get_serializer(data={**request.data, "lesson": lesson.id})
+            serializer = self.get_serializer(
+                data={
+                    "content": request.data.get("content"),
+                    "parent": request.data.get("parent"),
+                    "lesson": lesson.id,
+                    "created_by": request.user.pk,
+                }
+            )
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -207,6 +233,14 @@ class LessonView(
             .select_related("created_by")
             .order_by("created_at")
         )
+
+        paginator = CommentPaginator()
+        page = paginator.paginate_queryset(comments, request)
+        if page is not None:
+            return paginator.get_paginated_response(
+                self.get_serializer(page, many=True).data
+            )
+
         return Response(
             self.get_serializer(comments, many=True).data, status=status.HTTP_200_OK
         )
@@ -237,39 +271,16 @@ class ChapterView(
 
 class ResourceView(
     viewsets.ViewSet,
-    generics.ListAPIView,
     generics.CreateAPIView,
     generics.UpdateAPIView,
     generics.DestroyAPIView,
 ):
+    """Soạn tài nguyên bài học - chỉ gia sư phụ trách. Đọc đi qua /lessons/{id}/resources/."""
+
     queryset = LearningResource.objects.filter(is_active=True)
     serializer_class = ResourceSerializer
-    read_parent_lookup = ("lesson", Lesson)
     write_parent_lookup = ("lesson", Lesson)
-    permission_classes = [
-        IsStudentOrTutor,
-        IsRelatedCourseMember,
-        IsRelatedCourseTutor,
-        IsCourseMemberOrTutorWrite,
-    ]
-
-    def list(self, request, *args, **kwargs):
-        # Bắt buộc chỉ rõ bài học để permission có căn cứ chặn trước khi truy vấn.
-        lesson_id = request.query_params.get("lesson", "")
-        if not lesson_id.isdigit():
-            raise ValidationError(
-                {"lesson": "Bắt buộc truyền ?lesson=<id> để lấy tài nguyên bài học."}
-            )
-        return super().list(request, *args, **kwargs)
+    permission_classes = [IsTutor, IsRelatedCourseTutor, IsCourseTutor]
 
     def get_queryset(self):
-        query = super().get_queryset().select_related("lesson__chapter__course")
-        if self.request.user.is_student:
-            query = query.filter(
-                published_at__isnull=False,
-                lesson__published_at__isnull=False,
-                lesson__chapter__published_at__isnull=False,
-            )
-        if self.action == "list":
-            query = query.filter(lesson_id=self.request.query_params.get("lesson"))
-        return query
+        return super().get_queryset().select_related("lesson__chapter__course")

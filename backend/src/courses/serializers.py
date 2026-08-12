@@ -1,6 +1,9 @@
-from typing import Optional
 from rest_framework import serializers
 from accounts.serializers import SimpleUserSerializer, TutorSerializer
+from core.validators import validate_document_upload, validate_video_url
+
+MAX_RESOURCE_CONTENT_LENGTH = 50000
+MAX_COMMENT_LENGTH = 2000
 from .models import Chapter, Comment, Course, LearningResource, Lesson
 
 
@@ -8,15 +11,11 @@ class StudentCourseSerializer(serializers.ModelSerializer):
     tutor_name = serializers.CharField(
         source="tutor.full_name", read_only=True, default=None
     )
-    progress = serializers.SerializerMethodField()
+    progress = serializers.FloatField(read_only=True, allow_null=True)
 
     class Meta:
         fields = ["id", "name", "tutor_name", "progress"]
         model = Course
-
-    def get_progress(self, course) -> Optional[float]:
-        """progress chỉ tồn tại khi queryset được annotate cho học sinh."""
-        return getattr(course, "progress", None)
 
 
 class TutorCourseSerializer(serializers.ModelSerializer):
@@ -70,7 +69,6 @@ class LessonTreeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Lesson
-        # order cần cho màn quản lý của gia sư khi thêm bài học mới.
         fields = ["id", "title", "order", "is_completed"]
 
 
@@ -127,8 +125,6 @@ class LessonDetailSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    # Người tạo luôn được gán từ context request, không nhận từ payload của client.
-    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
         model = Comment
@@ -143,6 +139,7 @@ class CommentSerializer(serializers.ModelSerializer):
             "is_active",
         ]
         extra_kwargs = {
+            "content": {"max_length": MAX_COMMENT_LENGTH},
             "created_at": {"read_only": True},
             "is_right": {"read_only": True},
             "is_active": {"read_only": True},
@@ -150,9 +147,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data["created_by"] = SimpleUserSerializer(
-            instance.created_by, context=self.context
-        ).data
+        data["created_by"] = SimpleUserSerializer(instance.created_by).data
         return data
 
     def validate(self, attrs):
@@ -249,10 +244,51 @@ class ResourceSerializer(serializers.ModelSerializer):
             "file_url",
             "video_url",
         ]
+        extra_kwargs = {
+            "content": {"max_length": MAX_RESOURCE_CONTENT_LENGTH},
+        }
 
-    def validate_lesson(self, lesson):
-        self.validate_course_owner(lesson.chapter.course)
-        return lesson
+    def validate_file_url(self, file):
+        return validate_document_upload(file)
+
+    def validate_video_url(self, url):
+        return validate_video_url(url)
+
+    def _value(self, attrs, field):
+        if field in attrs:
+            return attrs[field]
+        return getattr(self.instance, field, None)
+
+    def validate(self, attrs):
+        resource_type = self._value(attrs, "resource_type")
+        content = self._value(attrs, "content")
+        file_url = self._value(attrs, "file_url")
+        video_url = self._value(attrs, "video_url")
+
+        if resource_type == LearningResource.ResourceType.VIDEO_URL:
+            if not video_url:
+                raise serializers.ValidationError(
+                    {"video_url": "Tài nguyên dạng video phải có đường dẫn video."}
+                )
+            if file_url:
+                raise serializers.ValidationError(
+                    {"file_url": "Tài nguyên dạng video không kèm tệp tài liệu."}
+                )
+        elif resource_type == LearningResource.ResourceType.PDF_FILE:
+            if not file_url:
+                raise serializers.ValidationError(
+                    {"file_url": "Tài nguyên dạng PDF phải có tệp tài liệu."}
+                )
+            if video_url:
+                raise serializers.ValidationError(
+                    {"video_url": "Tài nguyên dạng PDF không kèm đường dẫn video."}
+                )
+        elif not content and not file_url:
+            raise serializers.ValidationError(
+                "Tài nguyên phải có nội dung văn bản hoặc tệp tài liệu."
+            )
+
+        return attrs
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

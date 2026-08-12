@@ -1,7 +1,10 @@
 import pytest
 from model_bakery import baker
-from .models import Course, LessonProgress
-from .services import get_courses_with_progress
+
+from core.testing import make_published
+
+from courses.models import Course, LessonProgress
+from courses.services import get_courses_with_progress
 
 
 @pytest.mark.django_db
@@ -20,7 +23,7 @@ class TestCourseServices:
 
     @pytest.fixture
     def chapter(self, course):
-        return baker.make("courses.Chapter", course=course)
+        return make_published("courses.Chapter", course=course)
 
     @pytest.fixture
     def course_query(self):
@@ -30,7 +33,7 @@ class TestCourseServices:
         return baker.make("courses.Enrollment", course=course, student=student)
 
     def make_lesson(self, chapter):
-        return baker.make("courses.Lesson", chapter=chapter)
+        return make_published("courses.Lesson", chapter=chapter)
 
     # ---------- CASE 1: course chưa có lesson nào ----------
     def test_course_without_lessons_returns_zero_progress(
@@ -143,7 +146,7 @@ class TestCourseServices:
         for i in range(5):
             course = baker.make("courses.Course", tutor=tutor, name=f"Course {i}")
             self.enroll(course, student)
-            chapter = baker.make("courses.Chapter", course=course)
+            chapter = make_published("courses.Chapter", course=course)
             lesson = self.make_lesson(chapter)
             baker.make(
                 LessonProgress, student=student, lesson=lesson, is_completed=True
@@ -163,8 +166,8 @@ class TestCourseServices:
         self.enroll(course_a, student)
         self.enroll(course_b, student)
 
-        chapter_a = baker.make("courses.Chapter", course=course_a)
-        chapter_b = baker.make("courses.Chapter", course=course_b)
+        chapter_a = make_published("courses.Chapter", course=course_a)
+        chapter_b = make_published("courses.Chapter", course=course_b)
 
         lesson_a1 = self.make_lesson(chapter_a)
         self.make_lesson(chapter_a)  # course_a: 1/2 hoàn thành = 50%

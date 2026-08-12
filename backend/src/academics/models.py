@@ -1,6 +1,11 @@
+import os
+
 from unidecode import unidecode
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.files.storage import FileSystemStorage
 from django.db import models
-from core.models import BaseModel
+from core.models import BaseModel, RAGIndexedModel
 from cloudinary.models import CloudinaryField
 
 """
@@ -30,21 +35,72 @@ class Grade(BaseModel):
         return self.name
 
 
-def material_upload_path(instance):
+def _material_folder(instance) -> str:
     grade_name = unidecode(instance.grade.name).replace(" ", "_")
     subject_name = unidecode(instance.subject.name).replace(" ", "_")
 
-    return f"tutoring_center/materials/{grade_name}/{subject_name}"
+    return f"{grade_name}/{subject_name}"
 
 
-class Material(BaseModel):
+def material_upload_path(instance):
+    return f"tutoring_center/materials/{_material_folder(instance)}"
+
+
+def material_local_path(instance, filename) -> str:
+    """Thư mục con trong RAG_DATA_DIR, nằm ngoài glob nạp sách giáo khoa."""
+    return f"materials/{_material_folder(instance)}/{filename}"
+
+
+class RAGDataStorage(FileSystemStorage):
+    """Đọc RAG_DATA_DIR lúc lưu tệp thay vì chốt cứng lúc khai báo field."""
+
+    @property
+    def base_location(self):
+        return settings.RAG_DATA_DIR
+
+    @property
+    def location(self):
+        return os.path.abspath(self.base_location)
+
+
+def rag_data_storage() -> RAGDataStorage:
+    return RAGDataStorage()
+
+
+class Material(BaseModel, RAGIndexedModel):
+    """Tài liệu chung của trung tâm.
+
+    Tệp tối đa 10MB lưu trên Cloudinary, tệp lớn hơn lưu cục bộ trong
+    RAG_DATA_DIR. Mỗi bản ghi chỉ dùng một trong hai.
+    """
+
     name = models.CharField(max_length=255)
-    file_url = CloudinaryField(folder=material_upload_path)
+    file_url = CloudinaryField(
+        "Tệp trên Cloudinary", folder=material_upload_path, null=True, blank=True
+    )
+    local_file = models.FileField(
+        "Tệp lưu cục bộ",
+        upload_to=material_local_path,
+        storage=rag_data_storage,
+        max_length=500,
+        null=True,
+        blank=True,
+    )
     subject = models.ForeignKey(
         Subject, on_delete=models.CASCADE, related_name="materials"
     )
     grade = models.ForeignKey(Grade, on_delete=models.CASCADE, related_name="materials")
-    is_rag_indexed = models.BooleanField("Đã RAG", default=False)
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_local(self) -> bool:
+        return bool(self.local_file)
+
+    def clean(self):
+        super().clean()
+        if bool(self.file_url) == bool(self.local_file):
+            raise ValidationError(
+                "Tài liệu phải có đúng một nguồn tệp: Cloudinary hoặc cục bộ."
+            )

@@ -3,28 +3,27 @@ import os
 import tempfile
 import time
 from pathlib import Path
-
 import requests
 from django.conf import settings
-from langchain_community.document_loaders import PyMuPDFLoader, PyPDFLoader
 from langchain_core.documents import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import (
+    MarkdownTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
 
 from academics.models import Material
 from courses.models import LearningResource
 
+from .extract import load_pdf
 from .vector_store import get_vector_store
 
 logger = logging.getLogger(__name__)
 
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 150
-# Số chunk gửi đi nhúng vector mỗi lần.
-EMBED_BATCH_SIZE = int(os.environ.get("GEMINI_EMBED_BATCH_SIZE", 50))
-# Gemini free tier tính MỖI ĐOẠN TEXT là một request và giới hạn 100 request/phút,
-# nên phải tự giãn nhịp thay vì bắn liên tục.
-EMBED_RPM = int(os.environ.get("GEMINI_EMBED_RPM", 100))
-EMBED_MAX_RETRY = 5
+CHUNK_SIZE = 1000 # mỗi chunk tối đa 1000 ký tự, đủ nhỏ để embedding tập trung vào 1 ý và cũng vừa đủ lớn để không mất ngữ nghĩa
+CHUNK_OVERLAP = 150 # số ký tự trùng lắp giữa 2 đoạn chunk, tránh case một câu bị cắt đôi đúng ranh giới chunk size trở nên vô nghĩa khi retrieve
+EMBED_BATCH_SIZE = int(os.environ.get("GEMINI_EMBED_BATCH_SIZE", 50)) # mỗi lần embedding gửi 50 chunk lên LLM , vừa đủ nhiều để đẩy nhanh tốc dộ mà vẫn có chỗ chèn nhịp nghỉ
+EMBED_RPM = int(os.environ.get("GEMINI_EMBED_RPM", 100)) # hạn mức request/minute của API, dùng để tính nhịp nghỉ giữa từng batch, chủ động tránh đụng quota
+EMBED_MAX_RETRY = 5 # số lần thử lại tối đa khi một batch bị dính lỗi quota - 429
 
 SOURCE_TEXTBOOK = "textbook"
 SOURCE_MATERIAL = "material"
@@ -37,16 +36,20 @@ def _text_splitter():
     )
 
 
+def _markdown_splitter():
+    return MarkdownTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
+
+
 def select_new(documents, ids, existing_ids):
-    """Bỏ các chunk đã có trong vector store để lần chạy sau nạp tiếp phần còn thiếu."""
     existing = set(existing_ids)
-    pairs = [
-        (doc, doc_id) for doc, doc_id in zip(documents, ids) if doc_id not in existing
-    ]
-    if not pairs:
-        return [], []
-    new_documents, new_ids = zip(*pairs)
-    return list(new_documents), list(new_ids)
+    new_documents = []
+    new_ids = []
+
+    for doc, doc_id in zip(documents, ids):
+        if doc_id not in existing:
+            new_documents.append(doc)
+            new_ids.append(doc_id)
+    return new_documents, new_ids
 
 
 def _existing_ids(store, ids):
@@ -58,7 +61,6 @@ def _existing_ids(store, ids):
 
 
 def _embed_batch_with_retry(store, batch, batch_ids):
-    """Gọi API nhúng, gặp 429 thì chờ rồi thử lại thay vì bỏ dở cả file."""
     for attempt in range(1, EMBED_MAX_RETRY + 1):
         try:
             store.add_documents(batch, ids=batch_ids)
@@ -79,7 +81,6 @@ def _embed_batch_with_retry(store, batch, batch_ids):
 
 
 def _add_documents(documents, ids):
-    """Nạp vector theo lô, dùng id cố định để chạy lại không bị nhân bản dữ liệu."""
     store = get_vector_store()
     documents, ids = select_new(documents, ids, _existing_ids(store, ids))
 
@@ -87,14 +88,18 @@ def _add_documents(documents, ids):
         logger.info("Toàn bộ chunk đã có sẵn trong vector store, không cần nạp lại")
         return 0
 
-    # Thời gian tối thiểu cho mỗi lô để không vượt giới hạn request/phút.
-    min_seconds_per_batch = 60 * EMBED_BATCH_SIZE / EMBED_RPM if EMBED_RPM else 0
+    if EMBED_RPM:
+        min_seconds_per_batch = 60 * EMBED_BATCH_SIZE / EMBED_RPM
+    else:
+        min_seconds_per_batch = 0
 
     for start in range(0, len(documents), EMBED_BATCH_SIZE):
         batch = documents[start : start + EMBED_BATCH_SIZE]
+        batch_ids = ids[start : start + EMBED_BATCH_SIZE]
+
         started_at = time.monotonic()
 
-        _embed_batch_with_retry(store, batch, ids[start : start + EMBED_BATCH_SIZE])
+        _embed_batch_with_retry(store, batch, batch_ids)
         logger.info(
             "Đã nạp %s/%s chunk",
             min(start + len(batch), len(documents)),
@@ -110,11 +115,7 @@ def _add_documents(documents, ids):
     return len(documents)
 
 
-# ---------- Nguồn 1: tài liệu gốc đặt sẵn trong backend/data ----------
-
-
 def local_pdf_paths(directory=None, pattern=None) -> list[Path]:
-    """Danh sách file PDF dùng làm nguồn kiến thức nền, sắp xếp cho ổn định."""
     directory = Path(directory or settings.RAG_DATA_DIR)
     pattern = pattern or settings.RAG_DATA_PATTERN
 
@@ -124,7 +125,6 @@ def local_pdf_paths(directory=None, pattern=None) -> list[Path]:
 
 
 def textbook_metadata(path: Path, page: int) -> dict:
-    """Metadata gắn cho mỗi chunk sách; source_type dùng để lọc lúc truy vấn."""
     return {
         "source_type": SOURCE_TEXTBOOK,
         "source": path.name,
@@ -134,32 +134,31 @@ def textbook_metadata(path: Path, page: int) -> dict:
 
 
 def document_id(source_type: str, source: str, page: int, index: int) -> str:
-    """Id cố định theo (nguồn, trang, thứ tự chunk) để lần nạp sau ghi đè đúng chỗ."""
     return f"{source_type}:{source}:{page}:{index}"
 
 
 def load_local_pdf(path: Path) -> list[Document]:
-    """Đọc PDF bằng PyMuPDF - giữ được lớp text của bản scan đã làm sạch."""
-    return PyMuPDFLoader(str(path)).load()
+    return load_pdf(path)
 
 
-def ingest_local_documents(directory=None, pattern=None, limit=None) -> int:
-    """Nạp kiến thức nền từ các file PDF trong backend/data vào vector store."""
+def ingest_local_documents(directory=None, pattern=None) -> tuple[int, list[str]]:
     paths = local_pdf_paths(directory, pattern)
     if not paths:
         logger.warning(
             "Không tìm thấy file PDF nào trong %s", directory or settings.RAG_DATA_DIR
         )
-        return 0
+        return 0, []
 
-    splitter = _text_splitter()
+    splitter = _markdown_splitter()
     total = 0
+    skipped = []
 
     for path in paths:
         logger.info("Đang đọc %s", path.name)
         try:
             pages = load_local_pdf(path)
         except Exception:
+            skipped.append(path.name)
             logger.exception("Không đọc được file %s", path.name)
             continue
 
@@ -175,12 +174,8 @@ def ingest_local_documents(directory=None, pattern=None, limit=None) -> int:
                 documents.append(chunk)
                 ids.append(document_id(SOURCE_TEXTBOOK, path.name, page_number, index))
 
-                if limit and len(documents) >= limit:
-                    break
-            if limit and len(documents) >= limit:
-                break
-
         if not documents:
+            skipped.append(path.name)
             logger.warning("File %s không có nội dung chữ để nạp", path.name)
             continue
 
@@ -188,18 +183,17 @@ def ingest_local_documents(directory=None, pattern=None, limit=None) -> int:
         total += added
         logger.info("Đã nạp %s chunk mới từ %s", added, path.name)
 
-    return total
-
-
-# ---------- Nguồn 2 & 3: tài liệu trên Cloudinary của hệ thống ----------
+    return total, skipped
 
 
 def download_cloudinary_file(file_field) -> str | None:
-    """Tải file từ Cloudinary URL về file tạm thời."""
     if not file_field:
         return None
 
-    file_url = file_field.url if hasattr(file_field, "url") else str(file_field)
+    if hasattr(file_field, "url"):
+        file_url = file_field.url
+    else:
+        file_url = str(file_field)
     try:
         response = requests.get(file_url, stream=True, timeout=20)
         if response.status_code == 200:
@@ -213,19 +207,37 @@ def download_cloudinary_file(file_field) -> str | None:
     return None
 
 
+def resolve_source_file(instance) -> tuple[str | None, bool]:
+    """Trả về (đường dẫn cục bộ, có phải tệp tạm cần xoá sau khi dùng)."""
+    local_file = getattr(instance, "local_file", None)
+    if local_file:
+        return local_file.path, False
+    return download_cloudinary_file(instance.file_url), True
+
+
+def pending_queryset(model):
+    return model.objects.filter(
+        is_active=True,
+        rag_status__in=[model.RAGStatus.PENDING, model.RAGStatus.FAILED],
+    )
+
+
 def ingest_materials() -> int:
-    """Ingest tài liệu chung từ academics.Material"""
-    materials = Material.objects.filter(is_rag_indexed=False, is_active=True)
-    splitter = _text_splitter()
+    splitter = _markdown_splitter()
     total = 0
 
-    for mat in materials:
-        local_path = download_cloudinary_file(mat.file_url)
+    for mat in pending_queryset(Material).select_related("subject", "grade"):
+        mat.mark_rag_processing()
+        local_path, is_temp = resolve_source_file(mat)
+
         if not local_path:
+            mat.mark_rag_failed("Không lấy được tệp tài liệu.")
+            logger.warning("Material ID %s không có tệp để đọc", mat.id)
             continue
 
         try:
-            chunks = splitter.split_documents(PyPDFLoader(local_path).load())
+            pages = load_pdf(Path(local_path))
+            chunks = splitter.split_documents(pages)
             documents, ids = [], []
 
             for index, chunk in enumerate(chunks):
@@ -244,29 +256,29 @@ def ingest_materials() -> int:
             if documents:
                 total += _add_documents(documents, ids)
 
-            mat.is_rag_indexed = True
-            mat.save(update_fields=["is_rag_indexed"])
-            logger.info("Đã ingest Material ID %s", mat.id)
+            mat.mark_rag_indexed(len(documents))
+            logger.info("Đã ingest Material ID %s (%s chunk)", mat.id, len(documents))
 
-        except Exception:
+        except Exception as exc:
+            mat.mark_rag_failed(f"{type(exc).__name__}: {exc}")
             logger.exception("Lỗi khi ingest Material ID %s", mat.id)
         finally:
-            if os.path.exists(local_path):
+            if is_temp and os.path.exists(local_path):
                 os.remove(local_path)
 
     return total
 
 
 def ingest_learning_resources() -> int:
-    """Ingest tài liệu bài học từ courses.LearningResource"""
-    resources = LearningResource.objects.filter(
-        is_rag_indexed=False, is_active=True
-    ).select_related("lesson__chapter__course")
+    resources = pending_queryset(LearningResource).select_related(
+        "lesson__chapter__course"
+    )
 
     splitter = _text_splitter()
     total = 0
 
     for res in resources:
+        res.mark_rag_processing()
         chunks = []
         metadata = {
             "source_type": SOURCE_RESOURCE,
@@ -276,49 +288,62 @@ def ingest_learning_resources() -> int:
             "title": res.title,
         }
 
-        # TH1: Nội dung bài học dạng text
         if res.content:
             doc = Document(page_content=res.content, metadata=metadata)
             chunks = splitter.split_documents([doc])
 
-        # TH2: Tài liệu dạng PDF upload qua Cloudinary
         elif res.file_url:
             local_path = download_cloudinary_file(res.file_url)
-            if local_path:
-                try:
-                    chunks = splitter.split_documents(PyPDFLoader(local_path).load())
-                    for chunk in chunks:
-                        chunk.metadata.update(metadata)
-                except Exception:
-                    logger.exception("Lỗi xử lý file Resource ID %s", res.id)
-                finally:
-                    if os.path.exists(local_path):
-                        os.remove(local_path)
+            if not local_path:
+                res.mark_rag_failed("Không tải được tệp từ Cloudinary.")
+                continue
+            try:
+                pages = load_pdf(Path(local_path))
+                chunks = _markdown_splitter().split_documents(pages)
+                for chunk in chunks:
+                    chunk.metadata.update(metadata)
+            except Exception as exc:
+                res.mark_rag_failed(f"{type(exc).__name__}: {exc}")
+                logger.exception("Lỗi xử lý file Resource ID %s", res.id)
+                continue
+            finally:
+                if os.path.exists(local_path):
+                    os.remove(local_path)
 
-        # Không có nội dung nào để index thì bỏ qua, giữ nguyên cờ để lần sau thử lại.
         if not chunks:
+            res.mark_rag_failed("Tài nguyên không có nội dung để nạp.")
             logger.warning("Resource ID %s không có nội dung để ingest", res.id)
             continue
 
-        total += _add_documents(
-            chunks,
-            [
-                document_id(SOURCE_RESOURCE, str(res.id), 0, i)
-                for i in range(len(chunks))
-            ],
-        )
+        ids = []
+        for i in range(len(chunks)):
+            chunk_id = document_id(
+                SOURCE_RESOURCE,
+                str(res.id),
+                0,
+                i,
+            )
+            ids.append(chunk_id)
 
-        res.is_rag_indexed = True
-        res.save(update_fields=["is_rag_indexed"])
-        logger.info("Đã ingest LearningResource ID %s", res.id)
+        try:
+            total += _add_documents(chunks, ids)
+        except Exception as exc:
+            res.mark_rag_failed(f"{type(exc).__name__}: {exc}")
+            logger.exception("Lỗi nạp vector Resource ID %s", res.id)
+            continue
+
+        res.mark_rag_indexed(len(chunks))
+        logger.info("Đã ingest LearningResource ID %s (%s chunk)", res.id, len(chunks))
 
     return total
 
 
 def run_full_ingestion() -> dict:
     """Nạp toàn bộ nguồn: sách trong backend/data + tài liệu của hệ thống."""
+    textbook, skipped = ingest_local_documents()
     return {
-        "textbook": ingest_local_documents(),
+        "textbook": textbook,
+        "skipped": skipped,
         "materials": ingest_materials(),
         "resources": ingest_learning_resources(),
     }

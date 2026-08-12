@@ -34,6 +34,18 @@ import type {
 } from './entities';
 import type { ChapterStat, LoginRequest, MeResponse } from './types';
 
+interface Paginated<T> {
+	count: number;
+	next: string | null;
+	previous: string | null;
+	results: T[];
+}
+
+/** Lấy mảng dữ liệu từ response, chấp nhận cả dạng phân trang lẫn mảng thuần. */
+function toList<T>(data: Paginated<T> | T[]): T[] {
+	return Array.isArray(data) ? data : data.results;
+}
+
 export async function loginApi(data: LoginRequest) {
 	const response = await api.post(ENDPOINTS.LOGIN, data);
 	return response.data;
@@ -53,12 +65,12 @@ export async function getMeApi(cookieHeader?: string): Promise<MeResponse> {
 // ----- Khóa học -----
 
 export async function getListCourses(): Promise<Course[]> {
-	return (await api.get<Course[]>(ENDPOINTS.COURSES)).data;
+	return toList((await api.get<Paginated<Course> | Course[]>(ENDPOINTS.COURSES)).data);
 }
 
 /** Cùng endpoint với getListCourses nhưng backend trả bộ field dành cho gia sư. */
 export async function getTutorCourses(): Promise<TutorCourse[]> {
-	return (await api.get<TutorCourse[]>(ENDPOINTS.COURSES)).data;
+	return toList((await api.get<Paginated<TutorCourse> | TutorCourse[]>(ENDPOINTS.COURSES)).data);
 }
 
 export async function getQuickStats() {
@@ -142,7 +154,9 @@ export async function deleteResource(resourceId: number) {
 // ----- Bình luận -----
 
 export async function getListComments(lessonId: number): Promise<Comment[]> {
-	return (await api.get<Comment[]>(ENDPOINTS.COMMENTS(lessonId))).data;
+	return toList(
+		(await api.get<Paginated<Comment> | Comment[]>(ENDPOINTS.COMMENTS(lessonId))).data
+	);
 }
 
 export async function postComment(
@@ -200,7 +214,7 @@ export async function deleteAssignment(assignmentId: number) {
 // ----- Soạn câu hỏi (gia sư) -----
 
 export async function getTutorQuestions(assignmentId: number): Promise<TutorQuestion[]> {
-	return (await api.get<TutorQuestion[]>(ENDPOINTS.QUESTIONS_BY_ASSIGNMENT(assignmentId))).data;
+	return (await api.get<TutorQuestion[]>(ENDPOINTS.QUESTIONS(assignmentId))).data;
 }
 
 export async function createQuestion(payload: TutorQuestionPayload): Promise<TutorQuestion> {
@@ -228,7 +242,9 @@ export async function getListSubmissions(params?: {
 	course?: number;
 	assignment?: number;
 }): Promise<Submission[]> {
-	return (await api.get<Submission[]>(ENDPOINTS.SUBMISSIONS, { params })).data;
+	return toList(
+		(await api.get<Paginated<Submission> | Submission[]>(ENDPOINTS.SUBMISSIONS, { params })).data
+	);
 }
 
 export async function getSubmissionDetail(submissionId: number): Promise<SubmissionDetail> {

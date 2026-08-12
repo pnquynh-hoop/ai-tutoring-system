@@ -10,21 +10,7 @@ from courses.models import (
     Lesson,
 )
 
-"""
-    Toàn bộ việc quyết định "user có được thực hiện hành động này không" nằm ở đây.
-
-    Quyền truy cập học liệu luôn được quy chiếu về Course chứa nó: học sinh phải có
-    Enrollment đang hoạt động, gia sư phải là tutor của khóa học. View và queryset
-    không tự kiểm tra quyền nữa - tới được view nghĩa là đã qua permission.
-"""
-
-
 def resolve_course(obj):
-    """Truy ngược một object bất kỳ trong cây học liệu về Course chứa nó.
-
-    Model không có trong danh sách dưới sẽ trả về None, tức là mặc định bị từ
-    chối quyền. Thêm model mới đi qua permission thì phải thêm nhánh ở đây.
-    """
     if isinstance(obj, Course):
         return obj
     if isinstance(obj, Chapter):
@@ -37,12 +23,10 @@ def resolve_course(obj):
         return obj.chapter.course
     if isinstance(obj, (Question, Submission)):
         return obj.assignment.chapter.course
-
     return None
 
 
 def is_enrolled(user, course) -> bool:
-    """Kiểm tra học sinh có Enrollment đang hoạt động trong khóa học không."""
     if course is None or not user.is_authenticated:
         return False
     return Enrollment.objects.filter(
@@ -89,8 +73,6 @@ class IsStudentOrTutor(BasePermission):
 
 
 class IsCourseMember(BasePermission):
-    """Cấp object: chỉ học sinh đã ghi danh, gia sư phụ trách mới xem được."""
-
     message = "Bạn không có quyền truy cập nội dung của khóa học này."
 
     def has_object_permission(self, request, view, obj):
@@ -98,8 +80,6 @@ class IsCourseMember(BasePermission):
 
 
 class IsCourseTutor(BasePermission):
-    """Cấp object: chỉ gia sư phụ trách khóa học mới được chỉnh sửa."""
-
     message = "Chỉ gia sư phụ trách khóa học mới được chỉnh sửa nội dung này."
 
     def has_object_permission(self, request, view, obj):
@@ -107,8 +87,6 @@ class IsCourseTutor(BasePermission):
 
 
 class IsCourseMemberOrTutorWrite(BasePermission):
-    """Cấp object: đọc cần là thành viên khóa học, ghi cần là gia sư phụ trách."""
-
     message = "Bạn không có quyền thao tác trên nội dung của khóa học này."
 
     def has_object_permission(self, request, view, obj):
@@ -119,8 +97,6 @@ class IsCourseMemberOrTutorWrite(BasePermission):
 
 
 class IsSubmissionOwnerOrCourseTutor(BasePermission):
-    """Cấp object: chỉ chủ nhân bài nộp hoặc gia sư phụ trách mới xem được."""
-
     message = "Bạn chỉ xem được bài nộp của chính mình."
 
     def has_object_permission(self, request, view, obj):
@@ -130,12 +106,6 @@ class IsSubmissionOwnerOrCourseTutor(BasePermission):
 
 
 def _resolve_parent(view, attr, source):
-    """Lấy object cha được nêu trong chính request (payload hoặc query param).
-
-    View khai báo ``read_parent_lookup`` / ``write_parent_lookup`` dạng
-    ``("tên_field", Model)``. Trả về None khi request không nêu object cha -
-    khi đó serializer sẽ trả 400 cho đúng ngữ nghĩa thay vì 403.
-    """
     lookup = getattr(view, attr, None)
     if not lookup:
         return None
@@ -152,12 +122,6 @@ def _resolve_parent(view, attr, source):
 
 
 class RelatedCoursePermission(BasePermission):
-    """Chặn dựa trên khóa học suy ra từ chính request, trước khi handler chạy.
-
-    Nhờ vậy các endpoint tạo mới (chưa có object để kiểm tra cấp object) vẫn được
-    chặn ở tầng permission chứ không phải trong serializer hay view.
-    """
-
     def check_course(self, user, course) -> bool:
         raise NotImplementedError
 

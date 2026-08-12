@@ -6,7 +6,7 @@ from model_bakery import baker
 
 from core.testing import auth_client
 
-from .models import Answer, Assignment, Question
+from assignments.models import Answer, Assignment, Question
 
 
 def due_date():
@@ -189,19 +189,19 @@ class TestQuestionCrud:
 
         assert response.status_code == 403
 
-    def test_student_cannot_list_questions_with_answers(
-        self, assignment, enrolled_student
-    ):
-        response = auth_client(enrolled_student).get(
-            f"/api/v1/questions/?assignment={assignment.pk}"
+    def test_tutor_question_list_shows_correct_answer(self, assignment, course):
+        client = auth_client(course.tutor)
+        client.post(
+            "/api/v1/questions/",
+            self.multiple_choice_payload(assignment),
+            format="json",
         )
 
-        assert response.status_code == 403
+        response = client.get(f"/api/v1/assignments/{assignment.pk}/questions/")
 
-    def test_list_requires_assignment_param(self, assignment, course):
-        response = auth_client(course.tutor).get("/api/v1/questions/")
-
-        assert response.status_code == 400
+        assert response.status_code == 200
+        assert "explanation" in response.data[0]
+        assert "is_correct" in response.data[0]["answers"][0]
 
     def test_student_question_list_hides_correct_answer(
         self, assignment, course, enrolled_student
@@ -240,19 +240,19 @@ class TestSubmissionListing:
         response = auth_client(other).get("/api/v1/submissions/")
 
         assert response.status_code == 200
-        assert response.data == []
+        assert response.data["results"] == []
 
     def test_tutor_sees_submissions_of_own_courses(self, submission, course):
         response = auth_client(course.tutor).get("/api/v1/submissions/")
 
         assert response.status_code == 200
-        assert [item["id"] for item in response.data] == [submission.pk]
+        assert [item["id"] for item in response.data["results"]] == [submission.pk]
 
     def test_tutor_does_not_see_other_course_submissions(self, submission, make_tutor):
         response = auth_client(make_tutor()).get("/api/v1/submissions/")
 
         assert response.status_code == 200
-        assert response.data == []
+        assert response.data["results"] == []
 
     def test_unsubmitted_attempt_is_hidden(self, assignment, enrolled_student, course):
         baker.make(
@@ -265,4 +265,4 @@ class TestSubmissionListing:
 
         response = auth_client(course.tutor).get("/api/v1/submissions/")
 
-        assert response.data == []
+        assert response.data["results"] == []

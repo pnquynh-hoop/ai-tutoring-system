@@ -121,6 +121,9 @@ class UserView(viewsets.ViewSet, generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response(
-            {"message": "Đổi mật khẩu thành công."}, status=status.HTTP_200_OK
+        response = Response(
+            {"message": "Đổi mật khẩu thành công, vui lòng đăng nhập lại."},
+            status=status.HTTP_200_OK,
         )
+        clear_auth_cookies(response)
+        return response

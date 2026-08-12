@@ -15,8 +15,16 @@ from assignments.serializers import (
     SubmissionDetailSerializer,
     SubmissionSerializer,
     SubmitAssignmentSerializer,
+    TutorSubmissionDetailSerializer,
+    TutorSubmissionSerializer,
 )
-from assignments.services import grade_submission, start_attempt, submit_assignment
+from assignments.services import (
+    grade_submission,
+    has_submissions,
+    start_attempt,
+    submit_assignment,
+)
+from core.paginators import ItemPaginator
 from core.permissions import (
     IsCourseMember,
     IsCourseTutor,
@@ -46,7 +54,7 @@ class AssignmentView(
             return [IsTutor(), IsRelatedCourseTutor(), IsCourseTutor()]
         if self.action in ("start", "submit"):
             return [IsStudent(), IsCourseMember()]
-        return [IsStudentOrTutor, IsCourseMember]
+        return [IsStudentOrTutor(), IsCourseMember()]
 
     def get_queryset(self):
         query = super().get_queryset().select_related("chapter__course")
@@ -62,6 +70,8 @@ class AssignmentView(
         if self.action in WRITE_ACTIONS:
             return AssignmentWriteSerializer
         if self.action == "get_questions":
+            if self.request.user.is_tutor:
+                return QuestionWriteSerializer
             return QuestionSerializer
         if self.action == "submit":
             return SubmitAssignmentSerializer
@@ -84,7 +94,6 @@ class AssignmentView(
 
     @action(methods=["post"], url_path="submit", detail=True)
     def submit(self, request, pk):
-        # Lấy object trước để permission chặn bằng 403 thay vì lộ lỗi payload 400.
         assignment = self.get_object()
 
         serializer = self.get_serializer(data=request.data)
@@ -96,94 +105,81 @@ class AssignmentView(
         )
 
         return Response(
-            SubmissionSerializer(
-                submission, context=self.get_serializer_context()
-            ).data,
+            SubmissionSerializer(submission).data,
             status=status.HTTP_201_CREATED,
         )
 
 
 class QuestionView(
     viewsets.ViewSet,
-    generics.ListAPIView,
     generics.RetrieveAPIView,
     generics.CreateAPIView,
     generics.UpdateAPIView,
     generics.DestroyAPIView,
 ):
-    """Soạn câu hỏi cho bài tập - chỉ gia sư phụ trách khóa học."""
-
     queryset = Question.objects.prefetch_related("answers")
     serializer_class = QuestionWriteSerializer
     permission_classes = [IsTutor, IsRelatedCourseTutor, IsCourseTutor]
-    read_parent_lookup = ("assignment", Assignment)
     write_parent_lookup = ("assignment", Assignment)
 
-    def list(self, request, *args, **kwargs):
-        # Bắt buộc chỉ rõ bài tập để permission có căn cứ chặn trước khi truy vấn.
-        assignment_id = request.query_params.get("assignment", "")
-        if not assignment_id.isdigit():
-            raise ValidationError(
-                {
-                    "assignment": "Bắt buộc truyền ?assignment=<id> để lấy danh sách câu hỏi."
-                }
-            )
-        return super().list(request, *args, **kwargs)
-
-    def get_queryset(self):
-        query = super().get_queryset()
-        if self.action == "list":
-            query = query.filter(
-                assignment_id=self.request.query_params.get("assignment")
-            )
-        return query
+    def perform_destroy(self, instance):
+        if has_submissions(instance.assignment):
+            raise ValidationError("Bài tập đã có bài nộp nên không xóa được câu hỏi.")
+        instance.delete()
 
 
 class SubmissionView(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
     queryset = Submission.objects.filter(submitted_at__isnull=False)
     serializer_class = SubmissionSerializer
-    permission_classes = [IsStudentOrTutor, IsSubmissionOwnerOrCourseTutor]
+    pagination_class = ItemPaginator
 
     def get_permissions(self):
         if self.action == "grade":
             return [IsTutor(), IsCourseTutor()]
-        return super().get_permissions()
+        return [IsStudentOrTutor(), IsSubmissionOwnerOrCourseTutor()]
 
     def get_serializer_class(self):
         if self.action == "grade":
             return GradeSubmissionSerializer
+
+        is_tutor = self.request.user.is_tutor
         if self.action == "retrieve":
-            return SubmissionDetailSerializer
-        return SubmissionSerializer
+            return (
+                TutorSubmissionDetailSerializer
+                if is_tutor
+                else SubmissionDetailSerializer
+            )
+        return TutorSubmissionSerializer if is_tutor else SubmissionSerializer
+
+    def int_param(self, name):
+        """Chỉ nhận query param dạng số, giá trị khác coi như không lọc."""
+        value = self.request.query_params.get(name)
+        return int(value) if value and value.isdigit() else None
 
     def get_queryset(self):
-        """Học sinh xem bài của mình, gia sư xem bài nộp trong khóa mình phụ trách."""
         user = self.request.user
-        query = (
-            super()
-            .get_queryset()
-            .select_related("assignment__chapter__course", "student")
-        )
+        query = super().get_queryset().select_related("assignment__chapter__course")
 
         if user.is_tutor:
+            query = query.select_related("student")
             query = query.filter(assignment__chapter__course__tutor=user)
-            assignment_id = self.request.query_params.get("assignment")
+            assignment_id = self.int_param("assignment")
             if assignment_id:
                 query = query.filter(assignment_id=assignment_id)
-            course_id = self.request.query_params.get("course")
+            course_id = self.int_param("course")
             if course_id:
                 query = query.filter(assignment__chapter__course_id=course_id)
         else:
             query = query.filter(student=user)
 
-        if self.action == "retrieve":
-            query = query.prefetch_related("stu_answers__question__answers")
-
-        return query.order_by("-submitted_at")
+        if self.action in ("retrieve", "grade"):
+            query = query.prefetch_related(
+                "stu_answers__question__answers", "stu_answers__answer"
+            )
+        return query
 
     @action(methods=["patch"], url_path="grade", detail=True)
     def grade(self, request, pk):
-        # Lấy object trước để permission chặn bằng 403 thay vì lộ lỗi payload 400.
         submission = self.get_object()
 
         serializer = self.get_serializer(data=request.data)
@@ -194,8 +190,6 @@ class SubmissionView(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
         )
 
         return Response(
-            SubmissionDetailSerializer(
-                graded, context=self.get_serializer_context()
-            ).data,
+            TutorSubmissionDetailSerializer(graded).data,
             status=status.HTTP_200_OK,
         )

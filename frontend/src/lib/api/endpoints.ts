@@ -42,8 +42,6 @@ export const ENDPOINTS = {
 
 	// Soạn câu hỏi (gia sư)
 	QUESTIONS_ADMIN: 'questions/',
-	QUESTIONS_BY_ASSIGNMENT: (assignmentId: string | number) =>
-		`questions/?assignment=${assignmentId}`,
 	QUESTION_DETAIL: (questionId: string | number) => `questions/${questionId}/`,
 
 	// Tài khoản

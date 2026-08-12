@@ -215,7 +215,7 @@ def _lessons_with_completion(student, include_drafts=False):
     )
 
 
-def get_course_tree(course_id, student, include_drafts=False):
+def get_course_tree(course, student, include_drafts=False):
     """Cây thư mục khóa học dùng cho sidebar, kèm tiến độ của học sinh đang đăng nhập."""
     chapters = Chapter.objects.filter(is_active=True)
     if not include_drafts:
@@ -227,7 +227,7 @@ def get_course_tree(course_id, student, include_drafts=False):
 
     return get_object_or_404(
         Course.objects.prefetch_related(Prefetch("chapters", queryset=chapters)),
-        pk=course_id,
+        pk=course.id,
         is_active=True,
     )
 

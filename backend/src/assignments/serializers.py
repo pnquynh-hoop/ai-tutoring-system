@@ -1,7 +1,7 @@
 from decimal import Decimal
-
 from django.db import transaction
 from django.db.models import Count, Max
+from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.serializers import SimpleUserSerializer
@@ -9,8 +9,17 @@ from assignments.models import Answer, Assignment, Question, StudentAnswer, Subm
 from assignments.services import (
     MAX_ATTEMPTS,
     count_submitted_attempts,
+    has_submissions,
     point_per_question,
 )
+
+MAX_TIME_LIMIT_MINUTES = 1440
+MAX_ANSWERS_PER_QUESTION = 10
+MAX_ANSWER_LENGTH = 1000
+MAX_QUESTION_LENGTH = 5000
+MAX_ANSWER_TEXT_LENGTH = 10000
+MAX_TUTOR_COMMENT_LENGTH = 2000
+MAX_ITEMS_PER_REQUEST = 200
 
 
 class AssignmentDetailSerializer(serializers.ModelSerializer):
@@ -40,7 +49,6 @@ class AssignmentDetailSerializer(serializers.ModelSerializer):
         model = Assignment
         fields = [
             "id",
-            "chapter",
             "title",
             "time_limit_minutes",
             "due_date",
@@ -56,6 +64,19 @@ class AssignmentWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Assignment
         fields = ["id", "chapter", "title", "due_date", "time_limit_minutes"]
+        extra_kwargs = {
+            "time_limit_minutes": {
+                "min_value": 1,
+                "max_value": MAX_TIME_LIMIT_MINUTES,
+            },
+        }
+
+    def validate_due_date(self, due_date):
+        if due_date <= timezone.now():
+            raise serializers.ValidationError(
+                "Hạn nộp phải sau thời điểm hiện tại."
+            )
+        return due_date
 
 
 class AnswerSerializer(serializers.ModelSerializer):
@@ -77,6 +98,7 @@ class AnswerWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Answer
         fields = ["id", "content", "is_correct"]
+        extra_kwargs = {"content": {"max_length": MAX_ANSWER_LENGTH}}
 
 
 class QuestionWriteSerializer(serializers.ModelSerializer):
@@ -94,6 +116,17 @@ class QuestionWriteSerializer(serializers.ModelSerializer):
             "order",
             "answers",
         ]
+        extra_kwargs = {
+            "content": {"max_length": MAX_QUESTION_LENGTH},
+            "explanation": {"max_length": MAX_QUESTION_LENGTH},
+        }
+
+    def validate_answers(self, answers):
+        if len(answers) > MAX_ANSWERS_PER_QUESTION:
+            raise serializers.ValidationError(
+                f"Mỗi câu hỏi chỉ có tối đa {MAX_ANSWERS_PER_QUESTION} phương án."
+            )
+        return answers
 
     def validate(self, attrs):
         question_type = attrs.get(
@@ -106,6 +139,11 @@ class QuestionWriteSerializer(serializers.ModelSerializer):
 
         if answers is None:
             return attrs
+
+        if self.instance and has_submissions(self.instance.assignment):
+            raise serializers.ValidationError(
+                {"answers": "Bài tập đã có bài nộp nên không sửa được phương án."}
+            )
 
         correct_count = sum(1 for answer in answers if answer.get("is_correct"))
 
@@ -178,14 +216,26 @@ class SubmitAnswerItemSerializer(serializers.Serializer):
     question_id = serializers.IntegerField()
     answer_id = serializers.IntegerField(required=False, allow_null=True)
     answer_text = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=MAX_ANSWER_TEXT_LENGTH,
     )
 
 
-class SubmitAssignmentSerializer(serializers.Serializer):
-    """Dữ liệu bài nộp của học sinh. Nghiệp vụ chấm nằm ở ``services``."""
+def validate_item_count(items):
+    if len(items) > MAX_ITEMS_PER_REQUEST:
+        raise serializers.ValidationError(
+            f"Mỗi lần gửi tối đa {MAX_ITEMS_PER_REQUEST} câu."
+        )
+    return items
 
+
+class SubmitAssignmentSerializer(serializers.Serializer):
     answers = SubmitAnswerItemSerializer(many=True)
+
+    def validate_answers(self, answers):
+        return validate_item_count(answers)
 
 
 class SubmissionSerializer(serializers.ModelSerializer):
@@ -196,7 +246,6 @@ class SubmissionSerializer(serializers.ModelSerializer):
     course_name = serializers.CharField(
         source="assignment.chapter.course.name", read_only=True
     )
-    student = SimpleUserSerializer(read_only=True)
 
     class Meta:
         model = Submission
@@ -206,11 +255,17 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "assignment_title",
             "chapter_title",
             "course_name",
-            "student",
             "score",
             "started_at",
             "submitted_at",
         ]
+
+
+class TutorSubmissionSerializer(SubmissionSerializer):
+    student = SimpleUserSerializer(read_only=True)
+
+    class Meta(SubmissionSerializer.Meta):
+        fields = SubmissionSerializer.Meta.fields + ["student"]
 
 
 class AttemptSerializer(serializers.ModelSerializer):
@@ -225,8 +280,6 @@ class AttemptSerializer(serializers.ModelSerializer):
 
 
 class StudentAnswerSerializer(serializers.ModelSerializer):
-    """Một câu trả lời trong bài nộp, kèm dữ liệu cần cho màn xem lại và chấm bài."""
-
     question_content = serializers.CharField(source="question.content", read_only=True)
     question_type = serializers.CharField(
         source="question.question_type", read_only=True
@@ -237,6 +290,15 @@ class StudentAnswerSerializer(serializers.ModelSerializer):
     )
     correct_answer = serializers.SerializerMethodField()
     is_correct = serializers.SerializerMethodField()
+
+    def get_correct_answer(self, obj) -> str | None:
+        correct = next((a for a in obj.question.answers.all() if a.is_correct), None)
+        return correct.content if correct else None
+
+    def get_is_correct(self, obj) -> bool | None:
+        if obj.point is None:
+            return None
+        return obj.point > 0
 
     class Meta:
         model = StudentAnswer
@@ -255,20 +317,13 @@ class StudentAnswerSerializer(serializers.ModelSerializer):
             "is_correct",
         ]
 
-    def get_correct_answer(self, obj) -> str | None:
-        correct = next((a for a in obj.question.answers.all() if a.is_correct), None)
-        return correct.content if correct else None
-
-    def get_is_correct(self, obj) -> bool | None:
-        """None nghĩa là câu tự luận chưa được gia sư chấm."""
-        if obj.point is None:
-            return None
-        return obj.point > 0
-
 
 class SubmissionDetailSerializer(SubmissionSerializer):
     stu_answers = StudentAnswerSerializer(many=True, read_only=True)
     point_per_question = serializers.SerializerMethodField()
+
+    def get_point_per_question(self, obj) -> float:
+        return float(point_per_question(obj.assignment.questions.count()))
 
     class Meta(SubmissionSerializer.Meta):
         fields = SubmissionSerializer.Meta.fields + [
@@ -276,9 +331,12 @@ class SubmissionDetailSerializer(SubmissionSerializer):
             "stu_answers",
         ]
 
-    def get_point_per_question(self, obj) -> float:
-        """Điểm tối đa mỗi câu, dùng làm trần khi gia sư chấm tay."""
-        return float(point_per_question(obj.assignment))
+
+class TutorSubmissionDetailSerializer(SubmissionDetailSerializer):
+    student = SimpleUserSerializer(read_only=True)
+
+    class Meta(SubmissionDetailSerializer.Meta):
+        fields = SubmissionDetailSerializer.Meta.fields + ["student"]
 
 
 class GradeAnswerItemSerializer(serializers.Serializer):
@@ -287,11 +345,15 @@ class GradeAnswerItemSerializer(serializers.Serializer):
         max_digits=4, decimal_places=2, min_value=Decimal("0")
     )
     tutor_comment = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=MAX_TUTOR_COMMENT_LENGTH,
     )
 
 
 class GradeSubmissionSerializer(serializers.Serializer):
-    """Điểm gia sư chấm tay. Nghiệp vụ cộng điểm nằm ở ``services``."""
-
     answers = GradeAnswerItemSerializer(many=True)
+
+    def validate_answers(self, answers):
+        return validate_item_count(answers)

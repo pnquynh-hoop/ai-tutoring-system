@@ -1,28 +1,17 @@
 import os
 from functools import lru_cache
-
 import chromadb
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
-"""
-    Khởi tạo lazy (singleton) cho embedding model, Chroma và LLM.
-
-    Việc khởi tạo chỉ chạy ở lần gọi đầu tiên nên import module này không làm
-    chậm quá trình khởi động Django, và toàn hệ thống chỉ dùng chung một
-    PersistentClient trỏ vào cùng thư mục Chroma.
-"""
-
 COLLECTION_NAME = "learning_materials"
-# Tên model đọc từ env để đổi được khi Google ngừng hỗ trợ phiên bản cũ
-# (text-embedding-004 và gemini-1.5-flash đã bị gỡ khỏi API).
 EMBEDDING_MODEL = os.environ.get(
     "GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-001"
 )
-# Dùng alias "-latest" để không phải sửa code mỗi lần Google khai tử một phiên bản.
 LLM_MODEL = os.environ.get("GEMINI_LLM_MODEL", "gemini-flash-latest")
+OCR_MODEL = os.environ.get("GEMINI_OCR_MODEL", LLM_MODEL)
 
 
 def _google_api_key() -> str:
@@ -54,5 +43,12 @@ def get_vector_store():
 @lru_cache(maxsize=1)
 def get_llm():
     return ChatGoogleGenerativeAI(
-        model=LLM_MODEL, google_api_key=_google_api_key(), temperature=0.3
+        model=LLM_MODEL, google_api_key=_google_api_key(), temperature=0.2
+    )
+
+
+@lru_cache(maxsize=1)
+def get_ocr_llm():
+    return ChatGoogleGenerativeAI(
+        model=OCR_MODEL, google_api_key=_google_api_key(), temperature=0
     )

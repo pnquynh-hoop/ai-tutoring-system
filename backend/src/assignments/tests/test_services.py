@@ -6,8 +6,8 @@ from django.utils import timezone
 from model_bakery import baker
 from rest_framework.exceptions import ValidationError
 
-from .models import Question, Submission
-from .services import (
+from assignments.models import Question, Submission
+from assignments.services import (
     MAX_ATTEMPTS,
     count_submitted_attempts,
     start_attempt,
@@ -16,6 +16,7 @@ from .services import (
 
 
 def run_submit(student, answers, assignment):
+    start_attempt(student=student, assignment=assignment)
     return submit_assignment(student=student, assignment=assignment, answers=answers)
 
 
@@ -213,10 +214,10 @@ class TestSubmitAssignment:
         )
 
         with pytest.raises(ValidationError):
-            run_submit(
-                student,
-                [{"question_id": question.id, "answer_id": right.id}],
-                assignment,
+            submit_assignment(
+                student=student,
+                assignment=assignment,
+                answers=[{"question_id": question.id, "answer_id": right.id}],
             )
 
     # ---------- CASE 12: còn trong thời gian làm bài ----------
@@ -233,8 +234,10 @@ class TestSubmitAssignment:
             started_at=timezone.now() - timedelta(minutes=5),
         )
 
-        submission = run_submit(
-            student, [{"question_id": question.id, "answer_id": right.id}], assignment
+        submission = submit_assignment(
+            student=student,
+            assignment=assignment,
+            answers=[{"question_id": question.id, "answer_id": right.id}],
         )
 
         assert submission.id == attempt.id
@@ -303,3 +306,41 @@ class TestSubmitAssignment:
 
         assert submission.score == Decimal("10.0")
         assert count_submitted_attempts(other_student, assignment) == 1
+
+    # ---------- CASE 18: chưa start thì không được nộp ----------
+    def test_submit_without_start_raises(self, student, assignment):
+        question, right, _ = self.make_choice_question(assignment, 1)
+
+        with pytest.raises(ValidationError):
+            submit_assignment(
+                student=student,
+                assignment=assignment,
+                answers=[{"question_id": question.id, "answer_id": right.id}],
+            )
+
+        assert not Submission.objects.filter(
+            assignment=assignment, student=student
+        ).exists()
+
+    # ---------- CASE 19: lượt dở dang hết giờ thì đóng lại và mở lượt mới ----------
+    def test_start_closes_expired_attempt_and_opens_new_one(self, student):
+        assignment = baker.make(
+            "assignments.Assignment",
+            due_date=timezone.now() + timedelta(days=1),
+            time_limit_minutes=30,
+        )
+        self.make_choice_question(assignment, 1)
+        expired = Submission.objects.create(
+            assignment=assignment,
+            student=student,
+            started_at=timezone.now() - timedelta(minutes=31),
+        )
+
+        attempt = run_start(student, assignment)
+
+        expired.refresh_from_db()
+        assert attempt.id != expired.id
+        assert attempt.submitted_at is None
+        assert expired.submitted_at == expired.deadline
+        assert expired.score == Decimal("0.0")
+        assert count_submitted_attempts(student, assignment) == 1

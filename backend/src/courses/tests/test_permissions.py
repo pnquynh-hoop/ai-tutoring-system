@@ -2,7 +2,7 @@ import pytest
 from model_bakery import baker
 from rest_framework.test import APIClient
 
-from core.testing import auth_client
+from core.testing import auth_client, make_published
 
 
 @pytest.mark.django_db
@@ -100,19 +100,11 @@ class TestContentWritePermissions:
 
 @pytest.mark.django_db
 class TestResourcePermissions:
-    def test_list_requires_lesson_param(self, lesson, make_student):
-        student = make_student()
-        baker.make("courses.Enrollment", course=lesson.chapter.course, student=student)
-
-        response = auth_client(student).get("/api/v1/resources/")
-
-        assert response.status_code == 400
-
     def test_outsider_cannot_list_lesson_resources(self, lesson, make_student):
-        baker.make("courses.LearningResource", lesson=lesson)
+        make_published("courses.LearningResource", lesson=lesson)
 
         response = auth_client(make_student()).get(
-            f"/api/v1/resources/?lesson={lesson.pk}"
+            f"/api/v1/lessons/{lesson.pk}/resources/"
         )
 
         assert response.status_code == 403
@@ -120,12 +112,45 @@ class TestResourcePermissions:
     def test_enrolled_student_can_list_lesson_resources(self, lesson, make_student):
         student = make_student()
         baker.make("courses.Enrollment", course=lesson.chapter.course, student=student)
-        baker.make("courses.LearningResource", lesson=lesson)
+        make_published("courses.LearningResource", lesson=lesson)
 
-        response = auth_client(student).get(f"/api/v1/resources/?lesson={lesson.pk}")
+        response = auth_client(student).get(f"/api/v1/lessons/{lesson.pk}/resources/")
 
         assert response.status_code == 200
         assert len(response.data) == 1
+
+    def test_student_does_not_see_draft_resources(self, lesson, make_student):
+        student = make_student()
+        baker.make("courses.Enrollment", course=lesson.chapter.course, student=student)
+        make_published("courses.LearningResource", lesson=lesson)
+        baker.make("courses.LearningResource", lesson=lesson, published_at=None)
+
+        response = auth_client(student).get(f"/api/v1/lessons/{lesson.pk}/resources/")
+
+        assert response.status_code == 200
+        assert len(response.data) == 1
+
+    def test_lesson_detail_hides_draft_resources(self, lesson, make_student):
+        student = make_student()
+        baker.make("courses.Enrollment", course=lesson.chapter.course, student=student)
+        make_published("courses.LearningResource", lesson=lesson)
+        baker.make("courses.LearningResource", lesson=lesson, published_at=None)
+
+        response = auth_client(student).get(f"/api/v1/lessons/{lesson.pk}/")
+
+        assert response.status_code == 200
+        assert len(response.data["resources"]) == 1
+
+    def test_tutor_sees_draft_resources(self, lesson):
+        make_published("courses.LearningResource", lesson=lesson)
+        baker.make("courses.LearningResource", lesson=lesson, published_at=None)
+
+        response = auth_client(lesson.chapter.course.tutor).get(
+            f"/api/v1/lessons/{lesson.pk}/resources/"
+        )
+
+        assert response.status_code == 200
+        assert len(response.data) == 2
 
     def test_student_cannot_create_resource(self, lesson, make_student):
         student = make_student()
@@ -185,7 +210,7 @@ class TestCommentPermissions:
 class TestAssignmentPermissions:
     @pytest.fixture
     def assignment(self, lesson):
-        return baker.make("assignments.Assignment", chapter=lesson.chapter)
+        return make_published("assignments.Assignment", chapter=lesson.chapter)
 
     def test_outsider_cannot_read_assignment(self, assignment, make_student):
         response = auth_client(make_student()).get(

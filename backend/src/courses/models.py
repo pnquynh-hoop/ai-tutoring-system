@@ -1,5 +1,5 @@
 from django.db import models
-from core.models import BaseModel, PublishableModel
+from core.models import BaseModel, PublishableModel, RAGIndexedModel
 from unidecode import unidecode
 from cloudinary.models import CloudinaryField
 from django.utils.text import slugify
@@ -110,7 +110,7 @@ def resource_upload_path(instance):
     return f"tutoring_center/resources/{course_name}/{chapter_title}/{lesson_title}"
 
 
-class LearningResource(BaseModel, PublishableModel):
+class LearningResource(BaseModel, PublishableModel, RAGIndexedModel):
     class ResourceType(models.TextChoices):
         VIDEO_URL = "VIDEO_URL", "Video URL"
         PDF_FILE = "PDF_FILE", "PDF File"
@@ -135,7 +135,6 @@ class LearningResource(BaseModel, PublishableModel):
         blank=True,
     )
     video_url = models.CharField(max_length=255, null=True, blank=True)
-    is_rag_indexed = models.BooleanField("Đã RAG", default=False)
 
     class Meta:
         constraints = [

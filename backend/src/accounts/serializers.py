@@ -9,7 +9,9 @@ from rest_framework_simplejwt.serializers import (
 )
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import AccessToken
+from core.validators import validate_image_upload, validate_phone
 from .models import StudentProfile, TutorProfile, User
+from .utils import blacklist_user_tokens
 
 
 def build_token_claims(user) -> dict:
@@ -140,6 +142,13 @@ class UpdateMeSerializer(serializers.ModelSerializer):
             "student_profile",
         ]
 
+    def validate_avatar(self, avatar):
+        return validate_image_upload(avatar)
+
+    def validate_phone(self, phone):
+        validate_phone(phone)
+        return phone
+
     @transaction.atomic
     def update(self, instance, validated_data):
         student_data = validated_data.pop("studentprofile", None)
@@ -184,4 +193,5 @@ class ChangePasswordSerializer(serializers.Serializer):
         user = self.context["request"].user
         user.set_password(self.validated_data["new_password"])
         user.save(update_fields=["password"])
+        blacklist_user_tokens(user)
         return user

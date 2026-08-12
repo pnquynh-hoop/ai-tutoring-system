@@ -5,6 +5,8 @@ from django.contrib.auth.models import Group
 from django.utils import timezone
 from model_bakery import baker
 
+from core.testing import make_published
+
 """
     Fixture dùng chung cho toàn bộ test: dựng sẵn nhóm quyền, gia sư, học sinh
     và một khóa học có chương/bài học để các app không phải lặp lại.
@@ -58,12 +60,12 @@ def course(tutor):
 
 @pytest.fixture
 def chapter(course):
-    return baker.make("courses.Chapter", course=course, order=1)
+    return make_published("courses.Chapter", course=course, order=1)
 
 
 @pytest.fixture
 def lesson(chapter):
-    return baker.make("courses.Lesson", chapter=chapter, order=1)
+    return make_published("courses.Lesson", chapter=chapter, order=1)
 
 
 @pytest.fixture
@@ -76,7 +78,7 @@ def enrolled_student(course, make_student):
 
 @pytest.fixture
 def assignment(chapter):
-    return baker.make(
+    return make_published(
         "assignments.Assignment",
         chapter=chapter,
         due_date=timezone.now() + timedelta(days=1),

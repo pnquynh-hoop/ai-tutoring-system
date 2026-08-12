@@ -7,7 +7,7 @@ from model_bakery import baker
 
 from core.testing import auth_client
 
-from .services import get_course_tutor_stats, mark_lesson_completed
+from courses.services import get_course_tutor_stats, mark_lesson_completed
 
 
 @pytest.fixture

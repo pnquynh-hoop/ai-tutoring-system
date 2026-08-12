@@ -1,4 +1,8 @@
 from django.conf import settings
+from rest_framework_simplejwt.token_blacklist.models import (
+    BlacklistedToken,
+    OutstandingToken,
+)
 
 
 def set_auth_cookies(response, access_token, refresh_token):
@@ -28,6 +32,12 @@ def set_auth_cookies(response, access_token, refresh_token):
 def remove_tokens(response):
     response.data.pop("access", None)
     response.data.pop("refresh", None)
+
+
+def blacklist_user_tokens(user):
+    """Thu hồi mọi refresh token còn hiệu lực của user."""
+    for token in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=token)
 
 
 def clear_auth_cookies(response):

@@ -4,8 +4,10 @@ import pytest
 from django.utils import timezone
 from model_bakery import baker
 
-from .models import Course, LessonProgress
-from .services import (
+from core.testing import make_published
+
+from courses.models import Course, LessonProgress
+from courses.services import (
     get_chapter_stats,
     get_course_overview,
     get_course_tree,
@@ -33,9 +35,9 @@ class TestCourseStatServices:
         return course
 
     def make_chapter_with_lessons(self, course, order, lesson_count):
-        chapter = baker.make("courses.Chapter", course=course, order=order)
+        chapter = make_published("courses.Chapter", course=course, order=order)
         return chapter, [
-            baker.make("courses.Lesson", chapter=chapter, order=i)
+            make_published("courses.Lesson", chapter=chapter, order=i)
             for i in range(1, lesson_count + 1)
         ]
 
@@ -43,7 +45,7 @@ class TestCourseStatServices:
     def test_course_overview_counts_progress_and_pending(self, course, student):
         _, lessons = self.make_chapter_with_lessons(course, 1, 4)
         mark_lesson_completed(student, lessons[0])
-        baker.make(
+        make_published(
             "assignments.Assignment",
             chapter=lessons[0].chapter,
             due_date=timezone.now() + timedelta(days=1),
@@ -70,7 +72,7 @@ class TestCourseStatServices:
     def test_chapter_stats_returns_per_chapter_numbers(self, course, student):
         chapter, lessons = self.make_chapter_with_lessons(course, 1, 3)
         mark_lesson_completed(student, lessons[0])
-        baker.make(
+        make_published(
             "assignments.Assignment",
             chapter=chapter,
             due_date=timezone.now() + timedelta(days=1),
@@ -87,7 +89,7 @@ class TestCourseStatServices:
 
     def test_chapter_stats_marks_submitted_assignment_as_done(self, course, student):
         chapter, _ = self.make_chapter_with_lessons(course, 1, 1)
-        assignment = baker.make(
+        assignment = make_published(
             "assignments.Assignment",
             chapter=chapter,
             due_date=timezone.now() + timedelta(days=1),
@@ -128,7 +130,7 @@ class TestCourseStatServices:
         _, lessons = self.make_chapter_with_lessons(course, 1, 2)
         mark_lesson_completed(student, lessons[0])
 
-        tree = get_course_tree(course_id=course.id, student=student)
+        tree = get_course_tree(course=course, student=student)
         tree_lessons = list(tree.chapters.all()[0].lessons.all())
 
         assert [lesson.is_completed for lesson in tree_lessons] == [True, False]
@@ -137,7 +139,7 @@ class TestCourseStatServices:
     def test_student_quick_stats(self, course, student):
         _, lessons = self.make_chapter_with_lessons(course, 1, 2)
         mark_lesson_completed(student, lessons[0])
-        baker.make(
+        make_published(
             "assignments.Assignment",
             chapter=lessons[0].chapter,
             due_date=timezone.now() + timedelta(days=1),
@@ -194,7 +196,7 @@ class TestCourseStatServices:
 
     def test_tutor_quick_stats(self, course, tutor, student):
         chapter, _ = self.make_chapter_with_lessons(course, 1, 1)
-        assignment = baker.make(
+        assignment = make_published(
             "assignments.Assignment",
             chapter=chapter,
             due_date=timezone.now() + timedelta(days=1),
@@ -217,7 +219,7 @@ class TestCourseStatServices:
         self, course, tutor, student
     ):
         chapter, _ = self.make_chapter_with_lessons(course, 1, 1)
-        assignment = baker.make(
+        assignment = make_published(
             "assignments.Assignment",
             chapter=chapter,
             due_date=timezone.now() + timedelta(days=1),
@@ -236,7 +238,7 @@ class TestCourseStatServices:
     # ---------- tutor course list ----------
     def test_get_tutor_courses_annotations(self, course, tutor, student):
         chapter, _ = self.make_chapter_with_lessons(course, 1, 3)
-        assignment = baker.make(
+        assignment = make_published(
             "assignments.Assignment",
             chapter=chapter,
             due_date=timezone.now() + timedelta(days=1),

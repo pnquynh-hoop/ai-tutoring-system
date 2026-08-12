@@ -6,14 +6,14 @@ from langchain_core.documents import Document
 
 from core.testing import auth_client
 
-from .ingest import (
+from AI.ingest import (
     SOURCE_TEXTBOOK,
     document_id,
     local_pdf_paths,
     select_new,
     textbook_metadata,
 )
-from .rag_service import (
+from AI.rag_service import (
     OUTSIDE_MATERIAL_PREFIX,
     TEXTBOOK_SOURCE_TYPE,
     _build_chroma_filter,
@@ -227,8 +227,29 @@ class TestRagApiPermissions:
 
         assert response.status_code == 403
 
-    def test_student_cannot_generate_exercises(self, course, enrolled_student):
-        response = auth_client(enrolled_student).post(
+    def test_student_not_enrolled_cannot_generate_exercises(
+        self, course, make_student
+    ):
+        response = auth_client(make_student()).post(
+            "/api/v1/rag/generate-exercises/",
+            {"course_id": course.pk},
+            format="json",
+        )
+
+        assert response.status_code == 403
+
+    def test_tutor_cannot_ask(self, course, tutor):
+        # Tính năng AI hiện chỉ mở cho học sinh, kể cả gia sư phụ trách khóa.
+        response = auth_client(tutor).post(
+            "/api/v1/rag/ask/",
+            {"question": "Bài này nói gì?", "course_id": course.pk},
+            format="json",
+        )
+
+        assert response.status_code == 403
+
+    def test_tutor_cannot_generate_exercises(self, course, tutor):
+        response = auth_client(tutor).post(
             "/api/v1/rag/generate-exercises/",
             {"course_id": course.pk},
             format="json",

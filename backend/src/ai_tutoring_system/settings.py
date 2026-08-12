@@ -165,15 +165,19 @@ cloudinary.config(
 
 AUTH_USER_MODEL = "accounts.User"
 
-# Thư mục lưu vector store của ChromaDB (mặc định nằm cạnh thư mục src).
 CHROMA_DB_PATH = os.environ.get("CHROMA_DB_PATH", str(BASE_DIR.parent / "chroma_db"))
 
 RAG_DATA_DIR = Path(os.environ.get("RAG_DATA_DIR", BASE_DIR.parent / "data"))
 RAG_DATA_PATTERN = os.environ.get("RAG_DATA_PATTERN", "*.pdf")
 
-# Cho phép trợ lý trả lời bằng kiến thức chung khi tài liệu không có thông tin.
-# Câu trả lời dạng này luôn được gắn nhãn để học sinh biết nó nằm ngoài giáo trình.
-# Đặt "False" nếu muốn siết lại, chỉ trả lời đúng những gì có trong tài liệu.
+RAG_CACHE_DIR = Path(os.environ.get("RAG_CACHE_DIR", BASE_DIR.parent / "rag_cache"))
+
+RAG_OCR_ENABLED = (
+    os.environ.get("RAG_OCR_ENABLED", "False").strip().lower() == "true"
+)
+RAG_OCR_DPI = int(os.environ.get("RAG_OCR_DPI", 150))
+RAG_OCR_RPM = int(os.environ.get("RAG_OCR_RPM", 10))
+
 RAG_ALLOW_GENERAL_KNOWLEDGE = (
     os.environ.get("RAG_ALLOW_GENERAL_KNOWLEDGE", "True").strip().lower() == "true"
 )
@@ -199,7 +203,6 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        # Giới hạn riêng cho các endpoint gọi LLM (tốn chi phí).
         "ai": os.environ.get("AI_THROTTLE_RATE", "30/hour"),
     },
 }

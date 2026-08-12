@@ -120,10 +120,10 @@ describe('làm bài và nộp bài', () => {
 });
 
 describe('soạn câu hỏi và chấm bài', () => {
-	it('lấy câu hỏi cho gia sư kèm ?assignment=', async () => {
+	it('lấy câu hỏi cho gia sư qua route lồng theo bài tập', async () => {
 		await getTutorQuestions(3);
 
-		expect(get).toHaveBeenCalledWith('questions/?assignment=3');
+		expect(get).toHaveBeenCalledWith('assignments/3/questions/');
 	});
 
 	it('tạo câu hỏi gửi kèm mảng answers lồng bên trong', async () => {

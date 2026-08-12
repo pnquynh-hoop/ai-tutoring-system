@@ -1,0 +1,1311 @@
+SO SÁNH TẦNG LÀM SẠCH TRÊN HAI NGUỒN NẠP DỮ LIỆU
+Hàm dùng: clean_pages() -> clean_markdown() -> _markdown_splitter()
+
+##############################################################################
+# NGUỒN OCR: SGK_Tieng_anh_12_global_success-part-1.pdf
+##############################################################################
+Số trang            : 49
+Ký tự trước / sau   : 100919 -> 100092 (-0.8%)
+Trang bị rỗng sau khi dọn: 0
+Dòng bị bỏ          : 97
+Dòng lặp qua trang bị bỏ : 0
+Số chunk sau khi cắt: 140
+Ví dụ id chunk      : textbook:SGK_Tieng_anh_12_global_success-part-1.pdf:1:0
+
+Dấu hiệu cấu trúc giữ được:
+  loại                trước      sau    chênh
+  tiêu đề               187      187    +0.0%
+  dòng bảng             203      203    +0.0%
+  bullet                 63       63    +0.0%
+  IPA                    27       27    +0.0%
+  chỗ điền ___          161      161    +0.0%
+  thẻ HTML              139        0  -100.0%
+
+15 dòng bị bỏ nhiều nhất:
+    2x  HOÀNG VĂN VÂN (Tổng Chủ biên) – VŨ HẢI HÀ (Chủ biên)
+    1x  2
+    1x  3
+    1x  | **Unit 1:**<br><br>LIFE STORIES WE ADMIRE<br><br>*Pages 8-19* | Diphthongs /eɪ/ and /əʊ/
+    1x  | **Unit 2:**<br><br>A MULTICULTURAL WORLD<br><br>*Pages 20-31* | Diphthongs /ɔɪ/, /aɪ/, a
+    1x  | **Unit 3:**<br><br>GREEN LIVING<br><br>*Pages 32-43* | Diphthongs /ɪə/, /eə/, and /ʊə/ *
+    1x  | **Unit 4:**<br><br>URBANISATION<br><br>*Pages 48-59* | Unstressed words in connected spe
+    1x  | **Unit 5:**<br><br>THE WORLD OF WORK<br><br>*Pages 60-71* | Stressing auxiliary and moda
+    1x  4
+    1x  5
+    1x  | **Unit 6:**<br><br>**ARTIFICIAL INTELLIGENCE**<br><br>*Pages 76-87* | Homophones<br>_p. 
+    1x  | **Unit 7:**<br><br>**THE WORLD OF MASS MEDIA**<br><br>*Pages 88-99* | Linking /r/ betwee
+    1x  | **Unit 8:**<br><br>**WILDLIFE CONSERVATION**<br><br>*Pages 100-111* | Assimilation _p. 1
+    1x  | **Unit 9:**<br><br>**CAREER PATHS**<br><br>*Pages 116-127* | Sentence stress and rhythm 
+    1x  | **Unit 10:**<br><br>**LIFELONG LEARNING**<br><br>*Pages 128-139* | Intonation in questio
+
+==============================================================================
+TRANG 24 - bỏ 13 dòng, 2423 -> 2384 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+# Vocabulary
+## Cultural diversity
+
+**1 Match the words with their meanings.**
+
+1 origin (n) | a the state of being liked or supported by many people
+--- | ---
+2 popularity (n) | b the activities that are organised to celebrate a special event
+3 identity (n) | c the moment or place where something starts to exist
+4 festivities (n) | d a general direction in which a situation is changing
+5 trend (n) | e the characteristics or beliefs that make people different from others
+
+**2 Complete the sentences using the correct forms of the words in 1.**
+
+1. Language is considered the most important feature of a nation's \_\_\_\_\_\_\_\_\_\_\_\_\_.
+2. Most New Year's \_\_\_\_\_\_\_\_\_\_\_\_\_ begin on 31 December.
+3. The \_\_\_\_\_\_\_\_\_\_\_\_\_ of that custom is still a mystery to local people.
+4. This article discusses current \_\_\_\_\_\_\_\_\_\_\_\_\_ in fashion styles among young people.
+5. The \_\_\_\_\_\_\_\_\_\_\_\_\_ of cycling among young people has increased.
+
+# Grammar
+## Articles (review and extension)
+
+> ## Remember!
+> 
+> There are two types of articles in English: indefinite (*a/an*) and definite (*the*).
+> • We use the indefinite articles *a* and *an* before singular, countable nouns when the reader or the listener does not know which one we are referring to.
+>   *Example: I want to buy **a** souvenir.*
+> • We use the definite article *the* before singular or plural nouns when we think that the reader or the listener knows what we are referring to because of the follow
+--- SAU KHI DỌN -------------------------------------------------------------
+# Vocabulary
+## Cultural diversity
+
+**1 Match the words with their meanings.**
+
+1 origin (n) | a the state of being liked or supported by many people
+--- | ---
+2 popularity (n) | b the activities that are organised to celebrate a special event
+3 identity (n) | c the moment or place where something starts to exist
+4 festivities (n) | d a general direction in which a situation is changing
+5 trend (n) | e the characteristics or beliefs that make people different from others
+
+**2 Complete the sentences using the correct forms of the words in 1.**
+
+1. Language is considered the most important feature of a nation's \_\_\_\_\_\_\_\_\_\_\_\_\_.
+2. Most New Year's \_\_\_\_\_\_\_\_\_\_\_\_\_ begin on 31 December.
+3. The \_\_\_\_\_\_\_\_\_\_\_\_\_ of that custom is still a mystery to local people.
+4. This article discusses current \_\_\_\_\_\_\_\_\_\_\_\_\_ in fashion styles among young people.
+5. The \_\_\_\_\_\_\_\_\_\_\_\_\_ of cycling among young people has increased.
+
+# Grammar
+## Articles (review and extension)
+
+> ## Remember!
+>
+> There are two types of articles in English: indefinite (*a/an*) and definite (*the*).
+> • We use the indefinite articles *a* and *an* before singular, countable nouns when the reader or the listener does not know which one we are referring to.
+> *Example: I want to buy **a** souvenir.*
+> • We use the definite article *the* before singular or plural nouns when we think that the reader or the listener knows what we are referring to because of the following
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  >   *Example: I want to buy **a** souvenir.*
+  >   - there is only one in general or only one in that context.
+  >     *Example: **The** sun rises in **the** east.*
+  >   - it has already been mentioned.
+  >     *Example: A boy lost a watch. A woman found **the** watch and returned it to **the**
+  >   - we refer to a musical instrument.
+  >     *Example: I'm learning to play **the** piano.*
+  >   - countries whose names include words like *kingdom* or *state*, or countries which ha
+  >     *Example: **the** UK (**the** United Kingdom), **the** US (**the** United States of 
+  >   - oceans, seas, mountain ranges, etc.
+  >     *Example: **The** Pacific is the largest of all oceans.*
+  >   *Example: Tigers are endangered animals.*
+  22
+
+==============================================================================
+TRANG 20 - bỏ 9 dòng, 4513 -> 4368 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+| | Cleopatra VII | Elizabeth I | Catherine II |
+| --- | --- | --- | --- |
+| **Country** | Egypt | (1) ________ | (2) ________ |
+| **Years of being queen** | (3) ________ | 45 | (4) ________ |
+| **Characteristics** | determined, intelligent | determined, intelligent | intelligent, ambitious |
+| **Achievements** | (5) ________ | (6) ________ | expanded the Russian Empire; improved education for children and women; encouraged great developments in architecture, trade, and culture |
+
+## 2 Work in groups. Discuss the questions.
+*Do you know any female rulers or famous women in Vietnamese history? Share what you know about them.*
+
+# VIII LOOKING BACK
+
+## Pronunciation
+
+[Track 17] Underline the words that contain the /eɪ/ sound and circle the ones with the /əʊ/ sound in the sentences below. Then listen and check. Practise saying these sentences in pairs.
+
+1. Cleopatra VII, a queen of ancient Egypt, was famous for her beauty.
+2. I love Disney animated films like *Snow White and the Seven Dwarfs* and *The Little Mermaid*.
+3. Vo Thi Sau attacked some French soldiers when she was only 14.
+4. Steve Jobs passed away when he was only 56 years old.
+
+## Vocabulary
+
+Replace each underlined word or phrase with ONE word you have learnt in this unit.
+
+1. Uncle Ho <u>gave</u> all his love and energy to the country and people of Viet Nam.
+2. Although Albert Einstein lost interest in school as a child, he became known as a <u>very intelligent person</u>.
+3. Steve Jobs was <u>respected</u> for his 
+--- SAU KHI DỌN -------------------------------------------------------------
+| | Cleopatra VII | Elizabeth I | Catherine II |
+| --- | --- | --- | --- |
+| **Country** | Egypt | (1) ________ | (2) ________ |
+| **Years of being queen** | (3) ________ | 45 | (4) ________ |
+| **Characteristics** | determined, intelligent | determined, intelligent | intelligent, ambitious |
+| **Achievements** | (5) ________ | (6) ________ | expanded the Russian Empire; improved education for children and women; encouraged great developments in architecture, trade, and culture |
+
+## 2 Work in groups. Discuss the questions.
+*Do you know any female rulers or famous women in Vietnamese history? Share what you know about them.*
+
+# VIII LOOKING BACK
+
+## Pronunciation
+
+[Track 17] Underline the words that contain the /eɪ/ sound and circle the ones with the /əʊ/ sound in the sentences below. Then listen and check. Practise saying these sentences in pairs.
+
+1. Cleopatra VII, a queen of ancient Egypt, was famous for her beauty.
+2. I love Disney animated films like *Snow White and the Seven Dwarfs* and *The Little Mermaid*.
+3. Vo Thi Sau attacked some French soldiers when she was only 14.
+4. Steve Jobs passed away when he was only 56 years old.
+
+## Vocabulary
+
+Replace each underlined word or phrase with ONE word you have learnt in this unit.
+
+1. Uncle Ho gave all his love and energy to the country and people of Viet Nam.
+2. Although Albert Einstein lost interest in school as a child, he became known as a very intelligent person.
+3. Steve Jobs was respected for his successes in computer
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  1. Uncle Ho <u>gave</u> all his love and energy to the country and people of Viet Nam.
+  2. Although Albert Einstein lost interest in school as a child, he became known as a <u>ve
+  3. Steve Jobs was <u>respected</u> for his <u>successes</u> in computer technology.
+  4. My grandfather regretted not <u>going to</u> college when he was young.
+  1. When I <u>was looking</u> for some books <u>in</u> the library, I <u>was finding</u> an
+  2. At the age of 16, Walt Disney <u>was dropping</u> out of school because he <u>wanted</u
+  3. Vo Thi Sau <u>was caught</u> while she <u>tried</u> <u>to attack</u> some <u>French</u>
+  4. While the famous author <u>read</u> from his biography, everyone <u>was listening</u> a
+  18
+
+##############################################################################
+# NGUỒN OCR: SGK_Tieng_anh_12_global_success-part-2.pdf
+##############################################################################
+Số trang            : 50
+Ký tự trước / sau   : 111364 -> 110685 (-0.6%)
+Trang bị rỗng sau khi dọn: 0
+Dòng bị bỏ          : 88
+Dòng lặp qua trang bị bỏ : 0
+Số chunk sau khi cắt: 156
+Ví dụ id chunk      : textbook:SGK_Tieng_anh_12_global_success-part-2.pdf:1:0
+
+Dấu hiệu cấu trúc giữ được:
+  loại                trước      sau    chênh
+  tiêu đề               176      176    +0.0%
+  dòng bảng             190      190    +0.0%
+  bullet                 74       76    +2.7%
+  IPA                     5        5    +0.0%
+  chỗ điền ___          154      154    +0.0%
+  thẻ HTML               81        0  -100.0%
+
+15 dòng bị bỏ nhiều nhất:
+    3x  >   *Example:*
+    2x  55
+    1x  49
+    1x  $\underline{\text{A}}$ \quad \quad \quad \quad \quad $\underline{\text{B}}$ \quad \quad \q
+    1x  $\underline{\text{A}}$ \quad \quad \quad $\underline{\text{B}}$ \quad \quad \quad \quad $\
+    1x  51
+    1x  52
+    1x  53
+    1x  **1.** House prices in big cities are increasing **<u>rapidly</u>** because too many peopl
+    1x  **2.** The rural population is **<u>decreasing</u>** because more and more people are movi
+    1x  **3.** The public transport is not very **<u>reliable</u>**, so many people use their priv
+    1x  54
+    1x  57
+    1x  | | Urbanisation <br> in Malaysia | Urbanisation <br> in Australia |
+    1x  | **Started** | In the early <br> 1970s | (1) _________ |
+
+==============================================================================
+TRANG 10 - bỏ 8 dòng, 2746 -> 2651 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+Australia is an interesting example of early urbanisation, which started at the end of the 19th century. At that time, over 60 per cent of the population lived in urban areas. Since then, it has maintained a gradual growth. This was also due to the country's immigration policy, which encouraged people to settle in its coastal, urban areas.
+
+Australia is now one of the most urbanised countries in the world, with almost 90 per cent of the population living in urban areas. The two largest cities of Australia, Sydney and Melbourne, are home to over 40 per cent of the country's population.
+
+| | Urbanisation <br> in Malaysia | Urbanisation <br> in Australia |
+| --- | --- | --- |
+| **Started** | In the early <br> 1970s | (1) _________ |
+| **Urban** <br> **population** <br> **when** <br> **urbanisation** <br> **started** | (2) _________ | over 60 <br> per cent |
+| **Urban** <br> **population** <br> **growth** | Rapid growth | (3) _________ |
+| **At present** | (4) _________ | One of <br> the most <br> urbanised <br> countries in <br> the world |
+| **Current** <br> **urban** <br> **population** | Over 77 <br> per cent | (5) _________ |
+
+<br>
+
+2 Work in groups. Compare urbanisation in Viet Nam with that in Malaysia and/or Australia. Use the information in **Writing** and **Culture/CLIL** and the questions below to help you.
+- Was the proportion of urban population in Viet Nam higher or lower than that in Malaysia/Australia in the 1970s?
+- Which country has a faster urbanisation rate?
+-
+--- SAU KHI DỌN -------------------------------------------------------------
+Australia is an interesting example of early urbanisation, which started at the end of the 19th century. At that time, over 60 per cent of the population lived in urban areas. Since then, it has maintained a gradual growth. This was also due to the country's immigration policy, which encouraged people to settle in its coastal, urban areas.
+
+Australia is now one of the most urbanised countries in the world, with almost 90 per cent of the population living in urban areas. The two largest cities of Australia, Sydney and Melbourne, are home to over 40 per cent of the country's population.
+
+| | Urbanisation in Malaysia | Urbanisation in Australia |
+| --- | --- | --- |
+| **Started** | In the early 1970s | (1) _________ |
+| **Urban** **population** **when** **urbanisation** **started** | (2) _________ | over 60 per cent |
+| **Urban** **population** **growth** | Rapid growth | (3) _________ |
+| **At present** | (4) _________ | One of the most urbanised countries in the world |
+| **Current** **urban** **population** | Over 77 per cent | (5) _________ |
+
+2 Work in groups. Compare urbanisation in Viet Nam with that in Malaysia and/or Australia. Use the information in **Writing** and **Culture/CLIL** and the questions below to help you.
+- Was the proportion of urban population in Viet Nam higher or lower than that in Malaysia/Australia in the 1970s?
+- Which country has a faster urbanisation rate?
+- Which one is more urbanised?
+- What is the overall trend in urbanisation in each country?
+
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  | | Urbanisation <br> in Malaysia | Urbanisation <br> in Australia |
+  | **Started** | In the early <br> 1970s | (1) _________ |
+  | **Urban** <br> **population** <br> **when** <br> **urbanisation** <br> **started** | (2)
+  | **Urban** <br> **population** <br> **growth** | Rapid growth | (3) _________ |
+  | **At present** | (4) _________ | One of <br> the most <br> urbanised <br> countries in <
+  | **Current** <br> **urban** <br> **population** | Over 77 <br> per cent | (5) _________ |
+  <br>
+  housing afford <br> unemployment expand seek
+
+==============================================================================
+TRANG 24 - bỏ 8 dòng, 2609 -> 2553 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+# REVIEW 2
+
+# I LANGUAGE
+
+## Pronunciation
+
+**1** **Mark the letter A, B, C, or D to indicate the word whose underlined part differs from the other three in pronunciation.**
+
+1. A. `a`fford
+B. `u`rban
+C. ar`e`a
+D. exp`a`nd
+
+2. A. b`o`nus
+B. empl`o`y
+C. ov`e`rtime
+D. l`o`cal
+
+**2** **Mark the letter A, B, C, or D to indicate the word which differs from the other three in the position of the main stress.**
+
+1. A. concern
+B. bonus
+C. housing
+D. leisure
+
+2. A. flexible
+B. glamorous
+C. rewarding
+D. challenging
+
+**3** 38 **Mark the letter A or B to indicate the stressed auxiliary or modal verb. Listen and check. Then practise saying the sentences in pairs.**
+
+1. Peter (A) **will** attend the job fair next week if he (B) **can**.
+
+2. A: His grandmother (A) **doesn't** enjoy living in the city.
+
+B: Well, actually, she (B) **does**.
+
+**4** 39 **Read the following sentences. Underline the unstressed words in each one. Listen and check. Then practise saying the sentences in pairs.**
+
+1. Life in the city is very convenient and comfortable, but also expensive.
+
+2. It usually takes thirty to eighty job applications to get a job offer.
+
+---
+
+## Vocabulary
+
+**1** **Mark the letter A, B, C, or D to indicate the word or phrase CLOSEST in meaning to the underlined word.**
+
+1. Today, young people from rural areas often move to big cities to **<u>seek</u>** better job opportunities.
+
+A. look for
+B. look at
+C. carry out
+D. look after
+
+2. Many employers find it difficult to recruit workers for nigh
+--- SAU KHI DỌN -------------------------------------------------------------
+# REVIEW 2
+
+# I LANGUAGE
+
+## Pronunciation
+
+**1** **Mark the letter A, B, C, or D to indicate the word whose underlined part differs from the other three in pronunciation.**
+
+1. A. `a`fford
+B. `u`rban
+C. ar`e`a
+D. exp`a`nd
+
+2. A. b`o`nus
+B. empl`o`y
+C. ov`e`rtime
+D. l`o`cal
+
+**2** **Mark the letter A, B, C, or D to indicate the word which differs from the other three in the position of the main stress.**
+
+1. A. concern
+B. bonus
+C. housing
+D. leisure
+
+2. A. flexible
+B. glamorous
+C. rewarding
+D. challenging
+
+**3** 38 **Mark the letter A or B to indicate the stressed auxiliary or modal verb. Listen and check. Then practise saying the sentences in pairs.**
+
+1. Peter (A) **will** attend the job fair next week if he (B) **can**.
+
+2. A: His grandmother (A) **doesn't** enjoy living in the city.
+
+B: Well, actually, she (B) **does**.
+
+**4** 39 **Read the following sentences. Underline the unstressed words in each one. Listen and check. Then practise saying the sentences in pairs.**
+
+1. Life in the city is very convenient and comfortable, but also expensive.
+
+2. It usually takes thirty to eighty job applications to get a job offer.
+
+---
+
+## Vocabulary
+
+**1** **Mark the letter A, B, C, or D to indicate the word or phrase CLOSEST in meaning to the underlined word.**
+
+1. Today, young people from rural areas often move to big cities to **seek** better job opportunities.
+
+A. look for
+B. look at
+C. carry out
+D. look after
+
+2. Many employers find it difficult to recruit workers for night **shi
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  1. Today, young people from rural areas often move to big cities to **<u>seek</u>** better
+  2. Many employers find it difficult to recruit workers for night **<u>shifts</u>**.
+  3. A lot of companies provide their employees with affordable **<u>housing</u>**.
+  4. The company has **<u>employed</u>** more people to work on the new project this year.
+  1. The authorities are planning to **<u>expand</u>** the local airport and make it more mo
+  2. Very few people can **<u>afford</u>** a home in city centres nowadays.
+  3. Working as a researcher can be mentally **<u>challenging</u>**, but it is very interest
+  4. A lot of companies have cut down on staff, so the number of **<u>jobless</u>** people i
+
+##############################################################################
+# NGUỒN OCR: SGK_Tieng_anh_12_global_success-part-3.pdf
+##############################################################################
+Số trang            : 40
+Ký tự trước / sau   : 96128 -> 95296 (-0.9%)
+Trang bị rỗng sau khi dọn: 0
+Dòng bị bỏ          : 69
+Dòng lặp qua trang bị bỏ : 0
+Số chunk sau khi cắt: 137
+Ví dụ id chunk      : textbook:SGK_Tieng_anh_12_global_success-part-3.pdf:1:0
+
+Dấu hiệu cấu trúc giữ được:
+  loại                trước      sau    chênh
+  tiêu đề               155      155    +0.0%
+  dòng bảng             172      172    +0.0%
+  bullet                 56       56    +0.0%
+  IPA                     2        2    +0.0%
+  chỗ điền ___          147      147    +0.0%
+  thẻ HTML              107        0  -100.0%
+
+15 dòng bị bỏ nhiều nhất:
+    2x  >   *Example:*
+    1x  99
+    1x  101
+    1x  | /n/ | | /m/ | on _pur_pose /ɒm 'pɜːpəs/ <br> in _bed_ /ɪm 'bed/ <br> in _May_ /ɪm 'meɪ/ 
+    1x  | /t/ | /p/, /b/, /m/ | /p/ | hot _po_tato /'hɒp pə'teɪtəʊ/ <br> no_t bad_ /'nɒp 'bæd/ <br
+    1x  | /d/ | | /b/ | bad _pen_ny /'bæb 'peni/ <br> goo_d boy_ /'gʊb 'bɔɪ/ <br> re_d meat_ /'reb
+    1x  >   *What would you buy **if you won the lottery**?*
+    1x  >   *We can't release injured animals into the wild **unless they are treated and fully re
+    1x  >   *There are more endangered species today **than there were 50 years ago**.*
+    1x  >   *Gibbons are **as** famous for their beautiful singing **as** they are for their swing
+    1x  103
+    1x  104
+    1x  105
+    1x  1. Natural habitats have been <u>degraded</u> by human activity.
+    1x  2. <u>Forest clearance</u> to meet other land needs can destroy the natural habitats of ma
+
+==============================================================================
+TRANG 5 - bỏ 7 dòng, 2504 -> 2487 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+Unit **8**
+
+**2 Complete the sentences using the words in 1.**
+1. Wild animals need to live in their natural habitats in order to ____________________.
+2. Many ____________________ animals are in urgent need of protection.
+3. Scientists estimate that every day around 150 species become ____________________.
+4. All the animals looked well after being released from ____________________.
+5. A new law has been introduced to ____________________ wildlife in the area.
+
+## Grammar
+
+### *Adverbial clauses of condition and comparison*
+
+> ### Remember!
+> - An adverbial clause of condition gives the potential outcome of a situation or condition, real or imagined. It uses subordinating conjunctions such as *if, provided that, until,* or *unless*.
+>   *Example:*
+>   *What would you buy **if you won the lottery**?*
+>   *We can't release injured animals into the wild **unless they are treated and fully recovered**.*
+> - An adverbial clause of comparison describes how something such as a skill, size, or amount compares to something else. It uses subordinating conjunctions such as *than, as ... as,* or *as*.
+>   *Example:*
+>   *There are more endangered species today **than there were 50 years ago**.*
+>   *Gibbons are **as** famous for their beautiful singing **as** they are for their swinging movements through the trees.*
+
+**1 Combine the sentences using adverbial clauses of condition or comparison. Use the conjunctions in brackets and make any necessary changes.**
+1. You must release the se
+--- SAU KHI DỌN -------------------------------------------------------------
+Unit **8**
+
+**2 Complete the sentences using the words in 1.**
+1. Wild animals need to live in their natural habitats in order to ____________________.
+2. Many ____________________ animals are in urgent need of protection.
+3. Scientists estimate that every day around 150 species become ____________________.
+4. All the animals looked well after being released from ____________________.
+5. A new law has been introduced to ____________________ wildlife in the area.
+
+## Grammar
+
+### *Adverbial clauses of condition and comparison*
+
+> ### Remember!
+> - An adverbial clause of condition gives the potential outcome of a situation or condition, real or imagined. It uses subordinating conjunctions such as *if, provided that, until,* or *unless*.
+> *Example:*
+> *What would you buy **if you won the lottery**?*
+> *We can't release injured animals into the wild **unless they are treated and fully recovered**.*
+> - An adverbial clause of comparison describes how something such as a skill, size, or amount compares to something else. It uses subordinating conjunctions such as *than, as ... as,* or *as*.
+> *Example:*
+> *There are more endangered species today **than there were 50 years ago**.*
+> *Gibbons are **as** famous for their beautiful singing **as** they are for their swinging movements through the trees.*
+
+**1 Combine the sentences using adverbial clauses of condition or comparison. Use the conjunctions in brackets and make any necessary changes.**
+1. You must release the sea turtle int
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  >   *Example:*
+  >   *What would you buy **if you won the lottery**?*
+  >   *We can't release injured animals into the wild **unless they are treated and fully re
+  >   *Example:*
+  >   *There are more endangered species today **than there were 50 years ago**.*
+  >   *Gibbons are **as** famous for their beautiful singing **as** they are for their swing
+  103
+
+==============================================================================
+TRANG 11 - bỏ 6 dòng, 2498 -> 2421 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+Unit 8
+
+| Useful expressions |
+| :--- |
+| **Expressing concern** |
+| - Are you all right?/Are you OK? <br>- How are things?/How are you getting on? <br>- Is there anything I can do? | - What's the matter?/What's up? <br>- You look a bit tired. Are you feeling all right? <br>- You look worried/upset. Has something happened?/Is there something wrong? |
+
+CLIL
+
+# 1 Read the following text. Put a tick ($\checkmark$) if the animals in the table are classified as endangered and a cross ($\boldsymbol{X}$) if they are not.
+
+## THE IUCN RED LIST
+
+The International Union for Conservation of Nature (IUCN) Red List divides species into seven levels of conservation: Least Concern, Near Threatened, Vulnerable, Endangered, Critically Endangered, Extinct in the Wild, and Extinct. It uses a set of precise criteria to evaluate extinction risks and decides which species need protection. An endangered species is one that meets any of the following criteria:
+
+**Population reduction rate**
+A species is classified as endangered when its population has declined between 50 and 70 per cent. This decline is measured over 10 years or longer.
+
+**Geographic range**
+Geographic range describes the area where a species is found. If the area that a species lives on, known as its area of occupancy, is estimated to be less than 500 square kilometres, then the species is classified as endangered.
+
+**Population size**
+A species is classified as endangered when there are fewer than 2,500 mature individuals. When a 
+--- SAU KHI DỌN -------------------------------------------------------------
+Unit 8
+
+| Useful expressions |
+| :--- |
+| **Expressing concern** |
+| - Are you all right?/Are you OK? - How are things?/How are you getting on? - Is there anything I can do? | - What's the matter?/What's up? - You look a bit tired. Are you feeling all right? - You look worried/upset. Has something happened?/Is there something wrong? |
+
+CLIL
+
+# 1 Read the following text. Put a tick ($\checkmark$) if the animals in the table are classified as endangered and a cross ($\boldsymbol{X}$) if they are not.
+
+## THE IUCN RED LIST
+
+The International Union for Conservation of Nature (IUCN) Red List divides species into seven levels of conservation: Least Concern, Near Threatened, Vulnerable, Endangered, Critically Endangered, Extinct in the Wild, and Extinct. It uses a set of precise criteria to evaluate extinction risks and decides which species need protection. An endangered species is one that meets any of the following criteria:
+
+**Population reduction rate**
+A species is classified as endangered when its population has declined between 50 and 70 per cent. This decline is measured over 10 years or longer.
+
+**Geographic range**
+Geographic range describes the area where a species is found. If the area that a species lives on, known as its area of occupancy, is estimated to be less than 500 square kilometres, then the species is classified as endangered.
+
+**Population size**
+A species is classified as endangered when there are fewer than 2,500 mature individuals. When a species populati
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  | - Are you all right?/Are you OK? <br>- How are things?/How are you getting on? <br>- Is 
+  | **Siberian sturgeon** <br>- Rate of population decline: between 50 and 80 <br>per cent o
+  | **Ethiopian banana frog** <br>- Location: in southern Ethiopia <br>- Area of occupancy: 
+  | **Snaggletooth shark** <br>- Location: in the tropical, coastal waters of the <br>Indian
+  | **Tahiti reed-warbler** <br>- Location: only on the Pacific Island of Tahiti <br>- Popul
+  109
+
+##############################################################################
+# NGUỒN OCR: SGK_Tieng_anh_12_global_success-part-4.pdf
+##############################################################################
+Số trang            : 19
+Ký tự trước / sau   : 42504 -> 41741 (-1.8%)
+Trang bị rỗng sau khi dọn: 0
+Dòng bị bỏ          : 58
+Dòng lặp qua trang bị bỏ : 0
+Số chunk sau khi cắt: 59
+Ví dụ id chunk      : textbook:SGK_Tieng_anh_12_global_success-part-4.pdf:1:0
+
+Dấu hiệu cấu trúc giữ được:
+  loại                trước      sau    chênh
+  tiêu đề                38       38    +0.0%
+  dòng bảng             333      333    +0.0%
+  bullet                 34       34    +0.0%
+  IPA                    75       75    +0.0%
+  chỗ điền ___           25       25    +0.0%
+  thẻ HTML              147        0  -100.0%
+
+15 dòng bị bỏ nhiều nhất:
+    3x  HOÀNG VĂN VÂN (TỔNG CHỦ BIÊN) - VŨ HÀ HAI (CHỦ BIÊN)
+    1x  139
+    1x  1. A. c<u>a</u>ndidate
+    1x  B. <u>e</u>ducation
+    1x  C. ad<u>a</u>pt
+    1x  D. ad<u>u</u>lt
+    1x  2. A. d<u>i</u>stance
+    1x  B. req<u>u</u>ire
+    1x  C. l<u>i</u>felong
+    1x  D. h<u>i</u>re
+    1x  1. When my brother worked in Seoul, he could <u>brush up on</u> his Korean.
+    1x  2. After leaving school at 18, my brother got several part-time jobs to <u>gain</u> some w
+    1x  3. The office manager has scheduled several job interviews with the best <u>candidates</u>
+    1x  4. The newly opened factory has to <u>deal with</u> stressful situations in a very competi
+    1x  1. Thanks to advanced technology, some physically demanding jobs can be <u>automated</u>.
+
+==============================================================================
+TRANG 2 - bỏ 17 dòng, 2885 -> 2646 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+# REVIEW 4
+
+# I LANGUAGE
+
+## Pronunciation
+
+**1 Mark the letter A, B, C, or D to indicate the word whose underlined part differs from the other three in pronunciation.**
+
+1. A. c<u>a</u>ndidate  
+B. <u>e</u>ducation  
+C. ad<u>a</u>pt  
+D. ad<u>u</u>lt  
+*(A+ EXAM TIPS page 145)*
+
+2. A. d<u>i</u>stance  
+B. req<u>u</u>ire  
+C. l<u>i</u>felong  
+D. h<u>i</u>re  
+
+**2 Mark the letter A, B, C, or D to indicate the word which differs from the other three in the position of the main stress.**
+
+1. A. maintain  
+B. inform  
+C. widen  
+D. pursue  
+*(A+ EXAM TIPS page 145)*
+
+2. A. experience  
+B. community  
+C. intelligence  
+D. education  
+
+**3** 182 Underline the stressed words in the sentences. Listen and check. Then practise saying the sentences with a natural rhythm.
+
+1. I've been taking online courses for more than three months.
+2. Lifelong learning is the key to success for people of all ages.
+
+**4** 183 Circle the correct intonation pattern in the following questions. Listen and check. Then practise saying them in pairs.
+
+1. Do you want to become a teacher $\square$ or a businessman $\square$?  
+A. $\searrow \dots \nearrow$  
+B. $\dots \nearrow$
+
+2. **A:** Working as a firefighter is very dangerous, isn't it $\square$?  
+**B:** Yes, but I got used to it.  
+A. $\nearrow$  
+B. $\searrow$
+
+## Vocabulary
+
+**1 Mark the letter A, B, C, or D to indicate the word or phrase CLOSEST in meaning to the underlined word or phrase.**
+
+1. When my brother worked in Seoul, he could <u>brush up o
+--- SAU KHI DỌN -------------------------------------------------------------
+# REVIEW 4
+
+# I LANGUAGE
+
+## Pronunciation
+
+**1 Mark the letter A, B, C, or D to indicate the word whose underlined part differs from the other three in pronunciation.**
+
+1. A. candidate
+B. education
+C. adapt
+D. adult
+*(A+ EXAM TIPS page 145)*
+
+2. A. distance
+B. require
+C. lifelong
+D. hire
+
+**2 Mark the letter A, B, C, or D to indicate the word which differs from the other three in the position of the main stress.**
+
+1. A. maintain
+B. inform
+C. widen
+D. pursue
+*(A+ EXAM TIPS page 145)*
+
+2. A. experience
+B. community
+C. intelligence
+D. education
+
+**3** 182 Underline the stressed words in the sentences. Listen and check. Then practise saying the sentences with a natural rhythm.
+
+1. I've been taking online courses for more than three months.
+2. Lifelong learning is the key to success for people of all ages.
+
+**4** 183 Circle the correct intonation pattern in the following questions. Listen and check. Then practise saying them in pairs.
+
+1. Do you want to become a teacher $\square$ or a businessman $\square$?
+A. $\searrow \dots \nearrow$
+B. $\dots \nearrow$
+
+2. **A:** Working as a firefighter is very dangerous, isn't it $\square$?
+**B:** Yes, but I got used to it.
+A. $\nearrow$
+B. $\searrow$
+
+## Vocabulary
+
+**1 Mark the letter A, B, C, or D to indicate the word or phrase CLOSEST in meaning to the underlined word or phrase.**
+
+1. When my brother worked in Seoul, he could brush up on his Korean.
+A. improve quickly
+B. widen
+C. require
+D. clean up
+*(A+ EXAM TIPS page 145)*
+
+2. After 
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  1. A. c<u>a</u>ndidate
+  B. <u>e</u>ducation
+  C. ad<u>a</u>pt
+  D. ad<u>u</u>lt
+  2. A. d<u>i</u>stance
+  B. req<u>u</u>ire
+  C. l<u>i</u>felong
+  D. h<u>i</u>re
+  1. When my brother worked in Seoul, he could <u>brush up on</u> his Korean.
+  2. After leaving school at 18, my brother got several part-time jobs to <u>gain</u> some w
+  3. The office manager has scheduled several job interviews with the best <u>candidates</u>
+  4. The newly opened factory has to <u>deal with</u> stressful situations in a very competi
+  1. Thanks to advanced technology, some physically demanding jobs can be <u>automated</u>.
+  2. She left her current job in a big finance company in order to pursue her <u>passion</u>
+  3. The school provides students in both primary and secondary levels with a <u>well-rounde
+  4. The training course aims to help employees stay <u>informed</u> about the changes in th
+  140
+
+==============================================================================
+TRANG 8 - bỏ 9 dòng, 3885 -> 3780 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+| Question Type / Strategy | Steps |
+| --- | --- |
+| **Reading comprehension**<br>**MCQs (for main ideas)** | 1. Read the answer choices.<br>2. Read through the whole text/section and try to get an overview of it. Pay attention to the first or the last sentence of each paragraph, which is usually the topic sentence.<br>3. Do not focus too much on unfamiliar words. Try to guess the meaning of these words from context.<br>4. The correct answer should best summarise the main ideas of the whole text/section. Watch out for distractors, especially choices that are 'irrelevant' (i.e. not mentioned in the text/section), 'incorrect' (i.e. not true according to the text/section), 'too narrow' (i.e. only representing part of the text/section) or 'too general' (i.e. not specific to that section only). |
+| **Reading comprehension**<br>**MCQs (for specific**<br>**information)** | 1. Read and underline the keywords in the questions and the answer choices.<br>2. Read the text and locate the keywords, as well as paraphrases of these keywords.<br>3. Select the answer choice that matches the information in the text.<br>4. Do not simply match words or phrases with those in the text. Sometimes incorrect choices contain the same words as the text. |
+| **Reading comprehension**<br>**MCQs (negative facts)** | 1. Read and underline the keywords in the questions and answer choices.<br>2. Read the text and locate the keywords, as well as paraphrases of these keywords.<br>3. Eliminate the answer choices
+--- SAU KHI DỌN -------------------------------------------------------------
+| Question Type / Strategy | Steps |
+| --- | --- |
+| **Reading comprehension** **MCQs (for main ideas)** | 1. Read the answer choices. 2. Read through the whole text/section and try to get an overview of it. Pay attention to the first or the last sentence of each paragraph, which is usually the topic sentence. 3. Do not focus too much on unfamiliar words. Try to guess the meaning of these words from context. 4. The correct answer should best summarise the main ideas of the whole text/section. Watch out for distractors, especially choices that are 'irrelevant' (i.e. not mentioned in the text/section), 'incorrect' (i.e. not true according to the text/section), 'too narrow' (i.e. only representing part of the text/section) or 'too general' (i.e. not specific to that section only). |
+| **Reading comprehension** **MCQs (for specific** **information)** | 1. Read and underline the keywords in the questions and the answer choices. 2. Read the text and locate the keywords, as well as paraphrases of these keywords. 3. Select the answer choice that matches the information in the text. 4. Do not simply match words or phrases with those in the text. Sometimes incorrect choices contain the same words as the text. |
+| **Reading comprehension** **MCQs (negative facts)** | 1. Read and underline the keywords in the questions and answer choices. 2. Read the text and locate the keywords, as well as paraphrases of these keywords. 3. Eliminate the answer choices containing the ideas/information me
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  | **Reading comprehension**<br>**MCQs (for main ideas)** | 1. Read the answer choices.<br>
+  | **Reading comprehension**<br>**MCQs (for specific**<br>**information)** | 1. Read and un
+  | **Reading comprehension**<br>**MCQs (negative facts)** | 1. Read and underline the keywo
+  | **Reading comprehension**<br>**MCQs (for inferences)** | 1. Read and underline the keywo
+  | **Reading comprehension**<br>**MCQs (for referents)** | 1. Read the question and locate 
+  | **Reading comprehension**<br>**MCQs (for vocabulary)** | 1. Locate the word or phrase in
+  | **Sentence transformation:**<br>Identifying the sentence<br>that is closest in meaning<b
+  | **Sentence combination:**<br>Identifying the sentence<br>that best combines a pair<br>of
+  146
+
+##############################################################################
+# NGUỒN TEXT LAYER: 7_cau_truc_ngu_phap_hay_ra_trong_de_thi_THPTQG.pdf
+##############################################################################
+Số trang            : 5
+Ký tự trước / sau   : 1408 -> 1408 (+0.0%)
+Trang bị rỗng sau khi dọn: 0
+Dòng bị bỏ          : 0
+Dòng lặp qua trang bị bỏ : 0
+Số chunk sau khi cắt: 5
+Ví dụ id chunk      : textbook:7_cau_truc_ngu_phap_hay_ra_trong_de_thi_THPTQG.pdf:1:0
+
+Dấu hiệu cấu trúc giữ được:
+  loại                trước      sau    chênh
+  tiêu đề                 0        0      n/a
+  dòng bảng               0        0      n/a
+  bullet                  0        0      n/a
+  IPA                     0        0      n/a
+  chỗ điền ___            0        0      n/a
+  thẻ HTML                0        0      n/a
+
+==============================================================================
+TRANG 1 - bỏ 0 dòng, 47 -> 47 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+7 CẤU TRÚC NGỮ PHÁP HAY RA TRONG ĐỀ THI
+
+THPTQG
+--- SAU KHI DỌN -------------------------------------------------------------
+7 CẤU TRÚC NGỮ PHÁP HAY RA TRONG ĐỀ THI
+
+THPTQG
+
+==============================================================================
+TRANG 2 - bỏ 0 dòng, 331 -> 331 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+1.Hardly... when/ No sooner... than
+(Đảo ngữ chỉ hành động vừa xảy ra)
+VD: Hardly had I arrived home when it started raining.
+(Tôi vừa về đến nhà thì trời đổ mưa.)
+2. Conditional sentence (type 2)
+If+past simple, S + would/could + verb (base
+form)
+VD: If it were sunny, we should go to beach. (Nếu trời nắng, chúng tôi sẽ đi biển.)
+--- SAU KHI DỌN -------------------------------------------------------------
+1.Hardly... when/ No sooner... than
+(Đảo ngữ chỉ hành động vừa xảy ra)
+VD: Hardly had I arrived home when it started raining.
+(Tôi vừa về đến nhà thì trời đổ mưa.)
+2. Conditional sentence (type 2)
+If+past simple, S + would/could + verb (base
+form)
+VD: If it were sunny, we should go to beach. (Nếu trời nắng, chúng tôi sẽ đi biển.)
+
+##############################################################################
+# NGUỒN TEXT LAYER: CAU_TRUC_TO_V_-_Ving_quan_trong_thuong_xuat_hien_trong_bai_thi.pdf
+##############################################################################
+Số trang            : 8
+Ký tự trước / sau   : 2981 -> 2747 (-7.8%)
+Trang bị rỗng sau khi dọn: 0
+Dòng bị bỏ          : 10
+Dòng lặp qua trang bị bỏ : 2
+Số chunk sau khi cắt: 8
+Ví dụ id chunk      : textbook:CAU_TRUC_TO_V_-_Ving_quan_trong_thuong_xuat_hien_trong_bai_thi.pdf:1:0
+
+Dấu hiệu cấu trúc giữ được:
+  loại                trước      sau    chênh
+  tiêu đề                 0        0      n/a
+  dòng bảng               0        0      n/a
+  bullet                  0        0      n/a
+  IPA                     0        0      n/a
+  chỗ điền ___            0        0      n/a
+  thẻ HTML                0        0      n/a
+
+15 dòng bị bỏ nhiều nhất:
+    4x  CẤU TRÚC V-ING CẤU TRÚC V-ING
+    2x  CẤU TRÚC TO V
+    2x  CẤU TRÚC TO V CẤU TRÚC TO V
+    1x  HAY GẶP TRONG BÀI THI HAY GẶP TRONG BÀI THI
+    1x  to apologize (to so)  for Ving sth
+
+Dòng bị coi là header/footer/watermark:
+  - CẤU TRÚC TO V
+  - CẤU TRÚC V-ING
+
+==============================================================================
+TRANG 2 - bỏ 2 dòng, 397 -> 368 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+to afford to V+O
+to agree V+ O
+to appear to V+ O
+to ask to V + O
+to ask sb to V sth
+to decide to V + O
+to expect to V +0
+to learn to V +0
+to manage to V + O
+to offer to V + O
+to plan to V + O
+to promise to V + O
+
+cố gắng làm gì
+đồng ý làm gì
+dường như
+yêu cầu làm gì
+yêu cầu ai làm gì
+quyết định làm gì
+hi vọng
+học làm gì
+xoay xở
+đề nghị làm gì cho ai
+đặt kế hoạch
+hứa
+
+CẤU TRÚC TO V
+CẤU TRÚC TO V
+--- SAU KHI DỌN -------------------------------------------------------------
+to afford to V+O
+to agree V+ O
+to appear to V+ O
+to ask to V + O
+to ask sb to V sth
+to decide to V + O
+to expect to V +0
+to learn to V +0
+to manage to V + O
+to offer to V + O
+to plan to V + O
+to promise to V + O
+
+cố gắng làm gì
+đồng ý làm gì
+dường như
+yêu cầu làm gì
+yêu cầu ai làm gì
+quyết định làm gì
+hi vọng
+học làm gì
+xoay xở
+đề nghị làm gì cho ai
+đặt kế hoạch
+hứa
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  CẤU TRÚC TO V
+  CẤU TRÚC TO V
+
+==============================================================================
+TRANG 6 - bỏ 2 dòng, 487 -> 455 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+to be good/bad at Ving O
+to be bored with Ving O
+to be dependent on sth/ Ving O
+to be different from
+to be excited about
+to think of sth/Ving sth
+to thank to sth/so/Ving sth
+to thank sb for Ving sth
+to apologize (to so)  for Ving sth
+to confess to Ving sth
+to congratulate sb on Ving sth
+
+giỏi/ kém
+buồn chán
+phụ thuộc
+khác biệt
+háo hức
+nhớ về cái gì đó
+nhờ vào cái gì, vào ai
+cảm ơn ai vì đã làm gì
+xin lỗi ai vì cái gì đó
+thú nhận
+chúc mừng ai vì điều gì
+
+CẤU TRÚC V-ING CẤU TRÚC V-ING
+--- SAU KHI DỌN -------------------------------------------------------------
+to be good/bad at Ving O
+to be bored with Ving O
+to be dependent on sth/ Ving O
+to be different from
+to be excited about
+to think of sth/Ving sth
+to thank to sth/so/Ving sth
+to thank sb for Ving sth
+to apologize (to so) for Ving sth
+to confess to Ving sth
+to congratulate sb on Ving sth
+
+giỏi/ kém
+buồn chán
+phụ thuộc
+khác biệt
+háo hức
+nhớ về cái gì đó
+nhờ vào cái gì, vào ai
+cảm ơn ai vì đã làm gì
+xin lỗi ai vì cái gì đó
+thú nhận
+chúc mừng ai vì điều gì
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  to apologize (to so)  for Ving sth
+  CẤU TRÚC V-ING CẤU TRÚC V-ING
+
+##############################################################################
+# NGUỒN TEXT LAYER: TONG_HOP_100_CAP_TU_DONG_NGHIA_PHO_BIEN.pdf
+##############################################################################
+Số trang            : 5
+Ký tự trước / sau   : 2453 -> 2412 (-1.7%)
+Trang bị rỗng sau khi dọn: 0
+Dòng bị bỏ          : 2
+Dòng lặp qua trang bị bỏ : 0
+Số chunk sau khi cắt: 5
+Ví dụ id chunk      : textbook:TONG_HOP_100_CAP_TU_DONG_NGHIA_PHO_BIEN.pdf:1:0
+
+Dấu hiệu cấu trúc giữ được:
+  loại                trước      sau    chênh
+  tiêu đề                 0        0      n/a
+  dòng bảng               0        0      n/a
+  bullet                  0        0      n/a
+  IPA                     0        0      n/a
+  chỗ điền ___            0        0      n/a
+  thẻ HTML                0        0      n/a
+
+15 dòng bị bỏ nhiều nhất:
+    1x  TỔNG HỢP 100+ CẶP TỪ TỔNG HỢP 100+ CẶP TỪ
+    1x  ĐỒNG NGHĨA PHỔ BIẾN ĐỒNG NGHĨA PHỔ BIẾN
+
+==============================================================================
+TRANG 1 - bỏ 2 dòng, 82 -> 41 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+TỔNG HỢP 100+ CẶP TỪ TỔNG HỢP 100+ CẶP TỪ
+
+ĐỒNG NGHĨA PHỔ BIẾN ĐỒNG NGHĨA PHỔ BIẾN
+--- SAU KHI DỌN -------------------------------------------------------------
+TỔNG HỢP 100+ CẶP TỪ
+
+ĐỒNG NGHĨA PHỔ BIẾN
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  TỔNG HỢP 100+ CẶP TỪ TỔNG HỢP 100+ CẶP TỪ
+  ĐỒNG NGHĨA PHỔ BIẾN ĐỒNG NGHĨA PHỔ BIẾN
+
+==============================================================================
+TRANG 2 - bỏ 0 dòng, 618 -> 618 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+(not) bat an eyelid = (not) show surprise = remain calm: (không) ngạc nhiên
+a matter of speculation = supposition (n): dự đoán
+abroad = oversea (adv): nước ngoài
+abrupt = sudden (adj): đột ngột
+abstract = recondite (adj): trừu tượng khó hiểu
+absurd = ridiculous: vô lý
+acceleration = speeding up: tăng tốc
+accentuate = emphasize: làm nổi bật, nhấn mạnh
+acceptable = permissible:chấp nhận được = cho phép
+accessible = easy to reach: tiếp cận = dễ dàng để đạt được
+accommodate = adjust to: điều chỉnh
+accommodate = allow for: chứa = cho phép
+accompany = join: đi cùng = tham gia
+accomplished = achieved: hoàn thành = đạt
+--- SAU KHI DỌN -------------------------------------------------------------
+(not) bat an eyelid = (not) show surprise = remain calm: (không) ngạc nhiên
+a matter of speculation = supposition (n): dự đoán
+abroad = oversea (adv): nước ngoài
+abrupt = sudden (adj): đột ngột
+abstract = recondite (adj): trừu tượng khó hiểu
+absurd = ridiculous: vô lý
+acceleration = speeding up: tăng tốc
+accentuate = emphasize: làm nổi bật, nhấn mạnh
+acceptable = permissible:chấp nhận được = cho phép
+accessible = easy to reach: tiếp cận = dễ dàng để đạt được
+accommodate = adjust to: điều chỉnh
+accommodate = allow for: chứa = cho phép
+accompany = join: đi cùng = tham gia
+accomplished = achieved: hoàn thành = đạt
+
+##############################################################################
+# NGUỒN TEXT LAYER: WORDLIST_TA12.pdf
+##############################################################################
+Số trang            : 15
+Ký tự trước / sau   : 16552 -> 14122 (-14.7%)
+Trang bị rỗng sau khi dọn: 0
+Dòng bị bỏ          : 89
+Dòng lặp qua trang bị bỏ : 0
+Số chunk sau khi cắt: 33
+Ví dụ id chunk      : textbook:WORDLIST_TA12.pdf:1:0
+
+Dấu hiệu cấu trúc giữ được:
+  loại                trước      sau    chênh
+  tiêu đề                 0        0      n/a
+  dòng bảng             272      272    +0.0%
+  bullet                  0        0      n/a
+  IPA                   186      186    +0.0%
+  chỗ điền ___            0        0      n/a
+  thẻ HTML              154        0  -100.0%
+
+15 dòng bị bỏ nhiều nhất:
+   28x  <!-- Start of picture text -->
+    1x  |attend (school/<br>college) (v)|/əˈtend (skuːl/ kɒlɪʤ)/|đi học (trường, trường đại học, c
+    1x  |Communist Party of<br>Viet Nam|/ˈkɒmjənɪst pɑːti əv<br>viːetˈnɑːm/|Đảng Cộng sản Việt Nam
+    1x  attack (n,v)<br>attend (school/<br>college) (v)<br>battle (n)<br>biography (n)<br>biologic
+    1x  death (n)<br>defeat (v)<br>devote to<br>drop out (of)<br>enemy (n)<br>genius (n)<br><!-- E
+    1x  1
+    1x  |on cloud nine/ on<br>top of the world/<br>over the moon|/ɒn klaʊd naɪn/ /ɒn tɒp<br>ɒv ðə 
+    1x  resistance war<br>rule (n, v)<br>youth (n)<br><!-- End of picture text -->
+    1x  /rɪˈzɪstəns wɔː/<br>/ruːl/<br>/juːθ/<br><!-- End of picture text -->
+    1x  cuộc kháng chiến<br>sự trị vì, trị vì<br>tuổi trẻ<br><!-- End of picture text -->
+    1x  2
+    1x  |bamboo dancing<br>(np)|/ˌbæmˈbuː ˈdɑːnsɪŋ/|nhảy sạp|
+    1x  captivate (v)<br>celebrate (v)<br>confusion (n)<br>costume (n)<br>cuisine (n)<br>cultural 
+    1x  identity (n)<br>keep up with<br>lifestyle (n)<br>multicultural (adj)<br>origin (n)<br>popu
+    1x  3
+
+==============================================================================
+TRANG 7 - bỏ 13 dòng, 1641 -> 1264 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+
+
+|**WORD**|**PRONUNCIATION**|**MEANING**|
+|---|---|---|
+|application letter (n)|/ˌæplɪˈkeɪʃn ˈletə/|thư xin việc|
+|bonus (n)|/ˈbəʊnəs/|tiền thưởng|
+|casual (adj)|/ˈkæʒuəl/|theo thời vụ, tạm thời|
+|challenging (adj)|/ˈtʃælɪndʒɪŋ/|thách thức|
+|flexible (adj)|/ˈfleksəbl/|linh hoạt|
+|footstep (n)|/ˈfʊtstep/|bước chân; truyền thống gia đình|
+|employ (v)|/ɪmˈplɔɪ/|tuyển dụng|
+|nine-to-five (adj)|/ˈnaɪn tə faɪv/|giờ hành chính|
+|on-the-job (adj)|/ɒn ðə ˈdʒɒb/|trong công việc, khi đang làm việc|
+|overtime (adv)|/ˈəʊvətaɪm/|ngoài giờ|
+|part-time (adj)|/ˌpɑːt ˈtaɪm/|bán thời gian|
+|repetitive (adj)|/rɪˈpetətɪv/|lặp đi lặp lại|
+|rewarding (adj)|/rɪˈwɔːdɪŋ/|xứng đáng|
+|shift (n)|/ʃɪft/|ca làm việc|
+|stressful (adj)|/ˈstresfl/|áp lực, căng thẳng|
+|unpaid (adj)|/ˌʌnˈpeɪd/|không được trả lương|
+|wage (n)|/weɪdʒ/|tiền công (trả theo giờ hoặc theo khối<br>lượngcôngviệc)|
+|wait on tables|/weɪt ɒn ˈteɪblz/|phục vụ đồ ăn thức uống cho khách<br>trongnhà hàng|
+|well-paid (adj)|/ˌwel ˈpeɪd/|được trả lương cao|
+|vacancy (n)|/ˈveɪkənsi/|vị trí công việc còn trống|
+
+
+
+
+
+<!-- Start of picture text -->
+footstep (n)<br>employ (v)<br>nine-to-five (adj)<br>on-the-job (adj)<br>overtime (adv)<br><!-- End of picture text -->
+
+
+
+<!-- Start of picture text -->
+wage (n)<br>wait on tables<br>well-paid (adj)<br>vacancy (n)<br><!-- End of picture text -->
+
+
+
+<!-- Start of picture text -->
+/weɪdʒ/<br>/weɪt ɒn ˈteɪblz/<br>/ˌwel ˈpeɪd/<br>/ˈveɪkənsi/<br><!-- End of picture text -->
+
+
+
+<!-- Start of picture text -->
+l
+--- SAU KHI DỌN -------------------------------------------------------------
+|**WORD**|**PRONUNCIATION**|**MEANING**|
+|---|---|---|
+|application letter (n)|/ˌæplɪˈkeɪʃn ˈletə/|thư xin việc|
+|bonus (n)|/ˈbəʊnəs/|tiền thưởng|
+|casual (adj)|/ˈkæʒuəl/|theo thời vụ, tạm thời|
+|challenging (adj)|/ˈtʃælɪndʒɪŋ/|thách thức|
+|flexible (adj)|/ˈfleksəbl/|linh hoạt|
+|footstep (n)|/ˈfʊtstep/|bước chân; truyền thống gia đình|
+|employ (v)|/ɪmˈplɔɪ/|tuyển dụng|
+|nine-to-five (adj)|/ˈnaɪn tə faɪv/|giờ hành chính|
+|on-the-job (adj)|/ɒn ðə ˈdʒɒb/|trong công việc, khi đang làm việc|
+|overtime (adv)|/ˈəʊvətaɪm/|ngoài giờ|
+|part-time (adj)|/ˌpɑːt ˈtaɪm/|bán thời gian|
+|repetitive (adj)|/rɪˈpetətɪv/|lặp đi lặp lại|
+|rewarding (adj)|/rɪˈwɔːdɪŋ/|xứng đáng|
+|shift (n)|/ʃɪft/|ca làm việc|
+|stressful (adj)|/ˈstresfl/|áp lực, căng thẳng|
+|unpaid (adj)|/ˌʌnˈpeɪd/|không được trả lương|
+|wage (n)|/weɪdʒ/|tiền công (trả theo giờ hoặc theo khối lượngcôngviệc)|
+|wait on tables|/weɪt ɒn ˈteɪblz/|phục vụ đồ ăn thức uống cho khách trongnhà hàng|
+|well-paid (adj)|/ˌwel ˈpeɪd/|được trả lương cao|
+|vacancy (n)|/ˈveɪkənsi/|vị trí công việc còn trống|
+
+footstep (n)
+employ (v)
+nine-to-five (adj)
+on-the-job (adj)
+overtime (adv)
+
+wage (n)
+wait on tables
+well-paid (adj)
+vacancy (n)
+
+/weɪdʒ/
+/weɪt ɒn ˈteɪblz/
+/ˌwel ˈpeɪd/
+/ˈveɪkənsi/
+
+lượng công vi
+trong nhà hàn
+
+c)
+g
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  |wage (n)|/weɪdʒ/|tiền công (trả theo giờ hoặc theo khối<br>lượngcôngviệc)|
+  |wait on tables|/weɪt ɒn ˈteɪblz/|phục vụ đồ ăn thức uống cho khách<br>trongnhà hàng|
+  <!-- Start of picture text -->
+  footstep (n)<br>employ (v)<br>nine-to-five (adj)<br>on-the-job (adj)<br>overtime (adv)<br>
+  <!-- Start of picture text -->
+  wage (n)<br>wait on tables<br>well-paid (adj)<br>vacancy (n)<br><!-- End of picture text -
+  <!-- Start of picture text -->
+  /weɪdʒ/<br>/weɪt ɒn ˈteɪblz/<br>/ˌwel ˈpeɪd/<br>/ˈveɪkənsi/<br><!-- End of picture text --
+  <!-- Start of picture text -->
+  lượng công vi<br>trong nhà hàn<br><!-- End of picture text -->
+  <!-- Start of picture text -->
+  c)<br>g<br><!-- End of picture text -->
+  7
+
+==============================================================================
+TRANG 13 - bỏ 11 dòng, 1565 -> 1379 ký tự
+==============================================================================
+--- TRƯỚC KHI DỌN -----------------------------------------------------------
+
+
+|**WORD**|**PRONUNCIATION**|**MEANING**|
+|---|---|---|
+|automate (v)|/ˈɔːtəmeɪt/|tự động hoá|
+|adapt (v)|/əˈdæpt/|thay đổi cho phù hợp, thích ứng theo,<br>thích nghi|
+|character (n)|/ˈkærəktə/|phẩm chất, đặc điểm tính cách|
+|childminder (n)|/ˈtʃaɪldmaɪndə/|người trông trẻ|
+|cut down on|/ˈkʌt daʊn ɒn/|cắt giảm, giảm bớt|
+|CV (curriculum vitae)|/ˌsiː ˈviː/ (/kəˌrɪkjələm<br>ˈviːtaɪ/)|sơ yếu lí lịch|
+|fascinating (adj)|/ˈfæsɪneɪtɪŋ/|cực kì thú vị và hấp dẫn|
+|in demand|/ɪn dɪˈmɑːnd/|có nhu cầu, được mọi người mong<br>muốn|
+|get on with|/ˈɡet ɒn wɪð/|hoà hợp với, có mối quan hệ tốt với|
+|go in for|/ˈɡəʊ ɪn fɔː/|đam mê, theo đuổi một sở thích|
+|live up to|/ˈlɪv ʌp tə/|làm theo sự mong muốn, kì vọng của ai<br>đó|
+|look down on|/ˈlʊk daʊn ɒn/|coi thường người khác, cho rằng mình<br>hơn người|
+|obsolete (adj)|/ˈɒbsəliːt/|lỗi thời, không còn được sử dụng,<br>khôngthịnh hành|
+|passion (n)|/ˈpæʃn/|niềm đam mê, say mê|
+|passionate (adj)|/ˈpæʃənət/|có niềm đam mê với/dành cho|
+|position (n)|/pəˈzɪʃn/|vị trí việc làm|
+|pursue (v)|/pəˈsjuː/|theo đuổi|
+|put up with|/ˈpʊt ʌp wɪð/|chịu đựng|
+|soft skills (n)|/ˈsɒft skɪlz/|các kĩ năng mềm|
+|specialty (n)|/ˈspeʃəlti/|chuyên ngành|
+|take into account|/teɪk ɪntə əˈkaʊnt/|cân nhắc, xem xét|
+
+
+
+
+
+<!-- Start of picture text -->
+childminder (n)<br>cut down on<br>CV (curriculum vitae)<br>fascinating (adj)<br>in demand<br><!-- End of picture text -->
+
+
+
+<!-- Start of picture text -->
+passion (n)<br>passionate (adj)<br>position (n)<br>pursue (v)<br>put 
+--- SAU KHI DỌN -------------------------------------------------------------
+|**WORD**|**PRONUNCIATION**|**MEANING**|
+|---|---|---|
+|automate (v)|/ˈɔːtəmeɪt/|tự động hoá|
+|adapt (v)|/əˈdæpt/|thay đổi cho phù hợp, thích ứng theo, thích nghi|
+|character (n)|/ˈkærəktə/|phẩm chất, đặc điểm tính cách|
+|childminder (n)|/ˈtʃaɪldmaɪndə/|người trông trẻ|
+|cut down on|/ˈkʌt daʊn ɒn/|cắt giảm, giảm bớt|
+|CV (curriculum vitae)|/ˌsiː ˈviː/ (/kəˌrɪkjələm ˈviːtaɪ/)|sơ yếu lí lịch|
+|fascinating (adj)|/ˈfæsɪneɪtɪŋ/|cực kì thú vị và hấp dẫn|
+|in demand|/ɪn dɪˈmɑːnd/|có nhu cầu, được mọi người mong muốn|
+|get on with|/ˈɡet ɒn wɪð/|hoà hợp với, có mối quan hệ tốt với|
+|go in for|/ˈɡəʊ ɪn fɔː/|đam mê, theo đuổi một sở thích|
+|live up to|/ˈlɪv ʌp tə/|làm theo sự mong muốn, kì vọng của ai đó|
+|look down on|/ˈlʊk daʊn ɒn/|coi thường người khác, cho rằng mình hơn người|
+|obsolete (adj)|/ˈɒbsəliːt/|lỗi thời, không còn được sử dụng, khôngthịnh hành|
+|passion (n)|/ˈpæʃn/|niềm đam mê, say mê|
+|passionate (adj)|/ˈpæʃənət/|có niềm đam mê với/dành cho|
+|position (n)|/pəˈzɪʃn/|vị trí việc làm|
+|pursue (v)|/pəˈsjuː/|theo đuổi|
+|put up with|/ˈpʊt ʌp wɪð/|chịu đựng|
+|soft skills (n)|/ˈsɒft skɪlz/|các kĩ năng mềm|
+|specialty (n)|/ˈspeʃəlti/|chuyên ngành|
+|take into account|/teɪk ɪntə əˈkaʊnt/|cân nhắc, xem xét|
+
+childminder (n)
+cut down on
+CV (curriculum vitae)
+fascinating (adj)
+in demand
+
+passion (n)
+passionate (adj)
+position (n)
+pursue (v)
+put up with
+soft skills (n)
+--- DÒNG BỊ BỎ --------------------------------------------------------------
+  |adapt (v)|/əˈdæpt/|thay đổi cho phù hợp, thích ứng theo,<br>thích nghi|
+  |CV (curriculum vitae)|/ˌsiː ˈviː/ (/kəˌrɪkjələm<br>ˈviːtaɪ/)|sơ yếu lí lịch|
+  |in demand|/ɪn dɪˈmɑːnd/|có nhu cầu, được mọi người mong<br>muốn|
+  |live up to|/ˈlɪv ʌp tə/|làm theo sự mong muốn, kì vọng của ai<br>đó|
+  |look down on|/ˈlʊk daʊn ɒn/|coi thường người khác, cho rằng mình<br>hơn người|
+  |obsolete (adj)|/ˈɒbsəliːt/|lỗi thời, không còn được sử dụng,<br>khôngthịnh hành|
+  <!-- Start of picture text -->
+  childminder (n)<br>cut down on<br>CV (curriculum vitae)<br>fascinating (adj)<br>in demand<
+  <!-- Start of picture text -->
+  passion (n)<br>passionate (adj)<br>position (n)<br>pursue (v)<br>put up with<br>soft skill
+  13
+
+##############################################################################
+# TỔNG HỢP: TẦNG LÀM SẠCH TÁC ĐỘNG LÊN HAI NGUỒN
+##############################################################################
+
+[OCR] 4 file, 158 trang
+  Ký tự      : 350915 -> 347814 (-0.9%)
+  Dòng bị bỏ : 312
+  Chunk      : 492
+  Trung bình : 2201 ký tự/trang, 3.1 chunk/trang
+  tiêu đề             556 ->    556 +0.0%
+  dòng bảng           898 ->    898 +0.0%
+  bullet              227 ->    229 +0.9%
+  IPA                 109 ->    109 +0.0%
+  chỗ điền ___        487 ->    487 +0.0%
+  thẻ HTML            474 ->      0 -100.0%
+
+[TEXT LAYER] 4 file, 33 trang
+  Ký tự      : 23394 -> 20689 (-11.6%)
+  Dòng bị bỏ : 101
+  Chunk      : 51
+  Trung bình : 626 ký tự/trang, 1.5 chunk/trang
+  tiêu đề               0 ->      0 n/a
+  dòng bảng           272 ->    272 +0.0%
+  bullet                0 ->      0 n/a
+  IPA                 186 ->    186 +0.0%
+  chỗ điền ___          0 ->      0 n/a
+  thẻ HTML            154 ->      0 -100.0%

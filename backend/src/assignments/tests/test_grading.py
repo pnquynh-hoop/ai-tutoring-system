@@ -6,11 +6,12 @@ from rest_framework.exceptions import ValidationError
 
 from core.testing import auth_client
 
-from .models import Question, StudentAnswer
-from .services import grade_submission, submit_assignment
+from assignments.models import Question, StudentAnswer
+from assignments.services import grade_submission, start_attempt, submit_assignment
 
 
 def run_submit(student, answers, assignment):
+    start_attempt(student=student, assignment=assignment)
     return submit_assignment(student=student, assignment=assignment, answers=answers)
 
 
@@ -113,6 +114,38 @@ class TestGradeSubmission:
 
         with pytest.raises(ValidationError):
             run_grade(submission, [{"id": foreign_answer.id, "point": Decimal("1")}])
+
+    def test_three_questions_full_marks_reaches_ten(
+        self, assignment, enrolled_student
+    ):
+        """3 câu: điểm mỗi câu làm tròn còn 3.33 nhưng đúng hết vẫn phải là 10."""
+        answers = []
+        for order in (1, 2):
+            choice = baker.make(
+                Question,
+                assignment=assignment,
+                question_type=Question.QuestionType.MULTIPLE_CHOICE,
+                order=order,
+            )
+            right = baker.make(
+                "assignments.Answer", question=choice, content="Đúng", is_correct=True
+            )
+            answers.append({"question_id": choice.id, "answer_id": right.id})
+
+        essay = baker.make(
+            Question,
+            assignment=assignment,
+            question_type=Question.QuestionType.ESSAY,
+            order=3,
+        )
+        answers.append({"question_id": essay.id, "answer_text": "Bài làm của em"})
+
+        submission = run_submit(enrolled_student, answers, assignment)
+        essay_answer = submission.stu_answers.get(point__isnull=True)
+
+        graded = run_grade(submission, [{"id": essay_answer.id, "point": Decimal("3.33")}])
+
+        assert graded.score == Decimal("10.0")
 
     def test_cannot_grade_unsubmitted_attempt(self, assignment, enrolled_student):
         attempt = baker.make(
