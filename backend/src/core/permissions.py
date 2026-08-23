@@ -26,7 +26,7 @@ def resolve_course(obj):
     return None
 
 
-def is_enrolled(user, course) -> bool:
+def is_enrolled(user, course):
     if course is None or not user.is_authenticated:
         return False
     return Enrollment.objects.filter(
@@ -34,13 +34,13 @@ def is_enrolled(user, course) -> bool:
     ).exists()
 
 
-def is_course_tutor(user, course) -> bool:
+def is_course_tutor(user, course):
     if course is None or not user.is_authenticated:
         return False
     return course.tutor_id == user.id
 
 
-def is_course_member(user, course) -> bool:
+def is_course_member(user, course):
     return is_course_tutor(user, course) or is_enrolled(user, course)
 
 
@@ -105,7 +105,7 @@ class IsSubmissionOwnerOrCourseTutor(BasePermission):
         return is_course_tutor(request.user, resolve_course(obj))
 
 
-def _resolve_parent(view, attr, source):
+def resolve_parent(view, attr, source):
     lookup = getattr(view, attr, None)
     if not lookup:
         return None
@@ -122,14 +122,14 @@ def _resolve_parent(view, attr, source):
 
 
 class RelatedCoursePermission(BasePermission):
-    def check_course(self, user, course) -> bool:
+    def check_course(self, user, course):
         raise NotImplementedError
 
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
-            parent = _resolve_parent(view, "read_parent_lookup", request.query_params)
+            parent = resolve_parent(view, "read_parent_lookup", request.query_params)
         else:
-            parent = _resolve_parent(view, "write_parent_lookup", request.data)
+            parent = resolve_parent(view, "write_parent_lookup", request.data)
 
         if parent is None:
             return True
@@ -140,12 +140,11 @@ class RelatedCoursePermission(BasePermission):
 class IsRelatedCourseMember(RelatedCoursePermission):
     message = "Bạn không có quyền truy cập nội dung của khóa học này."
 
-    def check_course(self, user, course) -> bool:
+    def check_course(self, user, course):
         return is_course_member(user, course)
 
 
 class IsRelatedCourseTutor(RelatedCoursePermission):
-    """Chỉ ràng buộc thao tác ghi; thao tác đọc để IsRelatedCourseMember quyết định."""
 
     message = "Chỉ gia sư phụ trách khóa học mới được thực hiện thao tác này."
 
@@ -154,5 +153,5 @@ class IsRelatedCourseTutor(RelatedCoursePermission):
             return True
         return super().has_permission(request, view)
 
-    def check_course(self, user, course) -> bool:
+    def check_course(self, user, course):
         return is_course_tutor(user, course)

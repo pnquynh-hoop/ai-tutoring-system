@@ -35,19 +35,3 @@ class GenerateExercisesSerializer(serializers.Serializer):
         default=Question.QuestionType.MULTIPLE_CHOICE,
     )
     count = serializers.IntegerField(default=5, min_value=1, max_value=20)
-
-
-class GeneratedAnswerSerializer(serializers.Serializer):
-    content = serializers.CharField()
-    is_correct = serializers.BooleanField()
-
-
-class GeneratedQuestionSerializer(serializers.Serializer):
-    content = serializers.CharField()
-    explanation = serializers.CharField()
-    answers = GeneratedAnswerSerializer(many=True)
-
-
-class GenerateExercisesResponseSerializer(serializers.Serializer):
-    count = serializers.IntegerField()
-    questions = GeneratedQuestionSerializer(many=True)

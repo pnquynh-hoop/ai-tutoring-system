@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from django.conf import settings
 from langchain_core.output_parsers import JsonOutputParser
@@ -8,19 +8,14 @@ from pydantic import BaseModel, Field
 from .vector_store import get_llm, get_vector_store
 
 TEXTBOOK_SOURCE_TYPE = "textbook"
-# Sách giáo khoa chia thành hàng trăm chunk nên lấy rộng hơn để đủ ngữ cảnh trả lời.
 DEFAULT_TOP_K = 8
 
 
-def _build_chroma_filter(
-    course_id: Optional[int] = None,
-    lesson_id: Optional[int] = None,
-    include_textbook: bool = True,
-) -> Optional[dict]:
-    """Phạm vi truy vấn: tài liệu của khóa/bài học + kiến thức nền từ SGK.
-
-    Trả về None nghĩa là không giới hạn (dùng khi chỉ có mỗi nguồn SGK).
-    """
+def build_chroma_filter(
+    course_id=None,
+    lesson_id=None,
+    include_textbook=True,
+):
     scopes = []
 
     if course_id and lesson_id:
@@ -36,12 +31,7 @@ def _build_chroma_filter(
     return scopes[0] if len(scopes) == 1 else {"$or": scopes}
 
 
-def message_text(message) -> str:
-    """Lấy text thuần từ phản hồi của LLM.
-
-    Các model Gemini mới trả về `content` dạng danh sách khối
-    ``[{"type": "text", "text": "..."}]`` thay vì chuỗi, nên phải gộp lại.
-    """
+def message_text(message):
     content = getattr(message, "content", message)
 
     if isinstance(content, str):
@@ -59,8 +49,7 @@ def message_text(message) -> str:
     return str(content)
 
 
-def format_sources(documents) -> List[dict]:
-    """Rút gọn tài liệu truy xuất được thành danh sách nguồn để hiển thị cho học sinh."""
+def format_sources(documents):
     seen, sources = set(), []
 
     for doc in documents:
@@ -77,8 +66,6 @@ def format_sources(documents) -> List[dict]:
     return sources
 
 
-# Câu mở đầu bắt buộc khi trả lời ngoài giáo trình; service dựa vào đây để biết
-# câu trả lời không còn bám tài liệu và bỏ phần trích nguồn cho khỏi gây hiểu nhầm.
 OUTSIDE_MATERIAL_PREFIX = "Nội dung này không có trong tài liệu của khóa học, mình trả lời theo kiến thức chung:"
 
 STRICT_PROMPT = ChatPromptTemplate.from_template("""
@@ -129,12 +116,7 @@ HYBRID_PROMPT = ChatPromptTemplate.from_template("""
     """ % {"prefix": OUTSIDE_MATERIAL_PREFIX})
 
 
-def split_grounding(answer: str) -> tuple[str, bool]:
-    """Tách nhãn "ngoài tài liệu" khỏi câu trả lời.
-
-    Trả về (câu trả lời, có bám tài liệu hay không). Câu trả lời ngoài giáo trình
-    thì không kèm trích nguồn, vì các đoạn truy xuất được thực chất không được dùng.
-    """
+def split_grounding(answer):
     stripped = answer.strip()
     if stripped.startswith(OUTSIDE_MATERIAL_PREFIX):
         return stripped, False
@@ -142,14 +124,10 @@ def split_grounding(answer: str) -> tuple[str, bool]:
 
 
 def query_rag_answer(
-    query: str, course_id: Optional[int] = None, lesson_id: Optional[int] = None
-) -> dict:
-    """Trả lời câu hỏi của học sinh dựa trên tài liệu đã lập chỉ mục.
-
-    Trả về dict gồm câu trả lời và danh sách nguồn đã dùng.
-    """
+    query, course_id=None, lesson_id=None
+):
     search_kwargs = {"k": DEFAULT_TOP_K}
-    chroma_filter = _build_chroma_filter(course_id, lesson_id)
+    chroma_filter = build_chroma_filter(course_id, lesson_id)
     if chroma_filter:
         search_kwargs["filter"] = chroma_filter
 
@@ -182,7 +160,6 @@ def query_rag_answer(
     }
 
 
-# --- Schema cấu trúc dữ liệu tạo bài tập ---
 
 
 class GeneratedAnswerSchema(BaseModel):
@@ -203,14 +180,13 @@ class GeneratedQuestionListSchema(BaseModel):
 
 
 def generate_exercises_rag(
-    course_id: int, lesson_id: Optional[int], question_type: str, count: int
-) -> List[dict]:
+    course_id, lesson_id, question_type, count
+):
     search_kwargs = {"k": DEFAULT_TOP_K}
-    chroma_filter = _build_chroma_filter(course_id, lesson_id)
+    chroma_filter = build_chroma_filter(course_id, lesson_id)
     if chroma_filter:
         search_kwargs["filter"] = chroma_filter
 
-    # Dùng query tổng quan thay vì chuỗi rỗng ""
     docs = get_vector_store().similarity_search(
         "Kiến thức trọng tâm bài học", **search_kwargs
     )

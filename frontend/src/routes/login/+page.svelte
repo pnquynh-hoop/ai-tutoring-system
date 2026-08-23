@@ -40,19 +40,19 @@
 	<title>Đăng nhập</title>
 </svelte:head>
 
-<div class="flex min-h-screen items-center justify-center bg-[#f8fafc] p-4 sm:p-6 lg:p-8 font-sans">
+<div class="flex min-h-screen items-center justify-center bg-slate-50 p-4 sm:p-6 lg:p-8 font-sans">
 	<div
 		class="w-full max-w-7xl bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col md:flex-row border border-slate-100 relative"
 	>
 		<div
-			class="hidden md:flex md:w-1/2 bg-linear-to-br from-blue-50 to-indigo-50 p-16 flex-col justify-center items-center relative overflow-hidden"
+			class="hidden md:flex md:w-1/2 bg-linear-to-br from-blue-50 to-brand-50 p-16 flex-col justify-center items-center relative overflow-hidden"
 		>
 			<div
 				class="absolute top-0 left-0 w-full h-full overflow-hidden opacity-60 pointer-events-none"
 			>
 				<div class="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-blue-200 blur-3xl"></div>
 				<div
-					class="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-indigo-200 blur-3xl"
+					class="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-brand-200 blur-3xl"
 				></div>
 			</div>
 
@@ -89,7 +89,7 @@
 					Chào mừng quay lại!
 
 					<div
-						class="animate-float group relative flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-tr from-blue-600 to-indigo-500 shadow-md shadow-indigo-200 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-300"
+						class="animate-float group relative flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-tr from-blue-600 to-brand-500 shadow-md shadow-brand-200 transition-all duration-300 hover:shadow-lg hover:shadow-brand-300"
 					>
 						<div
 							class="absolute inset-0 rounded-2xl bg-white/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100"

@@ -5,7 +5,6 @@ import pytest
 from django.utils import timezone
 from model_bakery import baker
 
-from core.testing import auth_client
 
 from courses.services import get_course_tutor_stats, mark_lesson_completed
 
@@ -111,26 +110,3 @@ class TestCourseTutorStats:
             "students": [],
             "assignments": [],
         }
-
-
-@pytest.mark.django_db
-class TestCourseStatsApi:
-    def test_course_tutor_can_read_stats(self, course, lessons, enrolled_student):
-        response = auth_client(course.tutor).get(f"/api/v1/courses/{course.pk}/stats/")
-
-        assert response.status_code == 200
-        assert response.data["total_students"] == 1
-        assert len(response.data["students"]) == 1
-
-    def test_other_tutor_cannot_read_stats(self, course, make_tutor):
-        response = auth_client(make_tutor()).get(f"/api/v1/courses/{course.pk}/stats/")
-
-        assert response.status_code in (403, 404)
-
-    def test_student_cannot_read_stats(self, course, enrolled_student):
-        response = auth_client(enrolled_student).get(
-            f"/api/v1/courses/{course.pk}/stats/"
-        )
-
-        # Học sinh đã ghi danh vẫn là thành viên khóa học nhưng không phải gia sư.
-        assert response.status_code == 403

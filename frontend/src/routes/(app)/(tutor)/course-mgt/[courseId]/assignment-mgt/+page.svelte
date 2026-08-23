@@ -5,19 +5,15 @@
 		createQuestion,
 		deleteAssignment,
 		deleteQuestion,
+		publishAssignment,
 		updateAssignment,
 		updateQuestion
 	} from '$lib/api/calledAPI';
 	import { getApiErrorMessage } from '$lib/api/errors';
 	import type { QuestionType, TutorAnswer, TutorQuestion } from '$lib/api/entities';
 	import { showToast } from '$lib/stores/toast.svelte';
-	import { ArrowLeft, Check, ClipboardEdit, Pencil, Plus, Trash2, X } from 'lucide-svelte';
+	import { ArrowLeft, Check, ClipboardEdit, Globe, Pencil, Plus, Trash2, X } from 'lucide-svelte';
 	import type { PageProps } from './$types';
-
-	// ============================================================
-	// Soạn bài tập cho MỘT CHƯƠNG (Assignment 1-1 Chapter theo model backend),
-	// kèm bộ câu hỏi: Question 1-N Answer.
-	// ============================================================
 
 	let { data }: PageProps = $props();
 
@@ -39,7 +35,6 @@
 		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 	}
 
-	// --- Form thông tin bài tập ---
 	let form = $state({ title: '', due_date: '', time_limit_minutes: '' });
 	let isSavingAssignment = $state(false);
 
@@ -98,6 +93,21 @@
 		}
 	}
 
+	async function confirmPublishAssignment() {
+		if (!assignment) return;
+
+		const question = `Công khai bài tập "${assignment.title}" cho học sinh? Đã công khai thì không thể đưa về lại bản nháp.`;
+		if (!window.confirm(question)) return;
+
+		try {
+			await publishAssignment(assignment.id);
+			showToast('Đã công khai bài tập', 'success');
+			await invalidateAll();
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Công khai bài tập không thành công.'), 'error');
+		}
+	}
+
 	async function removeAssignment() {
 		if (!assignment) return;
 		if (!window.confirm('Xoá bài tập của chương này? Toàn bộ câu hỏi cũng sẽ bị xoá.')) return;
@@ -111,7 +121,6 @@
 		}
 	}
 
-	// --- Soạn câu hỏi ---
 	const emptyAnswers = (): TutorAnswer[] => [
 		{ content: '', is_correct: true },
 		{ content: '', is_correct: false }
@@ -156,7 +165,6 @@
 		showQuestionForm = true;
 	}
 
-	/** Đổi loại câu hỏi thì bộ đáp án phải theo ràng buộc của backend. */
 	function onQuestionTypeChange() {
 		if (questionForm.question_type === 'ESSAY') {
 			questionForm.answers = [];
@@ -177,7 +185,6 @@
 		questionForm.answers = questionForm.answers.filter((_, i) => i !== index);
 	}
 
-	/** Trắc nghiệm chỉ được đúng 1 đáp án đúng - khớp validate ở backend. */
 	function markCorrect(index: number) {
 		questionForm.answers = questionForm.answers.map((answer, i) => ({
 			...answer,
@@ -242,7 +249,7 @@
 	<title>Soạn bài tập</title>
 </svelte:head>
 
-<div class="min-h-screen bg-[#F4F5F8]" style="font-family:'Inter',sans-serif;">
+<div class="min-h-screen bg-slate-50" style="font-family:'Inter',sans-serif;">
 	<header
 		class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 	>
@@ -257,7 +264,6 @@
 
 	<main class="px-8 py-8">
 		<div class="mx-auto max-w-4xl space-y-6">
-			<!-- CHỌN CHƯƠNG: bài tập luôn thuộc về một chương -->
 			<div
 				class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 			>
@@ -273,7 +279,7 @@
 							onclick={() => selectChapter(ch.id)}
 							class={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${
 								chapter?.id === ch.id
-									? 'border-[#0C1550] bg-[#0C1550] text-white'
+									? 'border-brand-950 bg-brand-950 text-white'
 									: 'border-slate-200 text-slate-600 hover:bg-slate-50'
 							}`}
 						>
@@ -291,7 +297,6 @@
 					<p>Khóa học chưa có chương nào. Hãy tạo chương trước khi soạn bài tập.</p>
 				</div>
 			{:else}
-				<!-- THÔNG TIN BÀI TẬP -->
 				<div
 					class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 				>
@@ -300,19 +305,36 @@
 							{assignment ? 'Thông tin bài tập' : 'Tạo bài tập cho chương này'}
 						</h2>
 						{#if assignment}
-							<button
-								onclick={removeAssignment}
-								class="flex items-center gap-1.5 rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50"
-							>
-								<Trash2 class="h-3.5 w-3.5" />
-								Xoá bài tập
-							</button>
+							<div class="flex items-center gap-2">
+								{#if assignment.is_published}
+									<span
+										class="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-600"
+									>
+										Đã công khai
+									</span>
+								{:else}
+									<button
+										onclick={confirmPublishAssignment}
+										class="flex items-center gap-1.5 rounded-xl border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50"
+									>
+										<Globe class="h-3.5 w-3.5" />
+										Công khai bài tập
+									</button>
+								{/if}
+								<button
+									onclick={removeAssignment}
+									class="flex items-center gap-1.5 rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50"
+								>
+									<Trash2 class="h-3.5 w-3.5" />
+									Xoá bài tập
+								</button>
+							</div>
 						{/if}
 					</div>
 
 					<div class="space-y-3">
 						<input
-							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 							placeholder="Tiêu đề bài tập"
 							bind:value={form.title}
 						/>
@@ -321,7 +343,7 @@
 								<span class="mb-1 block text-xs font-medium text-slate-500">Hạn nộp</span>
 								<input
 									type="datetime-local"
-									class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+									class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 									bind:value={form.due_date}
 								/>
 							</label>
@@ -332,7 +354,7 @@
 								<input
 									type="number"
 									min="1"
-									class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+									class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 									bind:value={form.time_limit_minutes}
 								/>
 							</label>
@@ -341,7 +363,7 @@
 							<button
 								onclick={saveAssignment}
 								disabled={isSavingAssignment}
-								class="flex items-center gap-1.5 rounded-xl bg-[#0C1550] px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+								class="flex items-center gap-1.5 rounded-xl bg-brand-950 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
 							>
 								<ClipboardEdit class="h-3.5 w-3.5" />
 								{assignment ? 'Lưu thay đổi' : 'Tạo bài tập'}
@@ -350,7 +372,6 @@
 					</div>
 				</div>
 
-				<!-- CÂU HỎI -->
 				{#if assignment}
 					<div
 						class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
@@ -364,7 +385,7 @@
 							</h2>
 							<button
 								onclick={startAddQuestion}
-								class="flex items-center gap-1.5 rounded-xl bg-[#0C1550] px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+								class="flex items-center gap-1.5 rounded-xl bg-brand-950 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
 							>
 								<Plus class="h-3.5 w-3.5" />
 								Thêm câu hỏi
@@ -375,13 +396,13 @@
 							<div class="mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
 								<textarea
 									rows="2"
-									class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+									class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 									placeholder="Nội dung câu hỏi"
 									bind:value={questionForm.content}></textarea>
 
 								<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 									<select
-										class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+										class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 										bind:value={questionForm.question_type}
 										onchange={onQuestionTypeChange}
 									>
@@ -390,7 +411,7 @@
 										<option value="ESSAY">Tự luận</option>
 									</select>
 									<input
-										class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+										class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 										placeholder="Lời giải chi tiết"
 										bind:value={questionForm.explanation}
 									/>
@@ -423,7 +444,7 @@
 													</button>
 												{/if}
 												<input
-													class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-300"
+													class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
 													placeholder={questionForm.question_type === 'MULTIPLE_CHOICE'
 														? `Phương án ${index + 1}`
 														: 'Đáp án đúng'}
@@ -444,7 +465,7 @@
 										{#if questionForm.question_type === 'MULTIPLE_CHOICE'}
 											<button
 												onclick={addOption}
-												class="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600"
+												class="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-brand-600"
 											>
 												<Plus class="h-3 w-3" />
 												Thêm phương án

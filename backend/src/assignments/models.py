@@ -4,9 +4,6 @@ from django.db import models
 
 from core.models import BaseModel, PublishableModel
 
-""" 
-    Chứa các model Assignment, Question, Submission, Answer, StudentAnswer, Submissions
-"""
 
 
 class Assignment(BaseModel, PublishableModel):

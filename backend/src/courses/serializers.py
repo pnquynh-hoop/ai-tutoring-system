@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 from accounts.serializers import SimpleUserSerializer, TutorSerializer
 from core.validators import validate_document_upload, validate_video_url
@@ -66,18 +67,20 @@ class TutorCourseDetailSerializer(TutorCourseSerializer):
 
 class LessonTreeSerializer(serializers.ModelSerializer):
     is_completed = serializers.BooleanField(read_only=True)
+    is_published = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Lesson
-        fields = ["id", "title", "order", "is_completed"]
+        fields = ["id", "title", "order", "is_completed", "is_published"]
 
 
 class ChapterTreeSerializer(serializers.ModelSerializer):
     lessons = LessonTreeSerializer(many=True, read_only=True)
+    is_published = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Chapter
-        fields = ["id", "title", "order", "lessons", "assignment"]
+        fields = ["id", "title", "order", "lessons", "assignment", "is_published"]
 
 
 class CourseTreeSerializer(serializers.ModelSerializer):
@@ -102,9 +105,19 @@ class TutorQuickStatsSerializer(serializers.Serializer):
 
 
 class LearningResourceSerializer(serializers.ModelSerializer):
+    is_published = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = LearningResource
-        fields = ["id", "title", "resource_type", "content", "file_url", "video_url"]
+        fields = [
+            "id",
+            "title",
+            "resource_type",
+            "content",
+            "file_url",
+            "video_url",
+            "is_published",
+        ]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -298,3 +311,75 @@ class ResourceSerializer(serializers.ModelSerializer):
             except AttributeError:
                 data["file_url"] = str(instance.file_url)
         return data
+
+
+class PublishChapterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Chapter
+        fields = ["id", "published_at"]
+        extra_kwargs = {"published_at": {"read_only": True}}
+
+    def validate(self, attrs):
+        chapter = self.instance
+
+        if chapter.is_published:
+            raise serializers.ValidationError("Chương này đã được công khai.")
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        instance.published_at = timezone.now()
+        instance.save(update_fields=["published_at", "updated_at"])
+        return instance
+
+
+class PublishLessonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Lesson
+        fields = ["id", "published_at"]
+        extra_kwargs = {"published_at": {"read_only": True}}
+
+    def validate(self, attrs):
+        lesson = self.instance
+        chapter = lesson.chapter
+
+        if lesson.is_published:
+            raise serializers.ValidationError("Bài học này đã được công khai.")
+
+        if not chapter.is_published:
+            raise serializers.ValidationError(
+                "Phải công khai chương chứa bài học này trước."
+            )
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        instance.published_at = timezone.now()
+        instance.save(update_fields=["published_at", "updated_at"])
+        return instance
+
+
+class PublishResourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LearningResource
+        fields = ["id", "published_at"]
+        extra_kwargs = {"published_at": {"read_only": True}}
+
+    def validate(self, attrs):
+        resource = self.instance
+        lesson = resource.lesson
+
+        if resource.is_published:
+            raise serializers.ValidationError("Tài nguyên này đã được công khai.")
+
+        if not lesson.is_published:
+            raise serializers.ValidationError(
+                "Phải công khai bài học chứa tài nguyên này trước."
+            )
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        instance.published_at = timezone.now()
+        instance.save(update_fields=["published_at", "updated_at"])
+        return instance

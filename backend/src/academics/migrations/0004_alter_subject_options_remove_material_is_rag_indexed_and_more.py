@@ -33,7 +33,6 @@ class Migration(migrations.Migration):
                 blank=True,
                 max_length=500,
                 null=True,
-                storage=academics.models.rag_data_storage,
                 upload_to=academics.models.material_local_path,
                 verbose_name="Tệp lưu cục bộ",
             ),

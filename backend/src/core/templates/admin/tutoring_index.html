@@ -1,0 +1,43 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+<div class="module tool-shortcuts">
+    <h2>Công cụ quản trị</h2>
+    <div class="tool-shortcut-list">
+        {% for tool in tool_links %}
+        <div class="tool-shortcut">
+            <h3><a href="{{ tool.admin_url }}">{{ tool.name }}</a></h3>
+            <p>{{ tool.description }}</p>
+            <a class="button" href="{{ tool.admin_url }}">Mở trang</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    .tool-shortcut-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 12px;
+    }
+
+    .tool-shortcut {
+        flex: 1 1 260px;
+        border: 1px solid var(--hairline-color);
+        border-radius: 6px;
+        padding: 14px 16px;
+    }
+
+    .tool-shortcut h3 {
+        margin: 0 0 6px;
+    }
+
+    .tool-shortcut p {
+        margin: 0 0 12px;
+        color: var(--body-quiet-color);
+    }
+</style>
+
+{{ block.super }}
+{% endblock %}

@@ -15,7 +15,6 @@
 	let { data }: PageProps = $props();
 	const assignment = $derived(data.assignment);
 
-	// Backend giới hạn số lượt nộp cho mỗi bài tập và trả về qua max_attempts/attempts_used.
 	let attemptsLeft = $derived(Math.max(0, assignment.maxAttempts - assignment.attemptsUsed));
 	let isOverdue = $derived(new Date(assignment.dueDate).getTime() < Date.now());
 	let canStart = $derived(attemptsLeft > 0 && !isOverdue);
@@ -50,7 +49,7 @@
 	>
 		<a
 			href="/"
-			class="flex items-center gap-2 rounded-full bg-[#0C1550] px-4 py-2 text-sm font-medium text-white hover:bg-indigo-900"
+			class="flex items-center gap-2 rounded-full bg-brand-950 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900"
 		>
 			<Home class="h-4 w-4" />
 			Trang chủ
@@ -70,8 +69,8 @@
 		>
 			<div class="grid grid-cols-2 gap-4">
 				<div class="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3.5">
-					<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100">
-						<Clock class="h-4.5 w-4.5 text-indigo-600" />
+					<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100">
+						<Clock class="h-4.5 w-4.5 text-brand-600" />
 					</div>
 					<div class="min-w-0">
 						<p class="text-xs font-medium text-slate-500">Thời gian làm bài</p>
@@ -150,7 +149,7 @@
 		<button
 			onclick={handleStart}
 			disabled={!canStart}
-			class="mt-8 flex items-center gap-2 rounded-full bg-[#0C1550] px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-900 disabled:cursor-not-allowed disabled:opacity-40"
+			class="mt-8 flex items-center gap-2 rounded-full bg-brand-950 px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-900 disabled:cursor-not-allowed disabled:opacity-40"
 		>
 			{assignment.attemptsUsed > 0 ? 'Làm lại bài tập' : 'Bắt đầu làm bài'}
 			<ArrowRight class="h-4 w-4" />

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Home, ChevronLeft, ChevronRight, Check } from 'lucide-svelte';
@@ -7,7 +8,13 @@
 	import type { Question, UserAnswer } from '$lib/api/entities';
 	import { submitAssignment } from '$lib/api/calledAPI';
 	import { getApiErrorMessage } from '$lib/api/errors';
-	import { buildAnswerPayload, remainingSeconds } from '$lib/utils/assignment';
+	import {
+		buildAnswerPayload,
+		clearAnswerDraft,
+		loadAnswerDraft,
+		remainingSeconds,
+		saveAnswerDraft
+	} from '$lib/utils/assignment';
 	import { showToast } from '$lib/stores/toast.svelte';
 
 	let { data }: PageProps = $props();
@@ -15,13 +22,19 @@
 
 	let currentIndex = $state(0);
 
-	let userAnswers = $state<Record<number, UserAnswer>>({});
+	let attemptId = $derived(data.attempt.id);
+
+	let userAnswers = $state<Record<number, UserAnswer>>(
+		untrack(() => loadAnswerDraft(data.attempt.id))
+	);
+
+	$effect(() => {
+		saveAnswerDraft(attemptId, userAnswers);
+	});
 
 	let currentQuestion = $derived(questions[currentIndex]);
 	let currentAnswer = $derived(userAnswers[currentQuestion?.id]);
 
-	// Thời gian còn lại tính từ deadline của server, không tính lại từ đầu ở client
-	// nên tải lại trang giữa chừng vẫn ra đúng số giây còn lại.
 	let durationSeconds = $derived(remainingSeconds(data.attempt.deadline));
 
 	let isSubmitting = $state(false);
@@ -60,6 +73,7 @@
 		isSubmitting = true;
 		try {
 			const submission = await submitAssignment(data.assignmentId, buildAnswerPayload(userAnswers));
+			clearAnswerDraft(attemptId);
 			showToast(
 				submission.score === null
 					? 'Đã nộp bài. Bài có câu tự luận nên chờ gia sư chấm.'
@@ -94,8 +108,7 @@
 </svelte:head>
 
 <div class="flex-1 overflow-y-auto">
-	<div class="flex min-h-screen bg-[#F5F6FA]" style="font-family:'Inter',sans-serif;">
-		<!-- MAIN -->
+	<div class="flex min-h-screen bg-slate-50" style="font-family:'Inter',sans-serif;">
 		<div class="flex flex-1 flex-col">
 			<header
 				class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
@@ -105,7 +118,7 @@
 				>
 				<a
 					href="/"
-					class="flex items-center gap-2 rounded-full bg-[#0C1550] px-4 py-2 text-sm font-medium text-white hover:bg-indigo-900"
+					class="flex items-center gap-2 rounded-full bg-brand-950 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900"
 				>
 					<Home class="h-4 w-4" />
 					Trang chủ
@@ -138,7 +151,7 @@
 									class={`flex w-full items-center gap-3 rounded-full border px-5 py-3.5 text-left text-sm font-medium transition-all
 					${
 						currentAnswer?.type === 'MULTIPLE_CHOICE' && currentAnswer.answerId === answer.id
-							? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+							? 'border-brand-400 bg-brand-50 text-brand-700'
 							: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
 					}`}
 								>
@@ -146,7 +159,7 @@
 										class={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-[10px] font-bold transition-colors
 						${
 							currentAnswer?.type === 'MULTIPLE_CHOICE' && currentAnswer.answerId === answer.id
-								? 'border-indigo-400 bg-indigo-400 text-white'
+								? 'border-brand-400 bg-brand-400 text-white'
 								: 'border-slate-300 text-transparent'
 						}`}
 									>
@@ -162,7 +175,7 @@
 							value={currentAnswer?.type === 'FILL_IN_BLANK' ? currentAnswer.text : ''}
 							oninput={(e) => updateTextAnswer(e.currentTarget.value)}
 							placeholder="Nhập câu trả lời..."
-							class="w-full rounded-full border border-slate-200 bg-white px-5 py-3.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400"
+							class="w-full rounded-full border border-slate-200 bg-white px-5 py-3.5 text-sm font-medium text-slate-700 outline-none focus:border-brand-400"
 						/>
 					{:else if currentQuestion.question_type === 'ESSAY'}
 						<textarea
@@ -170,7 +183,7 @@
 							oninput={(e) => updateTextAnswer(e.currentTarget.value)}
 							placeholder="Nhập câu trả lời của bạn..."
 							rows="6"
-							class="w-full resize-none rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400"
+							class="w-full resize-none rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-medium text-slate-700 outline-none focus:border-brand-400"
 						></textarea>
 					{/if}
 				</div>
@@ -192,7 +205,7 @@
 					<button
 						onclick={() => goTo(currentIndex + 1)}
 						disabled={currentIndex === questions.length - 1}
-						class="flex items-center gap-2 rounded-full bg-[#0C1550] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-900 disabled:cursor-not-allowed disabled:opacity-40"
+						class="flex items-center gap-2 rounded-full bg-brand-950 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-900 disabled:cursor-not-allowed disabled:opacity-40"
 					>
 						Câu tiếp theo
 						<ChevronRight class="h-4 w-4" />
@@ -201,7 +214,6 @@
 			</main>
 		</div>
 
-		<!-- SIDEBAR -->
 		<QuizSidebar
 			{questions}
 			{currentIndex}

@@ -23,6 +23,9 @@ from .serializers import (
     LearningResourceSerializer,
     LessonDetailSerializer,
     LessonSerializer,
+    PublishChapterSerializer,
+    PublishLessonSerializer,
+    PublishResourceSerializer,
     ResourceSerializer,
     StudentCourseSerializer,
     StudentQuickStatsSerializer,
@@ -105,7 +108,6 @@ class CourseView(
 
     @action(methods=["get"], url_path="stats", detail=True)
     def tutor_stats(self, request, pk):
-        """Thống kê khóa học dành cho gia sư phụ trách."""
         data = get_course_tutor_stats(course=self.get_object())
         return Response(
             TutorCourseStatsSerializer(
@@ -160,7 +162,8 @@ class LessonView(
     write_parent_lookup = ("chapter", Chapter)
 
     def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
+        tutor_only_actions = ("create", "update", "partial_update", "destroy", "publish")
+        if self.action in tutor_only_actions:
             return [IsTutor(), IsRelatedCourseTutor(), IsCourseTutor()]
         return [IsStudentOrTutor(), IsCourseMember()]
 
@@ -177,7 +180,6 @@ class LessonView(
         return query
 
     def visible_resources(self):
-        """Tài nguyên bài học: học sinh chỉ thấy bản đã công khai, gia sư thấy cả nháp."""
         query = LearningResource.objects.filter(is_active=True)
         if self.request.user.is_student:
             query = query.filter(published_at__isnull=False)
@@ -210,6 +212,16 @@ class LessonView(
             },
             status=status.HTTP_200_OK,
         )
+
+    @action(methods=["post"], url_path="publish", detail=True)
+    def publish(self, request, pk):
+        lesson = self.get_object()
+
+        serializer = PublishLessonSerializer(lesson, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(methods=["get", "post"], url_path="comments", detail=True)
     def get_comments(self, request, pk):
@@ -268,6 +280,16 @@ class ChapterView(
     write_parent_lookup = ("course", Course)
     permission_classes = [IsTutor, IsRelatedCourseTutor, IsCourseTutor]
 
+    @action(methods=["post"], url_path="publish", detail=True)
+    def publish(self, request, pk):
+        chapter = self.get_object()
+
+        serializer = PublishChapterSerializer(chapter, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class ResourceView(
     viewsets.ViewSet,
@@ -275,7 +297,6 @@ class ResourceView(
     generics.UpdateAPIView,
     generics.DestroyAPIView,
 ):
-    """Soạn tài nguyên bài học - chỉ gia sư phụ trách. Đọc đi qua /lessons/{id}/resources/."""
 
     queryset = LearningResource.objects.filter(is_active=True)
     serializer_class = ResourceSerializer
@@ -284,3 +305,13 @@ class ResourceView(
 
     def get_queryset(self):
         return super().get_queryset().select_related("lesson__chapter__course")
+
+    @action(methods=["post"], url_path="publish", detail=True)
+    def publish(self, request, pk):
+        resource = self.get_object()
+
+        serializer = PublishResourceSerializer(resource, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -45,7 +45,7 @@
 				label: 'Khóa học đang học',
 				value: String(stats.ongoing_courses_count),
 				icon: ClipboardList,
-				tone: 'indigo'
+				tone: 'brand'
 			},
 			{
 				label: 'Bài tập chờ làm',
@@ -122,14 +122,13 @@
 	<title>Trang chủ</title>
 </svelte:head>
 
-<div class="flex min-h-screen bg-[#F5F6FA]" style="font-family:'Inter',sans-serif;">
-	<!-- SIDEBAR -->
+<div class="flex min-h-screen bg-slate-50" style="font-family:'Inter',sans-serif;">
 	<aside
-		class={`relative flex flex-col bg-[#0C1550] text-white transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}
+		class={`relative flex flex-col bg-brand-950 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}
 	>
 		<div class="flex items-center gap-3 px-5 py-6">
 			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-tr from-indigo-500 to-violet-500 shadow-lg shadow-indigo-900/40"
+				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-tr from-brand-500 to-brand-500 shadow-lg shadow-brand-900/40"
 			>
 				<Sparkles class="h-5 w-5 text-white" />
 			</div>
@@ -148,7 +147,7 @@
 						${
 							activeNav === item.id
 								? 'bg-white/10 text-white shadow-inner'
-								: 'text-indigo-100/60 hover:bg-white/5 hover:text-white'
+								: 'text-brand-100/60 hover:bg-white/5 hover:text-white'
 						}`}
 				>
 					<span class="relative shrink-0">
@@ -158,7 +157,7 @@
 						<span class="truncate">{item.label}</span>
 					{/if}
 					{#if activeNav === item.id && !sidebarCollapsed}
-						<span class="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-400"></span>
+						<span class="ml-auto h-1.5 w-1.5 rounded-full bg-brand-400"></span>
 					{/if}
 				</button>
 			{/each}
@@ -166,16 +165,14 @@
 
 		<button
 			onclick={() => (sidebarCollapsed = !sidebarCollapsed)}
-			class="mx-3 mb-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-indigo-100/40 hover:bg-white/5 hover:text-white"
+			class="mx-3 mb-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-brand-100/40 hover:bg-white/5 hover:text-white"
 		>
 			<Menu class="h-4 w-4" />
 			{#if !sidebarCollapsed}Thu gọn{/if}
 		</button>
 	</aside>
 
-	<!-- MAIN -->
 	<div class="flex flex-1 flex-col">
-		<!-- TOP BAR -->
 		<header
 			class="flex items-center justify-end border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 		>
@@ -224,7 +221,6 @@
 		</header>
 
 		<main class="flex-1 overflow-y-auto px-8 py-8">
-			<!-- GREETING -->
 			<div class="mb-8 flex flex-wrap items-end justify-between gap-4">
 				<div>
 					<h1
@@ -239,7 +235,6 @@
 				</div>
 			</div>
 
-			<!-- QUICK STATS -->
 			<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
 				{#each quickStats as stat (stat.label)}
 					<div
@@ -247,7 +242,7 @@
 					>
 						<div
 							class={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl
-								${stat.tone === 'indigo' ? 'bg-indigo-50 text-indigo-600' : ''}
+								${stat.tone === 'brand' ? 'bg-brand-50 text-brand-600' : ''}
 								${stat.tone === 'amber' ? 'bg-amber-50 text-amber-600' : ''}
 								${stat.tone === 'orange' ? 'bg-orange-50 text-orange-600' : ''}`}
 						>
@@ -261,7 +256,6 @@
 				{/each}
 			</div>
 
-			<!-- COURSES -->
 			<div class="mb-4 flex items-center justify-between">
 				<h2 class="text-base font-semibold text-slate-800" style="font-family:'Sora',sans-serif;">
 					Khóa học của bạn
@@ -298,7 +292,7 @@
 
 								<div
 									class="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
-									style={`background: conic-gradient(${course.ring} ${course.progress * 3.6}deg, #EEF0F5 0deg)`}
+									style={`background: conic-gradient(${course.ring} ${course.progress * 3.6}deg, var(--color-slate-200) 0deg)`}
 								>
 									<div class="flex h-11 w-11 items-center justify-center rounded-full bg-white">
 										<span class="text-xs font-bold text-slate-800">{course.progress}%</span>
@@ -311,7 +305,7 @@
 								class={`mt-auto flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white transition-colors ${
 									course.progress >= 100
 										? 'bg-emerald-600 group-hover:bg-emerald-700'
-										: 'bg-slate-900 group-hover:bg-indigo-600'
+										: 'bg-slate-900 group-hover:bg-brand-600'
 								}`}
 							>
 								{course.progress >= 100 ? 'Xem khóa học' : 'Học tiếp'}

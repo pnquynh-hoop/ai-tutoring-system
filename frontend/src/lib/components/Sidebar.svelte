@@ -16,7 +16,7 @@
 </script>
 
 <aside
-	class={`flex h-full shrink-0 flex-col overflow-hidden bg-[#0C1550] text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-72'}`}
+	class={`flex h-full shrink-0 flex-col overflow-hidden bg-brand-950 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-72'}`}
 >
 	<div
 		class={`flex items-center border-b border-white/10 py-6 ${sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-5'}`}
@@ -24,7 +24,7 @@
 		{#if !sidebarCollapsed}
 			<a
 				href={`/course/${course.id}`}
-				class="truncate font-semibold tracking-tight text-white hover:text-indigo-200"
+				class="truncate font-semibold tracking-tight text-white hover:text-brand-200"
 				style="font-family:'Sora',sans-serif;"
 			>
 				{course.name}
@@ -34,7 +34,7 @@
 			onclick={() => (sidebarCollapsed = !sidebarCollapsed)}
 			class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20"
 		>
-			<Menu class="h-4 w-4 text-indigo-100/60" />
+			<Menu class="h-4 w-4 text-brand-100/60" />
 		</button>
 	</div>
 
@@ -48,13 +48,13 @@
 						onclick={() =>
 							(expandedChapterId = expandedChapterId === chapter.id ? null : chapter.id)}
 						class={`flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-sm transition-all
-	                        ${expandedChapterId === chapter.id ? 'bg-white/10 font-semibold text-white' : 'text-indigo-100/55 hover:bg-white/5 hover:text-white'}`}
+	                        ${expandedChapterId === chapter.id ? 'bg-white/10 font-semibold text-white' : 'text-brand-100/55 hover:bg-white/5 hover:text-white'}`}
 					>
 						<BookOpen class="h-4 w-4 shrink-0 opacity-60" />
 						<span class="flex-1 text-left">Chương {i + 1}: {chapter.title}</span>
 						{#if chapter.lessons.length > 0 || chapter.assignment}
 							<ChevronRight
-								class={`h-4 w-4 shrink-0 text-indigo-100/40 transition-transform ${expandedChapterId === chapter.id ? 'rotate-90' : ''}`}
+								class={`h-4 w-4 shrink-0 text-brand-100/40 transition-transform ${expandedChapterId === chapter.id ? 'rotate-90' : ''}`}
 							/>
 						{/if}
 					</button>
@@ -66,14 +66,14 @@
 								<button
 									onclick={() => goto(`/course/${course.id}/lesson/${lesson.id}`)}
 									class={`flex w-full items-center gap-2 rounded-full py-2 pl-3 pr-2 text-sm transition-all
-                    ${activeLessonId === lesson.id ? 'bg-white/10 font-semibold text-white' : 'text-indigo-100/50 hover:bg-white/5 hover:text-white'}`}
+                    ${activeLessonId === lesson.id ? 'bg-white/10 font-semibold text-white' : 'text-brand-100/50 hover:bg-white/5 hover:text-white'}`}
 								>
 									{#if lesson.is_completed}
 										<Star class="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
 									{/if}
 									<span class="min-w-0 flex-1 truncate text-left">{lesson.title}</span>
 									{#if activeLessonId === lesson.id}
-										<ChevronRight class="ml-auto h-4 w-4 shrink-0 text-indigo-100/50" />
+										<ChevronRight class="ml-auto h-4 w-4 shrink-0 text-brand-100/50" />
 									{/if}
 								</button>
 							{/each}
@@ -84,7 +84,7 @@
 										goto(
 											`/course/${course.id}/chapter/${chapter.id}/assignment/${chapter.assignment}`
 										)}
-									class="flex w-full items-center gap-2 rounded-full py-2 pl-3 pr-2 text-sm text-indigo-100/50 transition-all hover:bg-white/5 hover:text-white"
+									class="flex w-full items-center gap-2 rounded-full py-2 pl-3 pr-2 text-sm text-brand-100/50 transition-all hover:bg-white/5 hover:text-white"
 								>
 									<PenLine class="h-3.5 w-3.5 shrink-0 opacity-60" />
 									<span class="min-w-0 flex-1 truncate text-left">Bài tập ôn chương {i + 1}</span>
@@ -105,7 +105,7 @@
 			{#if !sidebarCollapsed}
 				<div class="min-w-0 flex-1">
 					<p class="truncate text-sm font-medium text-white">{student?.full_name ?? ''}</p>
-					<p class="truncate text-xs text-indigo-100/50">Học sinh {student?.grade ?? ''}</p>
+					<p class="truncate text-xs text-brand-100/50">Học sinh {student?.grade ?? ''}</p>
 				</div>
 			{/if}
 		</div>

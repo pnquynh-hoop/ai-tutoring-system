@@ -7,11 +7,6 @@
 	import { CheckCircle2, Clock, FileText, Home, XCircle } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
-	// ============================================================
-	// Lịch sử làm bài: mỗi dòng là một Submission đã nộp. Mở ra xem lại từng
-	// StudentAnswer kèm đáp án đúng, lời giải và nhận xét của gia sư.
-	// ============================================================
-
 	let { data }: PageProps = $props();
 	let submissions = $derived(data.submissions);
 
@@ -51,13 +46,13 @@
 	<title>Lịch sử làm bài</title>
 </svelte:head>
 
-<div class="min-h-screen w-full bg-[#F4F5F8]" style="font-family:'Inter',sans-serif;">
+<div class="min-h-screen w-full bg-slate-50" style="font-family:'Inter',sans-serif;">
 	<header
 		class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 	>
 		<button
 			onclick={() => goto('/stu-dashboard')}
-			class="flex items-center gap-2 rounded-full bg-[#0C1550] px-4 py-2 text-sm font-medium text-white hover:bg-indigo-900"
+			class="flex items-center gap-2 rounded-full bg-brand-950 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900"
 		>
 			<Home class="h-4 w-4" />
 			Trang chủ
@@ -78,7 +73,6 @@
 		</div>
 
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-[380px_1fr]">
-			<!-- DANH SÁCH BÀI ĐÃ NỘP -->
 			<div
 				class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm shadow-slate-200/50"
 			>
@@ -88,7 +82,7 @@
 							onclick={() => openSubmission(submission.id)}
 							class={`w-full rounded-xl border p-3 text-left transition-colors ${
 								selected?.id === submission.id
-									? 'border-[#0C1550] bg-slate-50'
+									? 'border-brand-950 bg-slate-50'
 									: 'border-slate-100 hover:bg-slate-50'
 							}`}
 						>
@@ -128,7 +122,6 @@
 				</div>
 			</div>
 
-			<!-- XEM LẠI BÀI LÀM -->
 			<div
 				class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 			>

@@ -14,7 +14,7 @@ LLM_MODEL = os.environ.get("GEMINI_LLM_MODEL", "gemini-flash-latest")
 OCR_MODEL = os.environ.get("GEMINI_OCR_MODEL", LLM_MODEL)
 
 
-def _google_api_key() -> str:
+def google_api_key():
     api_key = os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         raise ImproperlyConfigured(
@@ -26,7 +26,7 @@ def _google_api_key() -> str:
 @lru_cache(maxsize=1)
 def get_embeddings():
     return GoogleGenerativeAIEmbeddings(
-        model=EMBEDDING_MODEL, google_api_key=_google_api_key()
+        model=EMBEDDING_MODEL, google_api_key=google_api_key()
     )
 
 
@@ -43,12 +43,12 @@ def get_vector_store():
 @lru_cache(maxsize=1)
 def get_llm():
     return ChatGoogleGenerativeAI(
-        model=LLM_MODEL, google_api_key=_google_api_key(), temperature=0.2
+        model=LLM_MODEL, google_api_key=google_api_key(), temperature=0.2
     )
 
 
 @lru_cache(maxsize=1)
 def get_ocr_llm():
     return ChatGoogleGenerativeAI(
-        model=OCR_MODEL, google_api_key=_google_api_key(), temperature=0
+        model=OCR_MODEL, google_api_key=google_api_key(), temperature=0
     )

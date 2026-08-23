@@ -12,6 +12,9 @@
 		getListComments,
 		logoutApi,
 		postComment,
+		publishChapter,
+		publishLesson,
+		publishResource,
 		toggleCommentRight,
 		updateChapter,
 		updateLesson
@@ -41,16 +44,9 @@
 		ClipboardEdit,
 		BarChart3,
 		ClipboardCheck,
-		Network
+		Network,
+		Globe
 	} from 'lucide-svelte';
-
-	// ============================================================
-	// Gia sư quản lý cây khóa học: Chapter <-> Lesson <-> LearningResource
-	// + trả lời/đánh dấu đúng Comment của học sinh dưới mỗi bài học.
-	//
-	// Lưu ý theo model backend: Assignment gắn 1-1 với CHƯƠNG (không phải bài học),
-	// nên thao tác bài tập nằm ở cấp chương.
-	// ============================================================
 
 	let { data }: PageProps = $props();
 
@@ -58,10 +54,8 @@
 	let courseName = $derived(data.course.name);
 	let studentsCount = $derived(data.course.students_count);
 
-	// Cây chương/bài học lấy từ GET /courses/{id}/tree/
 	let chapters = $state<Chapter[]>([]);
 
-	// --- User thật (gia sư) ---
 	let tutorName = $derived(auth.user?.full_name);
 	let avatarUrl = $derived(auth.user?.avatar);
 	let showUserMenu = $state(false);
@@ -89,14 +83,12 @@
 		goto(`/course-mgt/${courseId}/grading`);
 	}
 	function goChapterAssignment(chapterId: number) {
-		// Bài tập thuộc về chương, mang theo chapter để trang bài tập biết đích danh.
 		goto(`/course-mgt/${courseId}/assignment-mgt?chapter=${chapterId}`);
 	}
 
 	let expandedChapterId = $state<number | null>(null);
 	let selectedLessonId = $state<number | null>(null);
 
-	// Nạp cây từ server và chọn sẵn bài học đầu tiên; chạy lại khi đổi khóa học.
 	$effect(() => {
 		const tree = data.tree.chapters;
 		chapters = tree;
@@ -114,12 +106,10 @@
 		selectedLessonId = lessonId;
 	}
 
-	/** Tải lại cây sau mỗi thao tác thêm/sửa/xoá để order và id luôn khớp server. */
 	async function reloadTree() {
 		chapters = (await getCourseTree(courseId)).chapters;
 	}
 
-	// --- CRUD Chương ---
 	let addingChapter = $state(false);
 	let newChapterTitle = $state('');
 	let editingChapterId = $state<number | null>(null);
@@ -182,7 +172,19 @@
 		}
 	}
 
-	// --- CRUD Bài học ---
+	async function confirmPublishChapter(chapter: Chapter) {
+		const question = `Công khai chương "${chapter.title}" cho học sinh? Đã công khai thì không thể đưa về lại bản nháp.`;
+		if (!window.confirm(question)) return;
+
+		try {
+			await publishChapter(chapter.id);
+			await reloadTree();
+			showToast('Đã công khai chương', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Công khai chương không thành công.'), 'error');
+		}
+	}
+
 	let addingLessonChapterId = $state<number | null>(null);
 	let newLessonTitle = $state('');
 	let editingLessonId = $state<number | null>(null);
@@ -243,8 +245,19 @@
 		}
 	}
 
-	// --- CRUD Tài nguyên bài học ---
-	// Tài nguyên và bình luận nạp theo bài học đang chọn (GET /resources/?lesson=...).
+	async function confirmPublishLesson(lesson: Lesson) {
+		const question = `Công khai bài học "${lesson.title}" cho học sinh? Đã công khai thì không thể đưa về lại bản nháp.`;
+		if (!window.confirm(question)) return;
+
+		try {
+			await publishLesson(lesson.id);
+			await reloadTree();
+			showToast('Đã công khai bài học', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Công khai bài học không thành công.'), 'error');
+		}
+	}
+
 	let resources = $state<LessonResource[]>([]);
 	let addingResource = $state(false);
 	let isSavingResource = $state(false);
@@ -295,6 +308,21 @@
 		}
 	}
 
+	async function confirmPublishResource(resource: LessonResource) {
+		const question = `Công khai tài nguyên "${resource.title}" cho học sinh? Đã công khai thì không thể đưa về lại bản nháp.`;
+		if (!window.confirm(question)) return;
+
+		try {
+			await publishResource(resource.id);
+			if (selectedLessonId) {
+				resources = await getLessonResources(selectedLessonId);
+			}
+			showToast('Đã công khai tài nguyên', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Công khai tài nguyên không thành công.'), 'error');
+		}
+	}
+
 	async function removeResource(resource: LessonResource) {
 		if (!window.confirm(`Xoá tài nguyên "${resource.title}"?`)) return;
 		try {
@@ -306,7 +334,6 @@
 		}
 	}
 
-	// --- Bình luận (diễn đàn thảo luận đi theo bài học) ---
 	let comments = $state<Comment[]>([]);
 
 	let topLevelComments = $derived(comments.filter((c) => c.parent === null));
@@ -315,7 +342,6 @@
 		return comments.filter((c) => c.parent === parentId);
 	}
 
-	// Đổi bài học thì nạp lại tài nguyên + bình luận của đúng bài học đó.
 	$effect(() => {
 		const lessonId = selectedLessonId;
 		if (!lessonId) {
@@ -363,7 +389,6 @@
 		if (!replyContent.trim() || isSubmittingReply || !selectedLessonId) return;
 		isSubmittingReply = true;
 		try {
-			// created_by do backend gán từ user của request, không gửi lên.
 			const created = await postComment(selectedLessonId, replyContent.trim(), parentId);
 			comments = [...comments, created];
 			replyContent = '';
@@ -400,10 +425,9 @@
 	<title>Quản lý khóa học</title>
 </svelte:head>
 
-<div class="flex h-screen w-full bg-[#F4F5F8]" style="font-family:'Inter',sans-serif;">
-	<!-- SIDEBAR: cây khóa học có CRUD (đặc thù của trang này, không phải nav chung) -->
+<div class="flex h-screen w-full bg-slate-50" style="font-family:'Inter',sans-serif;">
 	<aside
-		class={`relative flex h-full shrink-0 flex-col overflow-hidden bg-[#0C1550] text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-80'}`}
+		class={`relative flex h-full shrink-0 flex-col overflow-hidden bg-brand-950 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-80'}`}
 	>
 		<div
 			class={`flex items-center border-b border-white/10 py-6 ${sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-5'}`}
@@ -417,7 +441,7 @@
 				onclick={() => (sidebarCollapsed = !sidebarCollapsed)}
 				class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20"
 			>
-				<Menu class="h-4 w-4 text-indigo-100/60" />
+				<Menu class="h-4 w-4 text-brand-100/60" />
 			</button>
 		</div>
 
@@ -425,7 +449,7 @@
 			<div class="flex-1 overflow-y-auto px-3 py-4">
 				<button
 					onclick={startAddChapter}
-					class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 py-2 text-xs font-semibold text-indigo-100/70 hover:border-white/40 hover:text-white"
+					class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 py-2 text-xs font-semibold text-brand-100/70 hover:border-white/40 hover:text-white"
 				>
 					<Plus class="h-3.5 w-3.5" />
 					Thêm chương
@@ -434,7 +458,7 @@
 				{#if addingChapter}
 					<div class="mb-3 flex items-center gap-1.5 px-1">
 						<input
-							class="min-w-0 flex-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white placeholder-indigo-100/40 outline-none focus:bg-white/15"
+							class="min-w-0 flex-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white placeholder-brand-100/40 outline-none focus:bg-white/15"
 							placeholder="Tên chương mới..."
 							bind:value={newChapterTitle}
 							onkeydown={(e) => e.key === 'Enter' && confirmAddChapter()}
@@ -478,13 +502,13 @@
 										onclick={() => (editingChapterId = null)}
 										class="rounded-lg p-1 hover:bg-white/10"
 									>
-										<X class="h-3.5 w-3.5 text-indigo-100/50" />
+										<X class="h-3.5 w-3.5 text-brand-100/50" />
 									</button>
 								{:else}
 									<button
 										onclick={() =>
 											(expandedChapterId = expandedChapterId === chapter.id ? null : chapter.id)}
-										class="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-indigo-100/80"
+										class="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-brand-100/80"
 									>
 										{#if expandedChapterId === chapter.id}
 											<ChevronDown class="h-3.5 w-3.5 shrink-0 opacity-60" />
@@ -495,16 +519,31 @@
 									</button>
 									{#if chapter.assignment !== null}
 										<span
-											class="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-indigo-100/60"
+											class="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-brand-100/60"
 										>
 											BT
 										</span>
+									{/if}
+									{#if chapter.is_published}
+										<span
+											class="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-300"
+										>
+											Công khai
+										</span>
+									{:else}
+										<button
+											onclick={() => confirmPublishChapter(chapter)}
+											title="Công khai chương cho học sinh"
+											class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-emerald-500/20 group-hover:opacity-100"
+										>
+											<Globe class="h-3 w-3 text-emerald-300" />
+										</button>
 									{/if}
 									<button
 										onclick={() => startEditChapter(chapter)}
 										class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-white/10 group-hover:opacity-100"
 									>
-										<Pencil class="h-3 w-3 text-indigo-100/60" />
+										<Pencil class="h-3 w-3 text-brand-100/60" />
 									</button>
 									<button
 										onclick={() => removeChapter(chapter)}
@@ -540,7 +579,7 @@
 													onclick={() => (editingLessonId = null)}
 													class="rounded-lg p-1 hover:bg-white/10"
 												>
-													<X class="h-3.5 w-3.5 text-indigo-100/50" />
+													<X class="h-3.5 w-3.5 text-brand-100/50" />
 												</button>
 											{:else}
 												<button
@@ -548,16 +587,31 @@
 													class={`min-w-0 flex-1 truncate text-left text-[13px] ${
 														selectedLessonId === lesson.id
 															? 'font-semibold text-white'
-															: 'text-indigo-100/60'
+															: 'text-brand-100/60'
 													}`}
 												>
 													{lesson.title}
 												</button>
+												{#if lesson.is_published}
+													<span
+														class="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-300"
+													>
+														Công khai
+													</span>
+												{:else}
+													<button
+														onclick={() => confirmPublishLesson(lesson)}
+														title="Công khai bài học cho học sinh"
+														class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-emerald-500/20 group-hover:opacity-100"
+													>
+														<Globe class="h-3 w-3 text-emerald-300" />
+													</button>
+												{/if}
 												<button
 													onclick={() => startEditLesson(lesson)}
 													class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-white/10 group-hover:opacity-100"
 												>
-													<Pencil class="h-3 w-3 text-indigo-100/60" />
+													<Pencil class="h-3 w-3 text-brand-100/60" />
 												</button>
 												<button
 													onclick={() => removeLesson(lesson)}
@@ -572,7 +626,7 @@
 									{#if addingLessonChapterId === chapter.id}
 										<div class="flex items-center gap-1.5 px-2 py-1">
 											<input
-												class="min-w-0 flex-1 rounded-lg bg-white/10 px-2 py-1 text-xs text-white placeholder-indigo-100/40 outline-none"
+												class="min-w-0 flex-1 rounded-lg bg-white/10 px-2 py-1 text-xs text-white placeholder-brand-100/40 outline-none"
 												placeholder="Tên bài học mới..."
 												bind:value={newLessonTitle}
 												onkeydown={(e) => e.key === 'Enter' && confirmAddLesson(chapter)}
@@ -593,7 +647,7 @@
 									{:else}
 										<button
 											onclick={() => startAddLesson(chapter.id)}
-											class="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-indigo-100/40 hover:bg-white/5 hover:text-indigo-100/70"
+											class="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-brand-100/40 hover:bg-white/5 hover:text-brand-100/70"
 										>
 											<Plus class="h-3 w-3" />
 											Thêm bài học
@@ -615,22 +669,20 @@
 				{#if !sidebarCollapsed}
 					<div class="min-w-0 flex-1">
 						<p class="truncate text-sm font-medium text-white">{tutorName}</p>
-						<p class="truncate text-xs text-indigo-100/50">Gia sư</p>
+						<p class="truncate text-xs text-brand-100/50">Gia sư</p>
 					</div>
 				{/if}
 			</div>
 		</div>
 	</aside>
 
-	<!-- MAIN -->
 	<div class="flex flex-1 flex-col min-w-0">
 		<header
 			class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 		>
-			<!-- SUB-NAV: 3 khu vực làm việc của khóa học này -->
 			<div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
 				<span
-					class="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#0C1550] shadow-sm"
+					class="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-brand-950 shadow-sm"
 				>
 					<Network class="h-3.5 w-3.5" />
 					Cây khóa học
@@ -687,7 +739,6 @@
 				</div>
 			{:else}
 				<div class="mx-auto max-w-4xl space-y-6">
-					<!-- THÔNG TIN BÀI HỌC -->
 					<div
 						class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 					>
@@ -697,7 +748,7 @@
 						<div class="mt-1 flex items-center gap-2">
 							{#if editingLessonId === selectedLesson.id}
 								<input
-									class="flex-1 rounded-xl border border-slate-200 px-3 py-1.5 text-lg font-bold text-slate-900 outline-none focus:border-indigo-300"
+									class="flex-1 rounded-xl border border-slate-200 px-3 py-1.5 text-lg font-bold text-slate-900 outline-none focus:border-brand-300"
 									bind:value={editLessonTitle}
 								/>
 								<button
@@ -720,10 +771,9 @@
 									<Pencil class="h-3.5 w-3.5" />
 									Đổi tên
 								</button>
-								<!-- Assignment gắn 1-1 với chương nên thao tác bài tập đặt ở cấp chương -->
 								<button
 									onclick={() => goChapterAssignment(selectedChapter!.id)}
-									class="flex items-center gap-1.5 rounded-xl bg-[#0C1550] px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+									class="flex items-center gap-1.5 rounded-xl bg-brand-950 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
 								>
 									<ClipboardEdit class="h-3.5 w-3.5" />
 									{selectedChapter?.assignment !== null
@@ -734,7 +784,6 @@
 						</div>
 					</div>
 
-					<!-- TÀI NGUYÊN BÀI HỌC -->
 					<div
 						class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 					>
@@ -747,7 +796,7 @@
 							</h2>
 							<button
 								onclick={startAddResource}
-								class="flex items-center gap-1.5 rounded-xl bg-[#0C1550] px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+								class="flex items-center gap-1.5 rounded-xl bg-brand-950 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
 							>
 								<Plus class="h-3.5 w-3.5" />
 								Thêm tài nguyên
@@ -758,12 +807,12 @@
 							<div class="mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
 								<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 									<input
-										class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-300"
+										class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
 										placeholder="Tên tài nguyên"
 										bind:value={newResource.title}
 									/>
 									<select
-										class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-300"
+										class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
 										bind:value={newResource.resource_type}
 									>
 										<option value="VIDEO_URL">Video</option>
@@ -773,20 +822,20 @@
 								</div>
 								{#if newResource.resource_type === 'VIDEO_URL'}
 									<input
-										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-300"
+										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
 										placeholder="Đường dẫn video (YouTube...)"
 										bind:value={newResource.video_url}
 									/>
 								{:else if newResource.resource_type === 'PDF_FILE'}
 									<input
-										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-300"
+										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
 										placeholder="Đường dẫn tệp PDF"
 										bind:value={newResource.file_url}
 									/>
 								{:else}
 									<textarea
 										rows="2"
-										class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-300"
+										class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
 										placeholder="Nội dung văn bản"
 										bind:value={newResource.content}></textarea>
 								{/if}
@@ -816,7 +865,7 @@
 										<div
 											class={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
 												res.resource_type === 'VIDEO_URL'
-													? 'bg-indigo-50 text-indigo-600'
+													? 'bg-brand-50 text-brand-600'
 													: res.resource_type === 'PDF_FILE'
 														? 'bg-teal-50 text-teal-600'
 														: 'bg-amber-50 text-amber-600'
@@ -841,6 +890,21 @@
 											</p>
 										</div>
 									</div>
+									{#if res.is_published}
+										<span
+											class="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600"
+										>
+											Đã công khai
+										</span>
+									{:else}
+										<button
+											onclick={() => confirmPublishResource(res)}
+											title="Công khai tài nguyên cho học sinh"
+											class="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
+										>
+											<Globe class="h-4 w-4" />
+										</button>
+									{/if}
 									<button
 										onclick={() => removeResource(res)}
 										class="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
@@ -858,7 +922,6 @@
 						</div>
 					</div>
 
-					<!-- DIỄN ĐÀN THẢO LUẬN (đi theo bài học) -->
 					<div
 						class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 					>
@@ -890,7 +953,7 @@
 													</p>
 													<button
 														onclick={() => toggleReplyBox(comment.id)}
-														class="text-[11px] font-medium text-slate-500 hover:text-indigo-600"
+														class="text-[11px] font-medium text-slate-500 hover:text-brand-600"
 													>
 														Trả lời
 													</button>
@@ -913,7 +976,7 @@
 												onkeydown={(e) => e.key === 'Enter' && submitReply(comment.id)}
 												placeholder="Trả lời học sinh..."
 												disabled={isSubmittingReply}
-												class="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none focus:border-indigo-300"
+												class="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none focus:border-brand-300"
 											/>
 											<button
 												onclick={() => submitReply(comment.id)}
@@ -934,7 +997,7 @@
 															src={reply.created_by.avatar}
 															name={reply.created_by.full_name}
 															size="sm"
-															fromColor="from-indigo-400"
+															fromColor="from-brand-400"
 															toColor="to-sky-300"
 														/>
 														<div class="min-w-0 flex-1">

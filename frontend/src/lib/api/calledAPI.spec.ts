@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock lớp axios instance để kiểm tra frontend gọi đúng URL và payload backend yêu cầu.
 const get = vi.fn();
 const post = vi.fn();
 const patch = vi.fn();
@@ -51,10 +50,10 @@ describe('cây khóa học', () => {
 		expect(post).toHaveBeenCalledWith('lessons/', { chapter: 9, title: 'Bài 1', order: 2 });
 	});
 
-	it('list tài nguyên bắt buộc kèm ?lesson= vì backend chặn quyền theo bài học', async () => {
+	it('list tài nguyên gọi qua đường dẫn lồng của bài học', async () => {
 		await getLessonResources(12);
 
-		expect(get).toHaveBeenCalledWith('resources/?lesson=12');
+		expect(get).toHaveBeenCalledWith('lessons/12/resources/');
 	});
 
 	it('tạo tài nguyên gửi kèm lesson', async () => {

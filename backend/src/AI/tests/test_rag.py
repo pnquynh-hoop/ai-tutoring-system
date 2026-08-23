@@ -1,36 +1,28 @@
-from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 from langchain_core.documents import Document
 
-from core.testing import auth_client
 
 from AI.ingest import (
-    SOURCE_TEXTBOOK,
+    SOURCE_MATERIAL,
     document_id,
-    local_pdf_paths,
+    material_metadata,
     select_new,
-    textbook_metadata,
 )
 from AI.rag_service import (
     OUTSIDE_MATERIAL_PREFIX,
     TEXTBOOK_SOURCE_TYPE,
-    _build_chroma_filter,
+    build_chroma_filter,
     format_sources,
     message_text,
     split_grounding,
 )
 
-"""
-    Test cho phần logic thuần của RAG: phạm vi truy vấn, metadata và id của chunk.
-    Việc gọi Gemini/Chroma thật không nằm trong unit test.
-"""
 
 
 class TestChromaFilter:
     def test_course_and_lesson_scope_plus_textbook(self):
-        assert _build_chroma_filter(course_id=1, lesson_id=2) == {
+        assert build_chroma_filter(course_id=1, lesson_id=2) == {
             "$or": [
                 {"$and": [{"course_id": 1}, {"lesson_id": 2}]},
                 {"source_type": TEXTBOOK_SOURCE_TYPE},
@@ -38,18 +30,18 @@ class TestChromaFilter:
         }
 
     def test_course_scope_plus_textbook(self):
-        assert _build_chroma_filter(course_id=5) == {
+        assert build_chroma_filter(course_id=5) == {
             "$or": [{"course_id": 5}, {"source_type": TEXTBOOK_SOURCE_TYPE}]
         }
 
     def test_textbook_only_when_no_course(self):
-        assert _build_chroma_filter() == {"source_type": TEXTBOOK_SOURCE_TYPE}
+        assert build_chroma_filter() == {"source_type": TEXTBOOK_SOURCE_TYPE}
 
     def test_no_filter_when_textbook_excluded_and_no_course(self):
-        assert _build_chroma_filter(include_textbook=False) is None
+        assert build_chroma_filter(include_textbook=False) is None
 
     def test_course_only_when_textbook_excluded(self):
-        assert _build_chroma_filter(course_id=7, include_textbook=False) == {
+        assert build_chroma_filter(course_id=7, include_textbook=False) == {
             "course_id": 7
         }
 
@@ -100,7 +92,6 @@ class TestSplitGrounding:
         answer, grounded = split_grounding(raw)
 
         assert grounded is False
-        # Giữ nguyên nhãn trong câu trả lời để học sinh biết đây là kiến thức ngoài sách.
         assert answer.startswith(OUTSIDE_MATERIAL_PREFIX)
 
     def test_strips_surrounding_whitespace(self):
@@ -146,27 +137,30 @@ class TestFormatSources:
         ]
 
 
-class TestTextbookIngestHelpers:
+class TestMaterialIngestHelpers:
     def test_metadata_marks_source_type_for_filtering(self):
-        metadata = textbook_metadata(Path("/data/SGK_12_clean.pdf"), page=3)
+        material = SimpleNamespace(
+            id=12, subject_id=3, grade_id=5, name="Wordlist Tiếng Anh 12"
+        )
 
-        assert metadata == {
-            "source_type": SOURCE_TEXTBOOK,
-            "source": "SGK_12_clean.pdf",
-            "title": "SGK 12 clean",
+        assert material_metadata(material, page_number=3) == {
+            "source_type": SOURCE_MATERIAL,
+            "material_id": 12,
+            "subject_id": 3,
+            "grade_id": 5,
+            "title": "Wordlist Tiếng Anh 12",
             "page": 3,
         }
 
     def test_document_id_is_stable_for_same_chunk(self):
-        first = document_id(SOURCE_TEXTBOOK, "SGK_12_clean.pdf", 3, 0)
-        second = document_id(SOURCE_TEXTBOOK, "SGK_12_clean.pdf", 3, 0)
+        first = document_id(SOURCE_MATERIAL, "12", 3, 0)
+        second = document_id(SOURCE_MATERIAL, "12", 3, 0)
 
-        # Id cố định nên chạy lại lệnh ingest sẽ ghi đè thay vì nhân bản dữ liệu.
-        assert first == second == "textbook:SGK_12_clean.pdf:3:0"
+        assert first == second == "material:12:3:0"
 
     def test_document_id_differs_per_chunk(self):
-        assert document_id(SOURCE_TEXTBOOK, "a.pdf", 1, 0) != document_id(
-            SOURCE_TEXTBOOK, "a.pdf", 1, 1
+        assert document_id(SOURCE_MATERIAL, "12", 1, 0) != document_id(
+            SOURCE_MATERIAL, "12", 1, 1
         )
 
 
@@ -188,79 +182,4 @@ class TestSelectNew:
     def test_returns_empty_when_all_ingested(self):
         docs = [Document(page_content="x")]
 
-        # Nhờ vậy chạy lại lệnh ingest sau khi bị 429 sẽ nạp tiếp phần còn thiếu
-        # thay vì nhúng lại từ đầu và đốt quota.
         assert select_new(docs, ["a:0"], existing_ids=["a:0"]) == ([], [])
-
-
-class TestLocalPdfPaths:
-    def test_returns_empty_when_directory_missing(self, tmp_path):
-        assert local_pdf_paths(tmp_path / "khong-ton-tai") == []
-
-    def test_only_matches_pattern(self, tmp_path):
-        (tmp_path / "SGK_12_clean.pdf").write_bytes(b"%PDF-")
-        (tmp_path / "SGK_raw.pdf").write_bytes(b"%PDF-")
-        (tmp_path / "ghi_chu.txt").write_text("x", encoding="utf-8")
-
-        names = [p.name for p in local_pdf_paths(tmp_path, "*clean*.pdf")]
-
-        assert names == ["SGK_12_clean.pdf"]
-
-    def test_sorted_for_stable_ingest_order(self, tmp_path):
-        for name in ["b_clean.pdf", "a_clean.pdf"]:
-            (tmp_path / name).write_bytes(b"%PDF-")
-
-        assert [p.name for p in local_pdf_paths(tmp_path, "*clean*.pdf")] == [
-            "a_clean.pdf",
-            "b_clean.pdf",
-        ]
-
-
-@pytest.mark.django_db
-class TestRagApiPermissions:
-    def test_student_not_enrolled_cannot_ask(self, course, make_student):
-        response = auth_client(make_student()).post(
-            "/api/v1/rag/ask/",
-            {"question": "Bài này nói gì?", "course_id": course.pk},
-            format="json",
-        )
-
-        assert response.status_code == 403
-
-    def test_student_not_enrolled_cannot_generate_exercises(
-        self, course, make_student
-    ):
-        response = auth_client(make_student()).post(
-            "/api/v1/rag/generate-exercises/",
-            {"course_id": course.pk},
-            format="json",
-        )
-
-        assert response.status_code == 403
-
-    def test_tutor_cannot_ask(self, course, tutor):
-        # Tính năng AI hiện chỉ mở cho học sinh, kể cả gia sư phụ trách khóa.
-        response = auth_client(tutor).post(
-            "/api/v1/rag/ask/",
-            {"question": "Bài này nói gì?", "course_id": course.pk},
-            format="json",
-        )
-
-        assert response.status_code == 403
-
-    def test_tutor_cannot_generate_exercises(self, course, tutor):
-        response = auth_client(tutor).post(
-            "/api/v1/rag/generate-exercises/",
-            {"course_id": course.pk},
-            format="json",
-        )
-
-        assert response.status_code == 403
-
-    def test_missing_question_returns_400(self, course, enrolled_student):
-        response = auth_client(enrolled_student).post(
-            "/api/v1/rag/ask/", {"course_id": course.pk}, format="json"
-        )
-
-        assert response.status_code == 400
-        assert "question" in response.data

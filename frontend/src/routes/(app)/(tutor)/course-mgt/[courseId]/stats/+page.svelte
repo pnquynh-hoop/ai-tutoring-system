@@ -4,11 +4,6 @@
 	import { ArrowLeft, BarChart3, BookOpen, ClipboardCheck, Users } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
-	// ============================================================
-	// Thống kê khóa học cho gia sư: GET /courses/{id}/stats/
-	// Tiến độ từng học sinh (LessonProgress) + tình hình từng bài tập (Submission).
-	// ============================================================
-
 	let { data }: PageProps = $props();
 
 	let courseId = $derived(data.courseId);
@@ -47,7 +42,7 @@
 	<title>Thống kê khóa học</title>
 </svelte:head>
 
-<div class="min-h-screen bg-[#F4F5F8]" style="font-family:'Inter',sans-serif;">
+<div class="min-h-screen bg-slate-50" style="font-family:'Inter',sans-serif;">
 	<header
 		class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 	>
@@ -65,7 +60,6 @@
 	</header>
 
 	<main class="px-8 py-8">
-		<!-- QUICK STATS -->
 		<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
 			{#each quickStats as stat (stat.label)}
 				<div
@@ -73,7 +67,7 @@
 				>
 					<div
 						class={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl
-							${stat.tone === 'navy' ? 'bg-[#0C1550]/5 text-[#0C1550]' : ''}
+							${stat.tone === 'navy' ? 'bg-brand-950/5 text-brand-950' : ''}
 							${stat.tone === 'slate' ? 'bg-slate-100 text-slate-600' : ''}
 							${stat.tone === 'amber' ? 'bg-amber-50 text-amber-600' : ''}`}
 					>
@@ -87,7 +81,6 @@
 			{/each}
 		</div>
 
-		<!-- TIẾN ĐỘ HỌC SINH -->
 		<div
 			class="mb-8 rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 		>
@@ -104,7 +97,7 @@
 							<div class="mt-1.5 flex items-center gap-3">
 								<div class="h-1.5 w-40 overflow-hidden rounded-full bg-slate-200">
 									<div
-										class="h-full rounded-full bg-[#0C1550]"
+										class="h-full rounded-full bg-brand-950"
 										style={`width:${student.progress}%`}
 									></div>
 								</div>
@@ -130,7 +123,6 @@
 			</div>
 		</div>
 
-		<!-- TÌNH HÌNH BÀI TẬP -->
 		<div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50">
 			<div class="mb-4 flex items-center justify-between">
 				<h2 class="text-sm font-semibold text-slate-800" style="font-family:'Sora',sans-serif;">

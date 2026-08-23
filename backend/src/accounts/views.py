@@ -2,8 +2,6 @@ from django.conf import settings
 from rest_framework import generics, permissions, status, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import StudentProfile, User
@@ -14,7 +12,12 @@ from .serializers import (
     RefreshTokenSerializer,
     UpdateMeSerializer,
 )
-from .utils import clear_auth_cookies, remove_tokens, set_auth_cookies
+from .utils import (
+    blacklist_refresh_token,
+    clear_auth_cookies,
+    remove_tokens,
+    set_auth_cookies,
+)
 
 
 class LoginView(TokenObtainPairView):
@@ -39,19 +42,17 @@ class RefreshView(TokenRefreshView):
     serializer_class = RefreshTokenSerializer
 
     def post(self, request, *args, **kwargs):
-        request.data["refresh"] = request.COOKIES.get(
-            settings.AUTH_COOKIE["REFRESH_NAME"]
+        refresh = request.COOKIES.get(settings.AUTH_COOKIE["REFRESH_NAME"])
+
+        serializer = self.get_serializer(data={"refresh": refresh or ""})
+        serializer.is_valid(raise_exception=True)
+
+        response = Response(status=status.HTTP_200_OK)
+        set_auth_cookies(
+            response,
+            access_token=serializer.validated_data.get("access"),
+            refresh_token=serializer.validated_data.get("refresh"),
         )
-
-        response = super().post(request, *args, **kwargs)
-
-        if response.status_code == 200:
-            set_auth_cookies(
-                response,
-                access_token=response.data.get("access"),
-                refresh_token=response.data.get("refresh"),
-            )
-            remove_tokens(response)
         return response
 
 
@@ -60,12 +61,7 @@ class LogoutView(views.APIView):
 
     def post(self, request):
         refresh = request.COOKIES.get(settings.AUTH_COOKIE["REFRESH_NAME"])
-
-        if refresh:
-            try:
-                RefreshToken(refresh).blacklist()
-            except TokenError:
-                pass
+        blacklist_refresh_token(refresh)
 
         response = Response(
             {"message": "Logout thành công."},
@@ -117,12 +113,12 @@ class UserView(viewsets.ViewSet, generics.GenericAPIView):
 
     @action(methods=["post"], detail=False, url_path="change-password")
     def change_password(self, request):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(request.user, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
         response = Response(
-            {"message": "Đổi mật khẩu thành công, vui lòng đăng nhập lại."},
+            {"message": "Đổi mật khẩu thành công"},
             status=status.HTTP_200_OK,
         )
         clear_auth_cookies(response)

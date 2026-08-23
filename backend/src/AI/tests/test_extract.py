@@ -6,9 +6,9 @@ import pytest
 
 from AI import extract
 from AI.extract import (
-    _file_fingerprint,
-    _load_cache,
-    _save_cache,
+    file_fingerprint,
+    load_cache,
+    save_cache,
     classify_pages,
     extract_scanned_pages,
     load_pdf,
@@ -16,14 +16,9 @@ from AI.extract import (
     page_has_text,
 )
 
-"""
-    Test cho tầng trích xuất: phân loại trang có/không có lớp text, cache OCR
-    và điều kiện bật OCR. Việc gọi Gemini thật không nằm trong unit test.
-"""
 
 
 def make_pdf(path, texts):
-    """Tạo PDF thử: phần tử None nghĩa là trang chỉ có ảnh, không có chữ."""
     doc = pymupdf.open()
     for text in texts:
         page = doc.new_page()
@@ -52,7 +47,6 @@ class TestPageClassification:
             assert page_has_text(doc[0]) is False
 
     def test_splits_mixed_document_per_page(self, tmp_path):
-        # Tài liệu trộn: phần đầu soạn trên máy, phụ lục là bản scan.
         path = make_pdf(tmp_path / "c.pdf", ["A", None, "B", None])
 
         assert classify_pages(path) == ([0, 2], [1, 3])
@@ -64,27 +58,26 @@ class TestOcrCache:
         second = tmp_path / "ten-moi.pdf"
         second.write_bytes(first.read_bytes())
 
-        # Đổi tên file không được làm mất cache OCR đã tốn tiền tạo ra.
-        assert _file_fingerprint(first) == _file_fingerprint(second)
+        assert file_fingerprint(first) == file_fingerprint(second)
 
     def test_fingerprint_differs_for_different_content(self, tmp_path):
         first = make_pdf(tmp_path / "a.pdf", ["X"])
         second = make_pdf(tmp_path / "b.pdf", ["Y"])
 
-        assert _file_fingerprint(first) != _file_fingerprint(second)
+        assert file_fingerprint(first) != file_fingerprint(second)
 
     def test_cache_round_trip(self, tmp_path, settings):
         settings.RAG_CACHE_DIR = tmp_path / "cache"
         path = make_pdf(tmp_path / "a.pdf", ["X"])
 
-        _save_cache(path, {0: "# Trang 1", 3: "| a | b |"})
+        save_cache(path, {0: "# Trang 1", 3: "| a | b |"})
 
-        assert _load_cache(path) == {0: "# Trang 1", 3: "| a | b |"}
+        assert load_cache(path) == {0: "# Trang 1", 3: "| a | b |"}
 
     def test_missing_cache_is_empty(self, tmp_path, settings):
         settings.RAG_CACHE_DIR = tmp_path / "cache"
 
-        assert _load_cache(make_pdf(tmp_path / "a.pdf", ["X"])) == {}
+        assert load_cache(make_pdf(tmp_path / "a.pdf", ["X"])) == {}
 
 
 class TestOcrGate:
@@ -99,7 +92,7 @@ class TestOcrGate:
         settings.RAG_CACHE_DIR = tmp_path / "cache"
         settings.RAG_OCR_ENABLED = False
         path = make_pdf(tmp_path / "scan.pdf", [None])
-        _save_cache(path, {0: "# Đã OCR từ trước"})
+        save_cache(path, {0: "# Đã OCR từ trước"})
 
         assert extract_scanned_pages(path, [0]) == {0: "# Đã OCR từ trước"}
 
@@ -129,11 +122,10 @@ class TestLoadPdf:
         settings.RAG_CACHE_DIR = tmp_path / "cache"
         settings.RAG_OCR_ENABLED = False
         path = make_pdf(tmp_path / "a.pdf", ["Mot", None, "Ba"])
-        _save_cache(path, {1: "Hai (tu OCR)"})
+        save_cache(path, {1: "Hai (tu OCR)"})
 
         docs = load_pdf(path)
 
-        # Trang OCR phải xen đúng vị trí giữa hai trang đọc trực tiếp.
         assert [d.metadata["page"] for d in docs] == [1, 2, 3]
         assert "Hai (tu OCR)" in docs[1].page_content
 
@@ -160,7 +152,6 @@ def run_ocr(failures, error):
 
 class TestOcrRetry:
     def test_retries_after_quota_error(self):
-        # OCR cả quyển sách là hàng trăm request nên chạm 429 giữa chừng là bình thường.
         llm, result = run_ocr(failures=2, error="429 RESOURCE_EXHAUSTED")
 
         assert result == "# Đọc xong"

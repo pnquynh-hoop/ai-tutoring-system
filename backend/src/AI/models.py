@@ -1,8 +1,5 @@
 from django.db import models
 
-"""
-    Chứa các model AIConversation, AIMessage, AIGeneratedExercise, Report
-"""
 
 
 class Report(models.Model):

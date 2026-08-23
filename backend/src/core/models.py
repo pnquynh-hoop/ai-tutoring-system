@@ -12,7 +12,6 @@ class BaseModel(models.Model):
 
 
 class RAGIndexedModel(models.Model):
-    """Theo dõi tiến trình nạp tài liệu vào vector store."""
 
     class RAGStatus(models.TextChoices):
         PENDING = "PENDING", "Chờ nạp"
@@ -38,7 +37,7 @@ class RAGIndexedModel(models.Model):
         self.rag_error = None
         self.save(update_fields=["rag_status", "rag_error", "updated_at"])
 
-    def mark_rag_indexed(self, chunks: int):
+    def mark_rag_indexed(self, chunks):
         self.rag_status = self.RAGStatus.INDEXED
         self.rag_progress = chunks
         self.rag_error = None
@@ -53,14 +52,13 @@ class RAGIndexedModel(models.Model):
             ]
         )
 
-    def mark_rag_failed(self, error: str):
+    def mark_rag_failed(self, error):
         self.rag_status = self.RAGStatus.FAILED
         self.rag_error = error[:2000]
         self.save(update_fields=["rag_status", "rag_error", "updated_at"])
 
 
 class PublishableModel(models.Model):
-    """Nội dung học liệu do gia sư soạn: để trống là bản nháp, có giá trị là đã công khai."""
 
     published_at = models.DateTimeField(
         "Thời điểm công khai cho học sinh", null=True, blank=True
@@ -70,5 +68,5 @@ class PublishableModel(models.Model):
         abstract = True
 
     @property
-    def is_published(self) -> bool:
+    def is_published(self):
         return self.published_at is not None

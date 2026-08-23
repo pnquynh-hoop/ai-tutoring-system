@@ -2,7 +2,6 @@ export type Role = 'Student' | 'Tutor';
 export type ResourceType = 'VIDEO_URL' | 'PDF_FILE' | 'OTHERS';
 export type QuestionType = 'MULTIPLE_CHOICE' | 'FILL_IN_BLANK' | 'ESSAY';
 
-/** GET /courses/ khi user là học sinh */
 export interface Course {
 	id: number;
 	name: string;
@@ -10,7 +9,6 @@ export interface Course {
 	progress: number | null;
 }
 
-/** GET /courses/ khi user là gia sư */
 export interface TutorCourse {
 	id: number;
 	name: string;
@@ -20,7 +18,6 @@ export interface TutorCourse {
 	pending_submission_count: number;
 }
 
-/** Gia sư phụ trách kèm hồ sơ, hiển thị ở đầu trang chi tiết khóa học. */
 export interface CourseTutor {
 	id: number;
 	full_name: string;
@@ -46,6 +43,7 @@ export interface Lesson {
 	title: string;
 	order: number;
 	is_completed: boolean;
+	is_published: boolean;
 }
 
 export interface Chapter {
@@ -53,8 +51,13 @@ export interface Chapter {
 	title: string;
 	order: number;
 	lessons: Lesson[];
-	/** id của Assignment gắn với chương (quan hệ 1-1), null nếu chương chưa có bài tập */
 	assignment: number | null;
+	is_published: boolean;
+}
+
+export interface PublishResult {
+	id: number;
+	published_at: string;
 }
 
 export interface CourseTree {
@@ -70,8 +73,6 @@ export interface Student {
 	grade: string;
 }
 
-/** Thông tin đọc được từ claim của access token, dùng cho điều hướng và hiển thị.
- *  Ít field hơn `Me` vì nó không đi qua API mà nằm sẵn trong token. */
 export interface SessionUser {
 	id: number;
 	role: Role | null;
@@ -88,6 +89,7 @@ export interface LessonResource {
 	content: string | null;
 	file_url: string | null;
 	video_url: string | null;
+	is_published: boolean;
 }
 
 export interface LessonDetail {
@@ -130,7 +132,6 @@ export interface QuestionTypeStat {
 	count: number;
 }
 
-/** GET /assignments/{id}/ */
 export interface AssignmentDetail {
 	id: number;
 	title: string;
@@ -140,19 +141,17 @@ export interface AssignmentDetail {
 	question_types: QuestionTypeStat[];
 	max_attempts: number;
 	attempts_used: number;
+	is_published: boolean;
 }
 
-/** POST /assignments/{id}/start/ - lượt làm bài đang mở */
 export interface Attempt {
 	id: number;
 	assignment: number;
 	started_at: string;
-	/** Thời điểm hết giờ do server tính, null nếu bài không giới hạn thời gian */
 	deadline: string | null;
 	time_limit_minutes: number | null;
 }
 
-/** POST /assignments/{id}/submit/ và GET /submissions/ */
 export interface Submission {
 	id: number;
 	assignment: number;
@@ -160,13 +159,11 @@ export interface Submission {
 	chapter_title: string;
 	course_name: string;
 	student: CommentUser;
-	/** null khi bài còn câu tự luận chờ gia sư chấm */
 	score: string | null;
 	started_at: string | null;
 	submitted_at: string | null;
 }
 
-/** Một câu trả lời trong bài nộp, dùng cho màn xem lại và chấm bài */
 export interface StudentAnswerReview {
 	id: number;
 	question: number;
@@ -179,24 +176,20 @@ export interface StudentAnswerReview {
 	answer_text: string | null;
 	point: string | null;
 	tutor_comment: string | null;
-	/** null nghĩa là câu tự luận chưa được chấm */
 	is_correct: boolean | null;
 }
 
-/** GET /submissions/{id}/ */
 export interface SubmissionDetail extends Submission {
 	point_per_question: number;
 	stu_answers: StudentAnswerReview[];
 }
 
-/** Một phần tử trong payload PATCH /submissions/{id}/grade/ */
 export interface GradeAnswerItem {
 	id: number;
 	point: number | string;
 	tutor_comment?: string | null;
 }
 
-/** Bài tập của chương dưới góc nhìn gia sư */
 export interface AssignmentPayload {
 	chapter: number;
 	title: string;
@@ -210,7 +203,6 @@ export interface TutorAnswer {
 	is_correct: boolean;
 }
 
-/** GET/POST /questions/ - bản đầy đủ dành cho gia sư (kèm đáp án đúng, lời giải) */
 export interface TutorQuestion {
 	id: number;
 	assignment: number;
@@ -229,8 +221,6 @@ export interface TutorQuestionPayload {
 	answers: TutorAnswer[];
 	order?: number | null;
 }
-
-// ----- Thống kê khóa học của gia sư: GET /courses/{id}/stats/ -----
 
 export interface TutorStudentStat {
 	id: number;
@@ -260,15 +250,11 @@ export interface TutorCourseStats {
 	assignments: TutorAssignmentStat[];
 }
 
-// ----- Hồ sơ cá nhân: GET/PATCH /users/me/ -----
-
-/** Khối lớp do quản trị viên khai báo (academics.Grade) */
 export interface Grade {
 	id: number;
 	name: string;
 }
 
-/** Một lựa chọn khai báo bằng TextChoices trong model, ví dụ học lực */
 export interface ChoiceOption {
 	value: string;
 	label: string;
@@ -311,10 +297,8 @@ export interface UpdateMePayload {
 	tutor_profile?: Partial<Omit<TutorProfile, 'is_verified'>>;
 }
 
-/** POST /rag/ask/ - câu trả lời kèm nguồn tài liệu AI đã dùng */
 export interface RagSource {
 	title: string;
-	/** Số trang trong PDF, đánh số từ 0; null với tài liệu không phân trang */
 	page: number | null;
 }
 
@@ -322,7 +306,6 @@ export interface RagAnswer {
 	question: string;
 	answer: string;
 	sources: RagSource[];
-	/** false nghĩa là câu trả lời lấy từ kiến thức chung, không có trong tài liệu khóa học */
 	grounded: boolean;
 }
 
@@ -335,14 +318,11 @@ export interface ChangePasswordPayload {
 export type UserAnswer =
 	{ type: 'MULTIPLE_CHOICE'; answerId: number } | { type: 'FILL_IN_BLANK' | 'ESSAY'; text: string };
 
-/** Một phần tử trong mảng `answers` gửi lên khi nộp bài */
 export interface SubmitAnswerItem {
 	question_id: number;
 	answer_id?: number | null;
 	answer_text?: string | null;
 }
-
-// ----- Payload cho các thao tác thêm mới / chỉnh sửa của gia sư -----
 
 export interface ChapterPayload {
 	course: number;

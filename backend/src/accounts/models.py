@@ -3,9 +3,6 @@ from django.contrib.auth.models import AbstractUser
 from cloudinary.models import CloudinaryField
 from core.models import BaseModel
 
-"""
-    Chứa model User, TutorProfile, StudentProfile
-"""
 
 
 class User(AbstractUser):
@@ -19,15 +16,15 @@ class User(AbstractUser):
         return f"{self.email}"
 
     @property
-    def full_name(self) -> str:
+    def full_name(self):
         return f"{self.last_name} {self.first_name}"
 
     @property
-    def is_student(self) -> bool:
+    def is_student(self):
         return self.groups.filter(name="Student").exists()
 
     @property
-    def is_tutor(self) -> bool:
+    def is_tutor(self):
         return self.groups.filter(name="Tutor").exists()
 
 

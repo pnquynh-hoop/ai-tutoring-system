@@ -7,16 +7,8 @@
 	import { Home, KeyRound, Save, ShieldCheck, User } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
-	// ============================================================
-	// Hồ sơ cá nhân: GET/PATCH /users/me/ + POST /users/change-password/
-	// Trang dùng chung cho cả học sinh và gia sư nên đặt ở nhóm (app), không
-	// nằm trong (student). Khối hồ sơ hiển thị theo vai trò thật và backend chỉ
-	// cho phép sửa hồ sơ đúng với vai trò đang có.
-	// ============================================================
-
 	let { data }: PageProps = $props();
 	let me = $derived(data.me);
-	// Khối lớp lấy từ bảng academics.Grade, học lực lấy từ TextChoices của model.
 	let grades = $derived(data.grades);
 	let academicLevels = $derived(data.academicLevels);
 
@@ -88,7 +80,6 @@
 		}
 	}
 
-	// --- Đổi mật khẩu ---
 	let passwordForm = $state({ old_password: '', new_password: '', confirm_password: '' });
 	let isChangingPassword = $state(false);
 
@@ -117,13 +108,13 @@
 	<title>Hồ sơ cá nhân</title>
 </svelte:head>
 
-<div class="min-h-screen bg-[#F4F5F8]" style="font-family:'Inter',sans-serif;">
+<div class="min-h-screen bg-slate-50" style="font-family:'Inter',sans-serif;">
 	<header
 		class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 	>
 		<button
 			onclick={() => goto(me.role === 'Tutor' ? '/tutor-dashboard' : '/stu-dashboard')}
-			class="flex items-center gap-2 rounded-full bg-[#0C1550] px-4 py-2 text-sm font-medium text-white hover:bg-indigo-900"
+			class="flex items-center gap-2 rounded-full bg-brand-950 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900"
 		>
 			<Home class="h-4 w-4" />
 			Trang chủ
@@ -132,7 +123,6 @@
 
 	<main class="px-8 py-8">
 		<div class="mx-auto max-w-3xl space-y-6">
-			<!-- THẺ TỔNG QUAN -->
 			<div
 				class="flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 			>
@@ -158,7 +148,6 @@
 				{/if}
 			</div>
 
-			<!-- THÔNG TIN CƠ BẢN -->
 			<div
 				class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 			>
@@ -174,14 +163,14 @@
 					<label class="block">
 						<span class="mb-1 block text-xs font-medium text-slate-500">Họ</span>
 						<input
-							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 							bind:value={form.last_name}
 						/>
 					</label>
 					<label class="block">
 						<span class="mb-1 block text-xs font-medium text-slate-500">Tên</span>
 						<input
-							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 							bind:value={form.first_name}
 						/>
 					</label>
@@ -189,21 +178,20 @@
 						<span class="mb-1 block text-xs font-medium text-slate-500">Email</span>
 						<input
 							type="email"
-							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 							bind:value={form.email}
 						/>
 					</label>
 					<label class="block">
 						<span class="mb-1 block text-xs font-medium text-slate-500">Số điện thoại</span>
 						<input
-							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 							bind:value={form.phone}
 						/>
 					</label>
 				</div>
 			</div>
 
-			<!-- HỒ SƠ THEO VAI TRÒ -->
 			{#if me.student_profile}
 				<div
 					class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
@@ -219,7 +207,7 @@
 						<label class="block">
 							<span class="mb-1 block text-xs font-medium text-slate-500">Khối lớp</span>
 							<select
-								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 								bind:value={form.grade_level}
 							>
 								<option value={null}>Chưa chọn</option>
@@ -232,13 +220,13 @@
 							<span class="mb-1 block text-xs font-medium text-slate-500">Mục tiêu học tập</span>
 							<textarea
 								rows="3"
-								class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+								class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 								bind:value={form.learning_goals}></textarea>
 						</label>
 						<label class="block">
 							<span class="mb-1 block text-xs font-medium text-slate-500">Học lực</span>
 							<select
-								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 								bind:value={form.academic_level}
 							>
 								{#each academicLevels as level (level.value)}
@@ -266,14 +254,14 @@
 							<span class="mb-1 block text-xs font-medium text-slate-500">Giới thiệu ngắn</span>
 							<textarea
 								rows="3"
-								class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+								class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 								bind:value={form.bio}></textarea>
 						</label>
 						<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 							<label class="block">
 								<span class="mb-1 block text-xs font-medium text-slate-500">Trình độ</span>
 								<input
-									class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+									class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 									bind:value={form.qualification}
 								/>
 							</label>
@@ -283,7 +271,7 @@
 								<input
 									type="number"
 									min="0"
-									class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+									class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 									bind:value={form.experience_years}
 								/>
 							</label>
@@ -296,14 +284,13 @@
 				<button
 					onclick={saveProfile}
 					disabled={isSaving}
-					class="flex items-center gap-2 rounded-xl bg-[#0C1550] px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+					class="flex items-center gap-2 rounded-xl bg-brand-950 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
 				>
 					<Save class="h-4 w-4" />
 					Lưu hồ sơ
 				</button>
 			</div>
 
-			<!-- ĐỔI MẬT KHẨU -->
 			<div
 				class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 			>
@@ -319,19 +306,19 @@
 					<input
 						type="password"
 						placeholder="Mật khẩu hiện tại"
-						class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+						class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 						bind:value={passwordForm.old_password}
 					/>
 					<input
 						type="password"
 						placeholder="Mật khẩu mới"
-						class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+						class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 						bind:value={passwordForm.new_password}
 					/>
 					<input
 						type="password"
 						placeholder="Xác nhận mật khẩu mới"
-						class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300"
+						class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
 						bind:value={passwordForm.confirm_password}
 					/>
 				</div>

@@ -65,10 +65,9 @@ class TestSubmitAssignment:
         )
         return question
 
-    # ---------- CASE 1: đúng hết phải được trọn 10 điểm ----------
     def test_all_correct_gives_full_score(self, student, assignment):
         answers = []
-        for order in range(1, 4):  # 3 câu: 10/3 không chia hết
+        for order in range(1, 4):
             question, right, _ = self.make_choice_question(assignment, order)
             answers.append({"question_id": question.id, "answer_id": right.id})
 
@@ -77,7 +76,6 @@ class TestSubmitAssignment:
         assert submission.score == Decimal("10.0")
         assert submission.submitted_at is not None
 
-    # ---------- CASE 2: sai một câu ----------
     def test_partial_correct_score(self, student, assignment):
         q1, right1, _ = self.make_choice_question(assignment, 1)
         q2, _, wrong2 = self.make_choice_question(assignment, 2)
@@ -93,7 +91,6 @@ class TestSubmitAssignment:
 
         assert submission.score == Decimal("5.0")
 
-    # ---------- CASE 3: không trả lời thì không được điểm ----------
     def test_unanswered_question_scores_zero(self, student, assignment):
         q1, right1, _ = self.make_choice_question(assignment, 1)
         self.make_choice_question(assignment, 2)
@@ -105,7 +102,6 @@ class TestSubmitAssignment:
         assert submission.score == Decimal("5.0")
         assert submission.stu_answers.count() == 1
 
-    # ---------- CASE 4: điền khuyết không phân biệt hoa thường/khoảng trắng ----------
     def test_fill_in_blank_is_case_insensitive(self, student, assignment):
         question = self.make_fill_question(assignment, 1)
 
@@ -117,7 +113,6 @@ class TestSubmitAssignment:
 
         assert submission.score == Decimal("10.0")
 
-    # ---------- CASE 5: có câu tự luận thì chờ gia sư chấm ----------
     def test_essay_leaves_score_null(self, student, assignment):
         q1, right1, _ = self.make_choice_question(assignment, 1)
         essay = baker.make(
@@ -139,7 +134,6 @@ class TestSubmitAssignment:
         assert submission.score is None
         assert submission.submitted_at is not None
 
-    # ---------- CASE 6: quá hạn nộp ----------
     def test_submit_after_due_date_raises(self, student):
         assignment = baker.make(
             "assignments.Assignment", due_date=timezone.now() - timedelta(minutes=1)
@@ -153,12 +147,10 @@ class TestSubmitAssignment:
                 assignment,
             )
 
-    # ---------- CASE 7: bài tập chưa có câu hỏi ----------
     def test_assignment_without_questions_raises(self, student, assignment):
         with pytest.raises(ValidationError):
             run_submit(student, [], assignment)
 
-    # ---------- CASE 8: câu hỏi không thuộc bài tập ----------
     def test_unknown_question_id_raises(self, student, assignment):
         self.make_choice_question(assignment, 1)
         other_assignment = baker.make(
@@ -173,7 +165,6 @@ class TestSubmitAssignment:
                 assignment,
             )
 
-    # ---------- CASE 9: đáp án không thuộc câu hỏi ----------
     def test_answer_from_other_question_raises(self, student, assignment):
         q1, _, _ = self.make_choice_question(assignment, 1)
         _, foreign_right, _ = self.make_choice_question(assignment, 2)
@@ -185,7 +176,6 @@ class TestSubmitAssignment:
                 assignment,
             )
 
-    # ---------- CASE 10: trả lời trùng câu hỏi ----------
     def test_duplicated_question_raises(self, student, assignment):
         question, right, _ = self.make_choice_question(assignment, 1)
 
@@ -199,7 +189,6 @@ class TestSubmitAssignment:
                 assignment,
             )
 
-    # ---------- CASE 11: hết giờ làm bài ----------
     def test_submit_after_time_limit_raises(self, student):
         assignment = baker.make(
             "assignments.Assignment",
@@ -220,7 +209,6 @@ class TestSubmitAssignment:
                 answers=[{"question_id": question.id, "answer_id": right.id}],
             )
 
-    # ---------- CASE 12: còn trong thời gian làm bài ----------
     def test_submit_within_time_limit_succeeds(self, student):
         assignment = baker.make(
             "assignments.Assignment",
@@ -243,7 +231,6 @@ class TestSubmitAssignment:
         assert submission.id == attempt.id
         assert submission.score == Decimal("10.0")
 
-    # ---------- CASE 13: start_attempt dùng lại lượt đang làm dở ----------
     def test_start_attempt_reuses_open_attempt(self, student, assignment):
         self.make_choice_question(assignment, 1)
 
@@ -256,7 +243,6 @@ class TestSubmitAssignment:
             == 1
         )
 
-    # ---------- CASE 14: nộp xong thì lượt mới được tạo lại ----------
     def test_new_attempt_after_submit(self, student, assignment):
         question, right, _ = self.make_choice_question(assignment, 1)
 
@@ -269,7 +255,6 @@ class TestSubmitAssignment:
         assert first.id != second.id
         assert Submission.objects.filter(submitted_at__isnull=False).count() == 1
 
-    # ---------- CASE 15: hết lượt thì không nộp thêm được ----------
     def test_cannot_submit_more_than_max_attempts(self, student, assignment):
         question, right, _ = self.make_choice_question(assignment, 1)
         answers = [{"question_id": question.id, "answer_id": right.id}]
@@ -282,7 +267,6 @@ class TestSubmitAssignment:
 
         assert count_submitted_attempts(student, assignment) == MAX_ATTEMPTS
 
-    # ---------- CASE 16: hết lượt thì không start lượt mới được ----------
     def test_cannot_start_more_than_max_attempts(self, student, assignment):
         question, right, _ = self.make_choice_question(assignment, 1)
         answers = [{"question_id": question.id, "answer_id": right.id}]
@@ -293,7 +277,6 @@ class TestSubmitAssignment:
         with pytest.raises(ValidationError):
             run_start(student, assignment)
 
-    # ---------- CASE 17: giới hạn tính riêng theo từng học sinh ----------
     def test_attempt_limit_is_per_student(self, student, assignment):
         question, right, _ = self.make_choice_question(assignment, 1)
         answers = [{"question_id": question.id, "answer_id": right.id}]
@@ -307,7 +290,6 @@ class TestSubmitAssignment:
         assert submission.score == Decimal("10.0")
         assert count_submitted_attempts(other_student, assignment) == 1
 
-    # ---------- CASE 18: chưa start thì không được nộp ----------
     def test_submit_without_start_raises(self, student, assignment):
         question, right, _ = self.make_choice_question(assignment, 1)
 
@@ -322,7 +304,6 @@ class TestSubmitAssignment:
             assignment=assignment, student=student
         ).exists()
 
-    # ---------- CASE 19: lượt dở dang hết giờ thì đóng lại và mở lượt mới ----------
     def test_start_closes_expired_attempt_and_opens_new_one(self, student):
         assignment = baker.make(
             "assignments.Assignment",

@@ -65,38 +65,38 @@
 
 	function cellClasses(question: Question, index: number) {
 		if (index === currentIndex) {
-			return 'bg-indigo-400 text-white shadow-lg shadow-indigo-900/30';
+			return 'bg-brand-400 text-white shadow-lg shadow-brand-900/30';
 		}
 
 		if (mode === 'review') {
 			const isCorrect = results[question.id];
 			if (isCorrect === true) return 'bg-emerald-400/15 text-emerald-300';
 			if (isCorrect === false) return 'bg-rose-400/15 text-rose-300';
-			return 'bg-white/4 text-indigo-100/40';
+			return 'bg-white/4 text-brand-100/40';
 		}
 
 		return isAnswered(question)
 			? 'bg-white/10 text-white'
-			: 'bg-white/4 text-indigo-100/40 hover:bg-white/10 hover:text-white';
+			: 'bg-white/4 text-brand-100/40 hover:bg-white/10 hover:text-white';
 	}
 </script>
 
 <aside
-	class={`flex shrink-0 flex-col overflow-hidden bg-[#0C1550] text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-72'}`}
+	class={`flex shrink-0 flex-col overflow-hidden bg-brand-950 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-72'}`}
 >
 	<div
 		class={`flex items-center border-b border-white/10 py-6 ${sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-5'}`}
 	>
 		{#if !sidebarCollapsed}
 			<div class="min-w-0">
-				<p class="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-indigo-100/40">
+				<p class="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-brand-100/40">
 					{questions.length} câu hỏi
 				</p>
 			</div>
 		{/if}
 		<button
 			onclick={() => (sidebarCollapsed = !sidebarCollapsed)}
-			class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-indigo-100/50 transition-colors hover:bg-white/10 hover:text-white"
+			class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-brand-100/50 transition-colors hover:bg-white/10 hover:text-white"
 		>
 			<Menu class="h-4 w-4" />
 		</button>
@@ -108,14 +108,14 @@
 				{#if hasTimeLimit}
 					<div
 						class={`flex items-center justify-center gap-2 rounded-2xl border py-2.5 text-sm font-bold tabular-nums transition-colors
-					${timeIsLow ? 'border-rose-400/30 bg-rose-400/10 text-rose-300' : 'border-white/10 bg-white/5 text-indigo-100/80'}`}
+					${timeIsLow ? 'border-rose-400/30 bg-rose-400/10 text-rose-300' : 'border-white/10 bg-white/5 text-brand-100/80'}`}
 					>
 						<Clock class="h-4 w-4" />
 						{timeLabel}
 					</div>
 				{:else}
 					<div
-						class="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 py-2.5 text-sm font-bold text-indigo-100/60"
+						class="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 py-2.5 text-sm font-bold text-brand-100/60"
 					>
 						<Clock class="h-4 w-4" />
 						Không giới hạn
@@ -135,15 +135,15 @@
 						{#if i !== currentIndex}
 							{#if mode === 'taking' && isAnswered(question)}
 								<Check
-									class="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full bg-emerald-400 p-0.5 text-[#0C1550]"
+									class="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full bg-emerald-400 p-0.5 text-brand-950"
 								/>
 							{:else if mode === 'review' && results[question.id] === true}
 								<Check
-									class="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full bg-emerald-400 p-0.5 text-[#0C1550]"
+									class="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full bg-emerald-400 p-0.5 text-brand-950"
 								/>
 							{:else if mode === 'review' && results[question.id] === false}
 								<X
-									class="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full bg-rose-400 p-0.5 text-[#0C1550]"
+									class="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full bg-rose-400 p-0.5 text-brand-950"
 								/>
 							{/if}
 						{/if}
@@ -156,7 +156,7 @@
 			<div class="px-5 pb-5">
 				<button
 					onclick={onFinish}
-					class="w-full rounded-full bg-white py-2.5 text-sm font-semibold text-[#0C1550] transition-colors hover:bg-indigo-50"
+					class="w-full rounded-full bg-white py-2.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-brand-50"
 				>
 					Hoàn thành ({answeredCount}/{questions.length})
 				</button>

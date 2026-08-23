@@ -1,7 +1,6 @@
 from django.db.models import Count
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from assignments.models import Assignment, Question, Submission
@@ -10,6 +9,7 @@ from assignments.serializers import (
     AssignmentWriteSerializer,
     AttemptSerializer,
     GradeSubmissionSerializer,
+    PublishAssignmentSerializer,
     QuestionSerializer,
     QuestionWriteSerializer,
     SubmissionDetailSerializer,
@@ -19,8 +19,8 @@ from assignments.serializers import (
     TutorSubmissionSerializer,
 )
 from assignments.services import (
+    delete_question,
     grade_submission,
-    has_submissions,
     start_attempt,
     submit_assignment,
 )
@@ -50,7 +50,8 @@ class AssignmentView(
     write_parent_lookup = ("chapter", Chapter)
 
     def get_permissions(self):
-        if self.action in WRITE_ACTIONS:
+        tutor_only_actions = WRITE_ACTIONS + ("publish",)
+        if self.action in tutor_only_actions:
             return [IsTutor(), IsRelatedCourseTutor(), IsCourseTutor()]
         if self.action in ("start", "submit"):
             return [IsStudent(), IsCourseMember()]
@@ -85,6 +86,16 @@ class AssignmentView(
         return Response(
             self.get_serializer(questions, many=True).data, status=status.HTTP_200_OK
         )
+
+    @action(methods=["post"], url_path="publish", detail=True)
+    def publish(self, request, pk):
+        assignment = self.get_object()
+
+        serializer = PublishAssignmentSerializer(assignment, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(methods=["post"], url_path="start", detail=True)
     def start(self, request, pk):
@@ -123,9 +134,7 @@ class QuestionView(
     write_parent_lookup = ("assignment", Assignment)
 
     def perform_destroy(self, instance):
-        if has_submissions(instance.assignment):
-            raise ValidationError("Bài tập đã có bài nộp nên không xóa được câu hỏi.")
-        instance.delete()
+        delete_question(instance)
 
 
 class SubmissionView(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
@@ -152,7 +161,6 @@ class SubmissionView(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
         return TutorSubmissionSerializer if is_tutor else SubmissionSerializer
 
     def int_param(self, name):
-        """Chỉ nhận query param dạng số, giá trị khác coi như không lọc."""
         value = self.request.query_params.get(name)
         return int(value) if value and value.isdigit() else None
 

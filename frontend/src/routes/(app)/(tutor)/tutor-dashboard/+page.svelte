@@ -1,5 +1,4 @@
 <script lang="ts">
-	// Route suggestion: /tutor-dashboard
 	import { goto } from '$app/navigation';
 	import { logoutApi } from '$lib/api/calledAPI';
 	import Avatar from '$lib/components/Avatar.svelte';
@@ -14,14 +13,6 @@
 		BarChart3
 	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
-
-	// ============================================================
-	// Trang chủ Gia sư: danh sách khóa học đang dạy + số liệu tổng quan.
-	// Không cần sidebar điều hướng vì đây là trang duy nhất ở cấp cao nhất;
-	// mọi thao tác khác (quản lý cây, thống kê, chấm bài) đi vào từ mỗi khóa học.
-	// Dữ liệu lấy từ GET /courses/ và GET /courses/statistic/ (backend tự đổi
-	// bộ field theo vai trò gia sư).
-	// ============================================================
 
 	let { data }: PageProps = $props();
 	let courses = $derived(data.courses);
@@ -85,13 +76,12 @@
 	<title>Trang chủ gia sư</title>
 </svelte:head>
 
-<div class="min-h-screen bg-[#F4F5F8]" style="font-family:'Inter',sans-serif;">
-	<!-- TOP BAR (không có sidebar trái vì đây là trang duy nhất) -->
+<div class="min-h-screen bg-slate-50" style="font-family:'Inter',sans-serif;">
 	<header
 		class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 	>
 		<div class="flex items-center gap-2.5">
-			<div class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C1550]">
+			<div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-950">
 				<BookOpen class="h-4.5 w-4.5 text-white" />
 			</div>
 			<span
@@ -152,7 +142,6 @@
 			<p class="mt-1 text-sm text-slate-500">Tổng quan các khóa học thầy/cô đang phụ trách.</p>
 		</div>
 
-		<!-- QUICK STATS -->
 		<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
 			{#each quickStats as stat (stat.label)}
 				<div
@@ -160,7 +149,7 @@
 				>
 					<div
 						class={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl
-							${stat.tone === 'navy' ? 'bg-[#0C1550]/5 text-[#0C1550]' : ''}
+							${stat.tone === 'navy' ? 'bg-brand-950/5 text-brand-950' : ''}
 							${stat.tone === 'slate' ? 'bg-slate-100 text-slate-600' : ''}
 							${stat.tone === 'amber' ? 'bg-amber-50 text-amber-600' : ''}`}
 					>
@@ -174,7 +163,6 @@
 			{/each}
 		</div>
 
-		<!-- COURSES -->
 		<div class="mb-4 flex items-center justify-between">
 			<h2 class="text-base font-semibold text-slate-800" style="font-family:'Sora',sans-serif;">
 				Khóa học đang giảng dạy
@@ -227,7 +215,7 @@
 							</button>
 							<button
 								onclick={() => goManage(course.id)}
-								class="flex items-center justify-center gap-2 rounded-xl bg-[#0C1550] py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+								class="flex items-center justify-center gap-2 rounded-xl bg-brand-950 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
 							>
 								Quản lý
 								<ChevronRight class="h-4 w-4" />

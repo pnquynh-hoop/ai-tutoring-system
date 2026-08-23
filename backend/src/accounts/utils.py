@@ -1,8 +1,10 @@
 from django.conf import settings
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import (
     BlacklistedToken,
     OutstandingToken,
 )
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 def set_auth_cookies(response, access_token, refresh_token):
@@ -34,8 +36,17 @@ def remove_tokens(response):
     response.data.pop("refresh", None)
 
 
+def blacklist_refresh_token(refresh_token):
+    if not refresh_token:
+        return False
+    try:
+        RefreshToken(refresh_token).blacklist()
+        return True
+    except TokenError:
+        return False
+
+
 def blacklist_user_tokens(user):
-    """Thu hồi mọi refresh token còn hiệu lực của user."""
     for token in OutstandingToken.objects.filter(user=user):
         BlacklistedToken.objects.get_or_create(token=token)
 

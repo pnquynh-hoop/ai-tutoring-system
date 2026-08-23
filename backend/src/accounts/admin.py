@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import admin
 
+from core.admin import admin_site
 from core.validators import validate_image_upload
 
 from .models import StudentProfile, TutorProfile, User
@@ -19,5 +20,5 @@ class UserAdmin(admin.ModelAdmin):
     form = UserForm
 
 
-admin.site.register([StudentProfile, TutorProfile])
-admin.site.register(User, UserAdmin)
+admin_site.register([StudentProfile, TutorProfile])
+admin_site.register(User, UserAdmin)

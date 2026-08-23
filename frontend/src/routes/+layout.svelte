@@ -4,7 +4,6 @@
 	import { auth } from '$lib/stores/auth.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 
-	// Lấy data từ layout.server.ts và gán cho store auth toàn cục
 	let { data, children } = $props();
 
 	$effect(() => {

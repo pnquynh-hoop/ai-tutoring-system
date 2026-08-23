@@ -11,8 +11,6 @@ describe('nextOrder', () => {
 	});
 
 	it('không đụng order đã tồn tại sau khi xoá phần tử ở giữa', () => {
-		// Xoá chương order=2 thì còn [1, 3]: dùng length + 1 sẽ ra 3 và vi phạm
-		// ràng buộc unique (course, order) của backend.
 		expect(nextOrder([{ order: 1 }, { order: 3 }])).toBe(4);
 	});
 

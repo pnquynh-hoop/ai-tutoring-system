@@ -1,4 +1,5 @@
-from typing import Optional
+import re
+
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
@@ -7,14 +8,15 @@ from rest_framework_simplejwt.serializers import (
     TokenObtainPairSerializer,
     TokenRefreshSerializer,
 )
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import AccessToken
-from core.validators import validate_image_upload, validate_phone
+from core.validators import validate_image_upload
 from .models import StudentProfile, TutorProfile, User
 from .utils import blacklist_user_tokens
 
 
-def build_token_claims(user) -> dict:
+def build_token_claims(user):
     group = user.groups.first()
     profile = getattr(user, "studentprofile", None)
 
@@ -34,6 +36,7 @@ def build_token_claims(user) -> dict:
 
 
 class LoginTokenSerializer(TokenObtainPairSerializer):
+    
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
@@ -44,7 +47,10 @@ class LoginTokenSerializer(TokenObtainPairSerializer):
 class RefreshTokenSerializer(TokenRefreshSerializer):
 
     def validate(self, attrs):
-        data = super().validate(attrs)
+        try:
+            data = super().validate(attrs)
+        except TokenError:
+            raise InvalidToken("Refresh token không hợp lệ hoặc đã hết hạn.")
 
         access = AccessToken(data["access"])
         user = (
@@ -57,10 +63,6 @@ class RefreshTokenSerializer(TokenRefreshSerializer):
             data["access"] = str(access)
 
         return data
-
-
-class LogoutResponseSerializer(serializers.Serializer):
-    message = serializers.CharField()
 
 
 class SimpleUserSerializer(serializers.ModelSerializer):
@@ -111,7 +113,7 @@ class MeSerializer(SimpleUserSerializer):
         source="studentprofile", read_only=True, default=None
     )
 
-    def get_role(self, user) -> Optional[str]:
+    def get_role(self, user):
         group = user.groups.first()
         return group.name if group else None
 
@@ -146,7 +148,10 @@ class UpdateMeSerializer(serializers.ModelSerializer):
         return validate_image_upload(avatar)
 
     def validate_phone(self, phone):
-        validate_phone(phone)
+        if not re.fullmatch(r"0\d{9}", phone or ""):
+            raise serializers.ValidationError(
+                "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0."
+            )
         return phone
 
     @transaction.atomic
@@ -161,7 +166,6 @@ class UpdateMeSerializer(serializers.ModelSerializer):
             for field, value in student_data.items():
                 setattr(instance.studentprofile, field, value)
             instance.studentprofile.save()
-
         return instance
 
 
@@ -171,8 +175,7 @@ class ChangePasswordSerializer(serializers.Serializer):
     confirm_password = serializers.CharField(write_only=True)
 
     def validate_old_password(self, value):
-        user = self.context["request"].user
-        if not user.check_password(value):
+        if not self.instance.check_password(value):
             raise serializers.ValidationError("Mật khẩu hiện tại không đúng.")
         return value
 
@@ -183,15 +186,14 @@ class ChangePasswordSerializer(serializers.Serializer):
             )
 
         try:
-            validate_password(attrs["new_password"], self.context["request"].user)
+            validate_password(attrs["new_password"], self.instance)
         except DjangoValidationError as exc:
             raise serializers.ValidationError({"new_password": list(exc.messages)})
 
         return attrs
 
-    def save(self, **kwargs):
-        user = self.context["request"].user
-        user.set_password(self.validated_data["new_password"])
-        user.save(update_fields=["password"])
-        blacklist_user_tokens(user)
-        return user
+    def update(self, instance, validated_data):
+        instance.set_password(validated_data["new_password"])
+        instance.save(update_fields=["password"])
+        blacklist_user_tokens(instance)
+        return instance

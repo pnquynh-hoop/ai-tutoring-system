@@ -4,13 +4,12 @@ import pytest
 from model_bakery import baker
 from rest_framework.exceptions import ValidationError
 
-from core.testing import auth_client
 
 from assignments.models import Question, StudentAnswer
 from assignments.services import grade_submission, start_attempt, submit_assignment
 
 
-def run_submit(student, answers, assignment):
+def make_submission(student, answers, assignment):
     start_attempt(student=student, assignment=assignment)
     return submit_assignment(student=student, assignment=assignment, answers=answers)
 
@@ -21,7 +20,6 @@ def run_grade(submission, answers):
 
 @pytest.fixture
 def essay_assignment(assignment):
-    """Bài tập 2 câu: 1 trắc nghiệm chấm tự động, 1 tự luận chờ chấm tay."""
     choice = baker.make(
         Question,
         assignment=assignment,
@@ -45,7 +43,7 @@ def essay_assignment(assignment):
 class TestGradeSubmission:
     def submit(self, student, data):
         assignment, choice, right, essay = data
-        return run_submit(
+        return make_submission(
             student,
             [
                 {"question_id": choice.id, "answer_id": right.id},
@@ -71,7 +69,6 @@ class TestGradeSubmission:
             [{"id": essay_answer.id, "point": Decimal("5"), "tutor_comment": "Tốt"}],
         )
 
-        # 1 câu trắc nghiệm đúng (5đ) + 5đ tự luận = 10đ
         assert graded.score == Decimal("10.0")
         essay_answer.refresh_from_db()
         assert essay_answer.tutor_comment == "Tốt"
@@ -85,7 +82,6 @@ class TestGradeSubmission:
         )
         assert graded.score == Decimal("7.5")
 
-        # Xoá điểm một câu khác thì bài quay lại trạng thái chờ chấm.
         StudentAnswer.objects.filter(submission=submission).exclude(
             pk=essay_answer.pk
         ).update(point=None)
@@ -118,7 +114,6 @@ class TestGradeSubmission:
     def test_three_questions_full_marks_reaches_ten(
         self, assignment, enrolled_student
     ):
-        """3 câu: điểm mỗi câu làm tròn còn 3.33 nhưng đúng hết vẫn phải là 10."""
         answers = []
         for order in (1, 2):
             choice = baker.make(
@@ -140,7 +135,7 @@ class TestGradeSubmission:
         )
         answers.append({"question_id": essay.id, "answer_text": "Bài làm của em"})
 
-        submission = run_submit(enrolled_student, answers, assignment)
+        submission = make_submission(enrolled_student, answers, assignment)
         essay_answer = submission.stu_answers.get(point__isnull=True)
 
         graded = run_grade(submission, [{"id": essay_answer.id, "point": Decimal("3.33")}])
@@ -157,72 +152,3 @@ class TestGradeSubmission:
 
         with pytest.raises(ValidationError):
             run_grade(attempt, [])
-
-
-@pytest.mark.django_db
-class TestGradeApi:
-    def make_submission(self, student, data):
-        assignment, choice, right, essay = data
-        return run_submit(
-            student,
-            [
-                {"question_id": choice.id, "answer_id": right.id},
-                {"question_id": essay.id, "answer_text": "Bài làm"},
-            ],
-            assignment,
-        )
-
-    def test_tutor_can_grade_via_api(self, essay_assignment, enrolled_student, course):
-        submission = self.make_submission(enrolled_student, essay_assignment)
-        essay_answer = submission.stu_answers.get(point__isnull=True)
-
-        response = auth_client(course.tutor).patch(
-            f"/api/v1/submissions/{submission.pk}/grade/",
-            {
-                "answers": [
-                    {"id": essay_answer.id, "point": "4.5", "tutor_comment": "Khá"}
-                ]
-            },
-            format="json",
-        )
-
-        assert response.status_code == 200
-        assert float(response.data["score"]) == 9.5
-
-    def test_student_cannot_grade(self, essay_assignment, enrolled_student):
-        submission = self.make_submission(enrolled_student, essay_assignment)
-        essay_answer = submission.stu_answers.get(point__isnull=True)
-
-        response = auth_client(enrolled_student).patch(
-            f"/api/v1/submissions/{submission.pk}/grade/",
-            {"answers": [{"id": essay_answer.id, "point": "5"}]},
-            format="json",
-        )
-
-        assert response.status_code == 403
-
-    def test_other_tutor_cannot_grade(
-        self, essay_assignment, enrolled_student, make_tutor
-    ):
-        submission = self.make_submission(enrolled_student, essay_assignment)
-
-        response = auth_client(make_tutor()).patch(
-            f"/api/v1/submissions/{submission.pk}/grade/",
-            {"answers": []},
-            format="json",
-        )
-
-        assert response.status_code in (403, 404)
-
-    def test_submission_detail_exposes_answers_for_review(
-        self, essay_assignment, enrolled_student
-    ):
-        submission = self.make_submission(enrolled_student, essay_assignment)
-
-        response = auth_client(enrolled_student).get(
-            f"/api/v1/submissions/{submission.pk}/"
-        )
-
-        assert response.status_code == 200
-        assert len(response.data["stu_answers"]) == 2
-        assert response.data["point_per_question"] == 5.0

@@ -59,7 +59,6 @@ describe('getApiErrorMessage', () => {
 	it('không nhận key message vì DRF không dùng key này', () => {
 		const err = axiosErrorWith({ message: 'sai key' });
 
-		// Rơi vào nhánh quét field nên vẫn lấy được chuỗi, nhưng phải là chuỗi thật
 		expect(getApiErrorMessage(err)).toBe('sai key');
 	});
 });

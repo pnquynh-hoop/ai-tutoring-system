@@ -4,9 +4,6 @@ from unidecode import unidecode
 from cloudinary.models import CloudinaryField
 from django.utils.text import slugify
 
-"""
-    Chứa các model Course, Enrollment, Chapter, Lesson, LearningResource, LearningProgress
-"""
 
 
 class Course(BaseModel):
@@ -151,7 +148,6 @@ class LessonProgress(models.Model):
     student = models.ForeignKey("accounts.User", on_delete=models.PROTECT)
     lesson = models.ForeignKey(Lesson, on_delete=models.PROTECT)
     is_completed = models.BooleanField("Đánh dấu hoàn thành bài học", default=False)
-    # Thời điểm học sinh thực sự hoàn thành bài học, chỉ được ghi khi is_completed=True.
     complete_at = models.DateTimeField("Thời điểm hoàn thành", null=True, blank=True)
 
     class Meta:

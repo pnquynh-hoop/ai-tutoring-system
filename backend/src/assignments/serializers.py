@@ -27,11 +27,12 @@ class AssignmentDetailSerializer(serializers.ModelSerializer):
     question_types = serializers.SerializerMethodField()
     max_attempts = serializers.SerializerMethodField()
     attempts_used = serializers.SerializerMethodField()
+    is_published = serializers.BooleanField(read_only=True)
 
-    def get_max_attempts(self, obj) -> int:
+    def get_max_attempts(self, obj):
         return MAX_ATTEMPTS
 
-    def get_attempts_used(self, obj) -> int:
+    def get_attempts_used(self, obj):
         return count_submitted_attempts(self.context["request"].user, obj)
 
     def get_question_types(self, obj):
@@ -56,6 +57,7 @@ class AssignmentDetailSerializer(serializers.ModelSerializer):
             "question_types",
             "max_attempts",
             "attempts_used",
+            "is_published",
         ]
 
 
@@ -291,11 +293,11 @@ class StudentAnswerSerializer(serializers.ModelSerializer):
     correct_answer = serializers.SerializerMethodField()
     is_correct = serializers.SerializerMethodField()
 
-    def get_correct_answer(self, obj) -> str | None:
+    def get_correct_answer(self, obj):
         correct = next((a for a in obj.question.answers.all() if a.is_correct), None)
         return correct.content if correct else None
 
-    def get_is_correct(self, obj) -> bool | None:
+    def get_is_correct(self, obj):
         if obj.point is None:
             return None
         return obj.point > 0
@@ -322,7 +324,7 @@ class SubmissionDetailSerializer(SubmissionSerializer):
     stu_answers = StudentAnswerSerializer(many=True, read_only=True)
     point_per_question = serializers.SerializerMethodField()
 
-    def get_point_per_question(self, obj) -> float:
+    def get_point_per_question(self, obj):
         return float(point_per_question(obj.assignment.questions.count()))
 
     class Meta(SubmissionSerializer.Meta):
@@ -357,3 +359,29 @@ class GradeSubmissionSerializer(serializers.Serializer):
 
     def validate_answers(self, answers):
         return validate_item_count(answers)
+
+
+class PublishAssignmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Assignment
+        fields = ["id", "published_at"]
+        extra_kwargs = {"published_at": {"read_only": True}}
+
+    def validate(self, attrs):
+        assignment = self.instance
+        chapter = assignment.chapter
+
+        if assignment.is_published:
+            raise serializers.ValidationError("Bài tập này đã được công khai.")
+
+        if not chapter.is_published:
+            raise serializers.ValidationError(
+                "Phải công khai chương chứa bài tập này trước."
+            )
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        instance.published_at = timezone.now()
+        instance.save(update_fields=["published_at", "updated_at"])
+        return instance

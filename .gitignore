@@ -6,8 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
-#data
-backend/data/*.pdf
+# Tài liệu của trung tâm, chỉ nằm trên máy chủ
+backend/materials/
+
+# Quy định làm việc, chỉ dùng trên máy cá nhân
+CLAUDE*.md
 
 # Distribution / packaging
 .Python

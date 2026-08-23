@@ -24,12 +24,10 @@ from assignments.models import Assignment, Submission
 
 from .models import Chapter, Course, Enrollment, Lesson, LessonProgress
 
-# Chỉ soi lại tối đa 1 năm khi tính chuỗi ngày học liên tục.
 STREAK_LOOKBACK_DAYS = 365
 
 
-def _progress_expression():
-    """Biểu thức tính % tiến độ ngay dưới DB, tránh chia cho 0."""
+def progress_expression():
     return Case(
         When(total_lessons=0, then=Value(0.0)),
         default=Round(
@@ -44,13 +42,11 @@ def _progress_expression():
 
 
 def enrolled_courses(student, query=None):
-    """Queryset các khóa học mà student có Enrollment đang hoạt động."""
     query = Course.objects.all() if query is None else query
     return query.filter(enrollment__student=student, enrollment__is_active=True)
 
 
 def get_courses_with_progress(student, query):
-    """Queryset các course student đang học, kèm progress tính sẵn dưới DB."""
     visible_lesson = Q(
         chapters__published_at__isnull=False,
         chapters__lessons__published_at__isnull=False,
@@ -71,12 +67,11 @@ def get_courses_with_progress(student, query):
                 distinct=True,
             ),
         )
-        .annotate(progress=_progress_expression())
+        .annotate(progress=progress_expression())
     )
 
 
 def get_tutor_courses(tutor, query):
-    """Queryset các course do tutor phụ trách, kèm số liệu tổng quan."""
     return query.filter(tutor=tutor).annotate(
         students_count=Count(
             "enrollment",
@@ -97,12 +92,6 @@ def get_tutor_courses(tutor, query):
 
 
 def get_learning_streak(student):
-    """Tính số ngày học liên tục gần nhất.
-
-    Quy đổi sang ngày theo giờ địa phương ở Python thay vì dùng ``.dates()``:
-    trên MySQL, ``.dates()`` gọi CONVERT_TZ và trả về rỗng nếu server chưa nạp
-    bảng timezone, khiến streak luôn bằng 0.
-    """
     completed_at_values = LessonProgress.objects.filter(
         student=student,
         is_completed=True,
@@ -136,7 +125,6 @@ def get_learning_streak(student):
 
 
 def get_quick_stats(student):
-    """Trả về dict thống kê cho 3 thẻ ở dashboard học sinh."""
 
     ongoing_courses_count = enrolled_courses(student).filter(is_active=True).count()
 
@@ -167,7 +155,6 @@ def get_quick_stats(student):
 
 
 def get_tutor_quick_stats(tutor):
-    """Trả về dict thống kê cho 3 thẻ ở dashboard gia sư."""
 
     teaching_course_count = Course.objects.filter(tutor=tutor, is_active=True).count()
 
@@ -195,8 +182,7 @@ def get_tutor_quick_stats(tutor):
     }
 
 
-def _lessons_with_completion(student, include_drafts=False):
-    """Queryset Lesson kèm cờ is_completed theo học sinh đang đăng nhập."""
+def lessons_with_completion(student, include_drafts=False):
     query = Lesson.objects.filter(is_active=True)
     if not include_drafts:
         query = query.filter(published_at__isnull=False)
@@ -216,13 +202,12 @@ def _lessons_with_completion(student, include_drafts=False):
 
 
 def get_course_tree(course, student, include_drafts=False):
-    """Cây thư mục khóa học dùng cho sidebar, kèm tiến độ của học sinh đang đăng nhập."""
     chapters = Chapter.objects.filter(is_active=True)
     if not include_drafts:
         chapters = chapters.filter(published_at__isnull=False)
 
     chapters = chapters.prefetch_related(
-        Prefetch("lessons", queryset=_lessons_with_completion(student, include_drafts))
+        Prefetch("lessons", queryset=lessons_with_completion(student, include_drafts))
     )
 
     return get_object_or_404(
@@ -233,7 +218,6 @@ def get_course_tree(course, student, include_drafts=False):
 
 
 def get_course_overview(course, student, include_drafts=False):
-    """Số liệu tổng quan của một khóa học đối với học sinh đang đăng nhập."""
     lessons = Lesson.objects.filter(
         chapter__course=course, chapter__is_active=True, is_active=True
     )
@@ -293,10 +277,6 @@ def get_course_overview(course, student, include_drafts=False):
 
 
 def get_chapter_stats(course, student, include_drafts=False):
-    """Thống kê từng chương của khóa học cho học sinh đang đăng nhập.
-
-    Toàn bộ số liệu được annotate/prefetch sẵn nên không phát sinh query trong vòng lặp.
-    """
     submitted = Submission.objects.filter(student=student, submitted_at__isnull=False)
 
     average_score = (
@@ -318,7 +298,7 @@ def get_chapter_stats(course, student, include_drafts=False):
         chapters = chapters.filter(published_at__isnull=False)
 
     chapters = chapters.prefetch_related(
-        Prefetch("lessons", queryset=_lessons_with_completion(student, include_drafts))
+        Prefetch("lessons", queryset=lessons_with_completion(student, include_drafts))
     ).annotate(
         total_lessons=Count("lessons", filter=visible_lesson, distinct=True),
         completed_lessons=Count(
@@ -361,7 +341,6 @@ def get_chapter_stats(course, student, include_drafts=False):
 
 
 def get_course_tutor_stats(course):
-    """Thống kê một khóa học cho gia sư: tiến độ từng học sinh + tình hình từng bài tập."""
     total_lessons = Lesson.objects.filter(
         chapter__course=course, chapter__is_active=True, is_active=True
     ).count()
@@ -462,7 +441,6 @@ def get_course_tutor_stats(course):
 
 
 def mark_lesson_completed(student, lesson):
-    """Đánh dấu hoàn thành bài học, ghi lại đúng thời điểm hoàn thành."""
     progress, _ = LessonProgress.objects.update_or_create(
         student=student,
         lesson=lesson,
@@ -475,7 +453,6 @@ def mark_lesson_completed(student, lesson):
 
 
 def toggle_comment_right(comment, user):
-    """Bật/tắt trạng thái 'câu trả lời đúng' của một bình luận."""
     comment.is_right = not comment.is_right
 
     if comment.is_right:

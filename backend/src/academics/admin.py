@@ -1,7 +1,12 @@
 from django import forms
 from django.contrib import admin
 
-from core.validators import MAX_DOCUMENT_SIZE, validate_material_upload
+from core.admin import admin_site
+from core.validators import (
+    MAX_DOCUMENT_SIZE,
+    MAX_MATERIAL_SIZE,
+    validate_document_upload,
+)
 
 from .models import Grade, Material, Subject
 
@@ -25,7 +30,9 @@ class MaterialForm(forms.ModelForm):
         self._replaced_local_file = None
 
     def clean_upload(self):
-        return validate_material_upload(self.cleaned_data.get("upload"))
+        return validate_document_upload(
+            self.cleaned_data.get("upload"), MAX_MATERIAL_SIZE
+        )
 
     def clean(self):
         cleaned = super().clean()
@@ -37,7 +44,6 @@ class MaterialForm(forms.ModelForm):
         return cleaned
 
     def _post_clean(self):
-        """Gắn tệp vào instance trước khi Model.clean() kiểm tra nguồn tệp."""
         upload = self.cleaned_data.get("upload")
         if upload:
             self._attach(upload)
@@ -92,5 +98,5 @@ class MaterialAdmin(admin.ModelAdmin):
         return "Chưa có tệp"
 
 
-admin.site.register([Grade, Subject])
-admin.site.register(Material, MaterialAdmin)
+admin_site.register([Grade, Subject])
+admin_site.register(Material, MaterialAdmin)

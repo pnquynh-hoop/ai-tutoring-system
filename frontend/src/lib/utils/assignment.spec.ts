@@ -95,19 +95,19 @@ describe('pendingEssayAnswers', () => {
 describe('buildGradePayload', () => {
 	it('bỏ qua câu gia sư chưa nhập điểm', () => {
 		const payload = buildGradePayload({
-			1: { point: '4.5', tutor_comment: 'Tốt' },
-			2: { point: '', tutor_comment: 'Chưa chấm' }
+			1: { point: 4.5, tutor_comment: 'Tốt' },
+			2: { point: null, tutor_comment: 'Chưa chấm' }
 		});
 
 		expect(payload).toEqual([{ id: 1, point: 4.5, tutor_comment: 'Tốt' }]);
 	});
 
-	it('bỏ qua giá trị không phải số', () => {
-		expect(buildGradePayload({ 1: { point: 'mười', tutor_comment: '' } })).toEqual([]);
+	it('bỏ qua ô nhập không ra được số', () => {
+		expect(buildGradePayload({ 1: { point: NaN, tutor_comment: '' } })).toEqual([]);
 	});
 
 	it('gửi tutor_comment là null khi để trống', () => {
-		const payload = buildGradePayload({ 3: { point: '0', tutor_comment: '  ' } });
+		const payload = buildGradePayload({ 3: { point: 0, tutor_comment: '  ' } });
 
 		expect(payload).toEqual([{ id: 3, point: 0, tutor_comment: null }]);
 	});

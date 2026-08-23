@@ -35,7 +35,6 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False").strip().lower() == "true"
 
-# Bỏ các phần tử rỗng để ALLOWED_HOSTS không thành [""] khi thiếu biến môi trường.
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -63,6 +62,7 @@ INSTALLED_APPS = [
     "AI.apps.AiConfig",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "debug_toolbar",
 ]
 
 MIDDLEWARE = [
@@ -74,6 +74,11 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
+]
+
+INTERNAL_IPS = [
+    "127.0.0.1",
 ]
 
 ROOT_URLCONF = "ai_tutoring_system.urls"
@@ -107,7 +112,6 @@ DATABASES = {
         "PASSWORD": os.environ.get("DB_PASSWORD"),
         "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": os.environ.get("DB_PORT", ""),
-        # Giữ lại kết nối để mỗi request không phải bắt tay với MySQL từ đầu.
         "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", 60)),
         "CONN_HEALTH_CHECKS": True,
     }
@@ -167,8 +171,7 @@ AUTH_USER_MODEL = "accounts.User"
 
 CHROMA_DB_PATH = os.environ.get("CHROMA_DB_PATH", str(BASE_DIR.parent / "chroma_db"))
 
-RAG_DATA_DIR = Path(os.environ.get("RAG_DATA_DIR", BASE_DIR.parent / "data"))
-RAG_DATA_PATTERN = os.environ.get("RAG_DATA_PATTERN", "*.pdf")
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR.parent))
 
 RAG_CACHE_DIR = Path(os.environ.get("RAG_CACHE_DIR", BASE_DIR.parent / "rag_cache"))
 
@@ -231,6 +234,5 @@ AUTH_COOKIE = {
 }
 
 CSRF_COOKIE_HTTPONLY = False
-# Dev chạy http://localhost nên chỉ bật Secure khi tắt DEBUG.
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS

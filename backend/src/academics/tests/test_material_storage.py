@@ -3,16 +3,11 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from model_bakery import baker
 
 from academics.admin import MaterialForm
-from AI.ingest import local_pdf_paths
 from core.validators import MAX_DOCUMENT_SIZE
 
-"""
-    Tài liệu chung của trung tâm rẽ nhánh nơi lưu theo dung lượng: tệp nhỏ đẩy
-    lên Cloudinary như cũ, tệp lớn giữ cục bộ trong RAG_DATA_DIR.
-"""
 
 
-def make_pdf(size: int, name: str = "sgk.pdf") -> SimpleUploadedFile:
+def make_pdf_upload(size, name="sgk.pdf"):
     content = b"%PDF-1.4\n" + b"0" * (size - 9)
     return SimpleUploadedFile(name, content, content_type="application/pdf")
 
@@ -36,7 +31,7 @@ def build_form(material_data, upload):
 @pytest.mark.django_db
 class TestMaterialStorageRouting:
     def test_small_file_goes_to_cloudinary(self, material_data):
-        form = build_form(material_data, make_pdf(1024))
+        form = build_form(material_data, make_pdf_upload(1024))
 
         material = form.save(commit=False)
 
@@ -44,8 +39,8 @@ class TestMaterialStorageRouting:
         assert not material.local_file
 
     def test_large_file_goes_to_local_disk(self, material_data, settings, tmp_path):
-        settings.RAG_DATA_DIR = tmp_path
-        form = build_form(material_data, make_pdf(MAX_DOCUMENT_SIZE + 1))
+        settings.MEDIA_ROOT = tmp_path
+        form = build_form(material_data, make_pdf_upload(MAX_DOCUMENT_SIZE + 1))
 
         material = form.save()
 
@@ -53,18 +48,17 @@ class TestMaterialStorageRouting:
         assert material.local_file.name.startswith("materials/Lop_10/")
         assert (tmp_path / material.local_file.name).exists()
 
-    def test_local_file_is_outside_textbook_glob(
+    def test_local_file_goes_into_subfolder_not_root(
         self, material_data, settings, tmp_path
     ):
-        """Tệp cục bộ nằm trong thư mục con nên ingest sách giáo khoa không nạp trùng."""
-        settings.RAG_DATA_DIR = tmp_path
-        build_form(material_data, make_pdf(MAX_DOCUMENT_SIZE + 1)).save()
+        settings.MEDIA_ROOT = tmp_path
+        build_form(material_data, make_pdf_upload(MAX_DOCUMENT_SIZE + 1)).save()
 
-        assert local_pdf_paths() == []
+        assert list(tmp_path.glob("*.pdf")) == []
 
     def test_rejects_file_over_hard_limit(self, material_data):
         form = MaterialForm(
-            data=material_data, files={"upload": make_pdf(101 * 1024 * 1024)}
+            data=material_data, files={"upload": make_pdf_upload(101 * 1024 * 1024)}
         )
 
         assert not form.is_valid()
@@ -80,21 +74,21 @@ class TestMaterialStorageRouting:
 @pytest.mark.django_db
 class TestMaterialRagStatus:
     def test_new_material_starts_pending(self, material_data, settings, tmp_path):
-        settings.RAG_DATA_DIR = tmp_path
+        settings.MEDIA_ROOT = tmp_path
 
-        material = build_form(material_data, make_pdf(MAX_DOCUMENT_SIZE + 1)).save()
+        material = build_form(material_data, make_pdf_upload(MAX_DOCUMENT_SIZE + 1)).save()
 
         assert material.rag_status == material.RAGStatus.PENDING
         assert material.rag_progress == 0
 
     def test_reupload_resets_status_to_pending(self, material_data, settings, tmp_path):
-        settings.RAG_DATA_DIR = tmp_path
-        material = build_form(material_data, make_pdf(MAX_DOCUMENT_SIZE + 1)).save()
+        settings.MEDIA_ROOT = tmp_path
+        material = build_form(material_data, make_pdf_upload(MAX_DOCUMENT_SIZE + 1)).save()
         material.mark_rag_indexed(chunks=42)
 
         form = MaterialForm(
             data=material_data,
-            files={"upload": make_pdf(MAX_DOCUMENT_SIZE + 1, "sgk_v2.pdf")},
+            files={"upload": make_pdf_upload(MAX_DOCUMENT_SIZE + 1, "sgk_v2.pdf")},
             instance=material,
         )
         assert form.is_valid(), form.errors
@@ -105,8 +99,8 @@ class TestMaterialRagStatus:
         assert updated.rag_indexed_at is None
 
     def test_mark_failed_keeps_reason(self, material_data, settings, tmp_path):
-        settings.RAG_DATA_DIR = tmp_path
-        material = build_form(material_data, make_pdf(MAX_DOCUMENT_SIZE + 1)).save()
+        settings.MEDIA_ROOT = tmp_path
+        material = build_form(material_data, make_pdf_upload(MAX_DOCUMENT_SIZE + 1)).save()
 
         material.mark_rag_failed("PdfReadError: file hỏng")
         material.refresh_from_db()

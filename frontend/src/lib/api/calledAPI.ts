@@ -18,6 +18,7 @@ import type {
 	LessonPayload,
 	LessonResource,
 	Me,
+	PublishResult,
 	Question,
 	QuestionType,
 	RagAnswer,
@@ -41,7 +42,6 @@ interface Paginated<T> {
 	results: T[];
 }
 
-/** Lấy mảng dữ liệu từ response, chấp nhận cả dạng phân trang lẫn mảng thuần. */
 function toList<T>(data: Paginated<T> | T[]): T[] {
 	return Array.isArray(data) ? data : data.results;
 }
@@ -62,13 +62,10 @@ export async function getMeApi(cookieHeader?: string): Promise<MeResponse> {
 	return res.data;
 }
 
-// ----- Khóa học -----
-
 export async function getListCourses(): Promise<Course[]> {
 	return toList((await api.get<Paginated<Course> | Course[]>(ENDPOINTS.COURSES)).data);
 }
 
-/** Cùng endpoint với getListCourses nhưng backend trả bộ field dành cho gia sư. */
 export async function getTutorCourses(): Promise<TutorCourse[]> {
 	return toList((await api.get<Paginated<TutorCourse> | TutorCourse[]>(ENDPOINTS.COURSES)).data);
 }
@@ -97,8 +94,6 @@ export async function getChapterStats(courseId: number): Promise<ChapterStat[]> 
 	return (await api.get<ChapterStat[]>(ENDPOINTS.CHAPTER_STATS(courseId))).data;
 }
 
-// ----- Chương (chỉ gia sư phụ trách khóa học) -----
-
 export async function createChapter(payload: ChapterPayload): Promise<Chapter> {
 	return (await api.post<Chapter>(ENDPOINTS.CHAPTERS, payload)).data;
 }
@@ -111,7 +106,9 @@ export async function deleteChapter(chapterId: number) {
 	await api.delete(ENDPOINTS.CHAPTER_DETAIL(chapterId));
 }
 
-// ----- Bài học -----
+export async function publishChapter(chapterId: number): Promise<PublishResult> {
+	return (await api.post<PublishResult>(ENDPOINTS.PUBLISH_CHAPTER(chapterId))).data;
+}
 
 export async function getDetailLesson(lessonId: number): Promise<LessonDetail> {
 	return (await api.get<LessonDetail>(ENDPOINTS.LESSONS_DETAIL(lessonId))).data;
@@ -129,11 +126,13 @@ export async function deleteLesson(lessonId: number) {
 	await api.delete(ENDPOINTS.LESSONS_DETAIL(lessonId));
 }
 
+export async function publishLesson(lessonId: number): Promise<PublishResult> {
+	return (await api.post<PublishResult>(ENDPOINTS.PUBLISH_LESSON(lessonId))).data;
+}
+
 export async function postCompleteLesson(lessonId: number) {
 	return (await api.post(ENDPOINTS.COMPLETE_LESSON(lessonId))).data;
 }
-
-// ----- Tài nguyên bài học -----
 
 export async function getLessonResources(lessonId: number): Promise<LessonResource[]> {
 	return (await api.get<LessonResource[]>(ENDPOINTS.RESOURCES_BY_LESSON(lessonId))).data;
@@ -151,12 +150,12 @@ export async function deleteResource(resourceId: number) {
 	await api.delete(ENDPOINTS.RESOURCE_DETAIL(resourceId));
 }
 
-// ----- Bình luận -----
+export async function publishResource(resourceId: number): Promise<PublishResult> {
+	return (await api.post<PublishResult>(ENDPOINTS.PUBLISH_RESOURCE(resourceId))).data;
+}
 
 export async function getListComments(lessonId: number): Promise<Comment[]> {
-	return toList(
-		(await api.get<Paginated<Comment> | Comment[]>(ENDPOINTS.COMMENTS(lessonId))).data
-	);
+	return toList((await api.get<Paginated<Comment> | Comment[]>(ENDPOINTS.COMMENTS(lessonId))).data);
 }
 
 export async function postComment(
@@ -172,12 +171,9 @@ export async function postComment(
 	).data;
 }
 
-/** Trả về bình luận sau khi đổi trạng thái, chỉ gia sư phụ trách khóa học gọi được. */
 export async function toggleCommentRight(commentId: number): Promise<Comment> {
 	return (await api.post<Comment>(ENDPOINTS.TOGGLE_RIGHT(commentId))).data;
 }
-
-// ----- Bài tập -----
 
 export async function getDetailAssignment(assignmentId: number): Promise<AssignmentDetail> {
 	return (await api.get<AssignmentDetail>(ENDPOINTS.ASSIGNMENT_DETAIL(assignmentId))).data;
@@ -187,7 +183,6 @@ export async function getListQuestions(assignmentId: number): Promise<Question[]
 	return (await api.get<Question[]>(ENDPOINTS.QUESTIONS(assignmentId))).data;
 }
 
-/** Mở một lượt làm bài; server ghi mốc thời gian và trả về deadline. */
 export async function startAssignment(assignmentId: number): Promise<Attempt> {
 	return (await api.post<Attempt>(ENDPOINTS.START_ASSIGNMENT(assignmentId))).data;
 }
@@ -211,7 +206,9 @@ export async function deleteAssignment(assignmentId: number) {
 	await api.delete(ENDPOINTS.ASSIGNMENT_DETAIL(assignmentId));
 }
 
-// ----- Soạn câu hỏi (gia sư) -----
+export async function publishAssignment(assignmentId: number): Promise<PublishResult> {
+	return (await api.post<PublishResult>(ENDPOINTS.PUBLISH_ASSIGNMENT(assignmentId))).data;
+}
 
 export async function getTutorQuestions(assignmentId: number): Promise<TutorQuestion[]> {
 	return (await api.get<TutorQuestion[]>(ENDPOINTS.QUESTIONS(assignmentId))).data;
@@ -232,12 +229,6 @@ export async function deleteQuestion(questionId: number) {
 	await api.delete(ENDPOINTS.QUESTION_DETAIL(questionId));
 }
 
-// ----- Bài nộp -----
-
-/**
- * Học sinh nhận bài nộp của chính mình; gia sư nhận bài nộp trong khóa mình
- * phụ trách (lọc thêm bằng `course` hoặc `assignment`).
- */
 export async function getListSubmissions(params?: {
 	course?: number;
 	assignment?: number;
@@ -259,13 +250,9 @@ export async function gradeSubmission(
 		.data;
 }
 
-// ----- Thống kê khóa học (gia sư) -----
-
 export async function getCourseStats(courseId: number): Promise<TutorCourseStats> {
 	return (await api.get<TutorCourseStats>(ENDPOINTS.COURSE_STATS(courseId))).data;
 }
-
-// ----- Hồ sơ cá nhân -----
 
 export async function getMyProfile(): Promise<Me> {
 	return (await api.get<Me>(ENDPOINTS.ME)).data;
@@ -279,25 +266,14 @@ export async function changePassword(payload: ChangePasswordPayload) {
 	return (await api.post(ENDPOINTS.CHANGE_PASSWORD, payload)).data;
 }
 
-// ----- Danh mục dùng chung (chỉ đọc) -----
-
-/** Khối lớp có thật trong hệ thống, dùng cho ô chọn khối lớp ở hồ sơ học sinh. */
 export async function getGrades(): Promise<Grade[]> {
 	return (await api.get<Grade[]>(ENDPOINTS.GRADES)).data;
 }
 
-/** Học lực hợp lệ, backend sinh từ TextChoices của StudentProfile. */
 export async function getAcademicLevels(): Promise<ChoiceOption[]> {
 	return (await api.get<ChoiceOption[]>(ENDPOINTS.ACADEMIC_LEVELS)).data;
 }
 
-// ----- Trợ lý AI -----
-
-/**
- * Endpoint AI phải chờ Gemini nhúng vector rồi sinh câu trả lời, thực tế mất
- * 15-25 giây - vượt xa timeout 10s mặc định của axios (client huỷ giữa chừng
- * làm server báo "Broken pipe"), nên các lời gọi AI dùng timeout riêng.
- */
 const AI_TIMEOUT_MS = 90_000;
 
 export async function askAI(
@@ -318,7 +294,6 @@ export async function askAI(
 	).data;
 }
 
-/** Gia sư nhờ AI sinh bộ câu hỏi từ tài liệu bài học. */
 export async function generateExercises(payload: {
 	course_id: number;
 	lesson_id?: number;

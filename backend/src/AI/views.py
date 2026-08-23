@@ -1,12 +1,9 @@
 import logging
-
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
-
 from core.permissions import IsRelatedCourseMember, IsStudent
 from courses.models import Course
-
 from .rag_service import generate_exercises_rag, query_rag_answer
 from .serializers import (
     GenerateExercisesSerializer,
@@ -51,7 +48,6 @@ class RAGAskQuestionView(GenericAPIView):
 
 
 class RAGGenerateExercisesView(GenericAPIView):
-    """API cho học sinh trong khóa tự sinh bài tập từ tài liệu bài học."""
 
     serializer_class = GenerateExercisesSerializer
     throttle_scope = "ai"

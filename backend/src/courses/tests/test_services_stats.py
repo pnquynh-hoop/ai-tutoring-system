@@ -41,7 +41,6 @@ class TestCourseStatServices:
             for i in range(1, lesson_count + 1)
         ]
 
-    # ---------- overview ----------
     def test_course_overview_counts_progress_and_pending(self, course, student):
         _, lessons = self.make_chapter_with_lessons(course, 1, 4)
         mark_lesson_completed(student, lessons[0])
@@ -68,7 +67,6 @@ class TestCourseStatServices:
             "progress_percent": 0,
         }
 
-    # ---------- chapter stats ----------
     def test_chapter_stats_returns_per_chapter_numbers(self, course, student):
         chapter, lessons = self.make_chapter_with_lessons(course, 1, 3)
         mark_lesson_completed(student, lessons[0])
@@ -119,13 +117,11 @@ class TestCourseStatServices:
                 due_date=timezone.now() + timedelta(days=1),
             )
 
-        # 5 chương × 4 bài học: số query phải cố định, không tăng theo dữ liệu.
         with django_assert_max_num_queries(3):
             stats = get_chapter_stats(course=course, student=student)
 
         assert len(stats) == 5
 
-    # ---------- course tree ----------
     def test_course_tree_flags_completed_lessons(self, course, student):
         _, lessons = self.make_chapter_with_lessons(course, 1, 2)
         mark_lesson_completed(student, lessons[0])
@@ -135,7 +131,6 @@ class TestCourseStatServices:
 
         assert [lesson.is_completed for lesson in tree_lessons] == [True, False]
 
-    # ---------- quick stats ----------
     def test_student_quick_stats(self, course, student):
         _, lessons = self.make_chapter_with_lessons(course, 1, 2)
         mark_lesson_completed(student, lessons[0])
@@ -235,7 +230,6 @@ class TestCourseStatServices:
 
         assert get_tutor_quick_stats(tutor=tutor)["pending_submission_count"] == 0
 
-    # ---------- tutor course list ----------
     def test_get_tutor_courses_annotations(self, course, tutor, student):
         chapter, _ = self.make_chapter_with_lessons(course, 1, 3)
         assignment = make_published(
@@ -259,7 +253,6 @@ class TestCourseStatServices:
         assert result[0].lessons_count == 3
         assert result[0].pending_submission_count == 1
 
-    # ---------- mark complete ----------
     def test_mark_lesson_completed_sets_timestamp(self, course, student):
         _, lessons = self.make_chapter_with_lessons(course, 1, 1)
 

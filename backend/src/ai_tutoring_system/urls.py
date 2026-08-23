@@ -22,7 +22,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
     SpectacularRedocView,
 )
-from django.contrib import admin
+from core.admin import admin_site
 
 api_v1_patterns = [
     path("", include("accounts.urls")),
@@ -33,21 +33,19 @@ api_v1_patterns = [
 ]
 
 urlpatterns = [
-    # OpenAPI schema
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    # Swagger UI
     path(
         "api/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
-    # ReDoc
     path(
         "api/redoc/",
         SpectacularRedocView.as_view(url_name="schema"),
         name="redoc",
     ),
     path("", RedirectView.as_view(url="/api/docs/", permanent=False)),
-    path("admin/", admin.site.urls),
+    path("admin/", admin_site.urls),
     path("api/v1/", include(api_v1_patterns)),
+    path("__debug__/", include("debug_toolbar.urls")),
 ]

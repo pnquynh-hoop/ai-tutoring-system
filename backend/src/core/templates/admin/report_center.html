@@ -1,0 +1,124 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Trang chủ</a>
+    &rsaquo; Báo cáo của học sinh
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+
+    <div class="module">
+        <h2>Lọc theo trạng thái</h2>
+        <ul class="status-filter">
+            <li>
+                <a class="button {% if not status_filter %}default{% endif %}"
+                   href="{% url 'admin:report_center' %}">Tất cả ({{ total_reports }})</a>
+            </li>
+            {% for item in status_summary %}
+            <li>
+                <a class="button {% if status_filter == item.value %}default{% endif %}"
+                   href="{% url 'admin:report_center' %}?status={{ item.value }}">
+                    {{ item.label }} ({{ item.total }})
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="module">
+        <h2>Danh sách báo cáo</h2>
+        {% if page.object_list %}
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Mã</th>
+                    <th>Câu hỏi bị báo cáo</th>
+                    <th>Nội dung báo cáo</th>
+                    <th>Người báo</th>
+                    <th>Thời điểm</th>
+                    <th>Trạng thái</th>
+                    <th>Chuyển trạng thái</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in page.object_list %}
+                <tr>
+                    <td>#{{ report.pk }}</td>
+                    <td>
+                        <a href="{% url 'admin:assignments_question_change' report.question_id %}">
+                            {{ report.question.content|truncatechars:120 }}
+                        </a>
+                        <div class="assignment-note">{{ report.question.assignment }}</div>
+                    </td>
+                    <td>{{ report.note|linebreaksbr }}</td>
+                    <td>{{ report.reporter }}</td>
+                    <td>{{ report.reported_at }}</td>
+                    <td><strong>{{ report.get_status_display }}</strong></td>
+                    <td>
+                        <form method="post" class="status-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="report_id" value="{{ report.pk }}">
+                            <input type="hidden" name="current_status" value="{{ status_filter }}">
+                            {% for value, label in status_choices %}
+                            {% if value != report.status %}
+                            <button type="submit" name="status" value="{{ value }}" class="button">{{ label }}</button>
+                            {% endif %}
+                            {% endfor %}
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <p class="paginator">
+            {% if page.has_previous %}
+            <a href="?status={{ status_filter }}&amp;page={{ page.previous_page_number }}">Trang trước</a>
+            {% endif %}
+            Trang {{ page.number }}/{{ page.paginator.num_pages }}
+            {% if page.has_next %}
+            <a href="?status={{ status_filter }}&amp;page={{ page.next_page_number }}">Trang sau</a>
+            {% endif %}
+        </p>
+        {% else %}
+        <p class="empty-note">Không có báo cáo nào.</p>
+        {% endif %}
+    </div>
+
+</div>
+
+<style>
+    .status-filter {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        list-style: none;
+        margin: 0;
+        padding: 12px;
+    }
+
+    .report-table td {
+        vertical-align: top;
+    }
+
+    .assignment-note {
+        color: var(--body-quiet-color);
+        font-size: 12px;
+        margin-top: 4px;
+    }
+
+    .status-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .empty-note {
+        padding: 8px 12px;
+        color: var(--body-quiet-color);
+    }
+</style>
+{% endblock %}

@@ -17,16 +17,6 @@
 		User
 	} from 'lucide-svelte';
 
-	// ============================================================
-	// Trợ lý ảo AI — trang hỏi đáp + sinh bài tập
-	// Đồng bộ sidebar/header/auth với trang Trang chủ (data/documents/1)
-	// Toàn bộ dữ liệu KHÓA HỌC/CÂU HỎI bên dưới vẫn là MOCK, phản ánh model:
-	//   Course -> Chapter -> Lesson -> LearningResource (is_rag_indexed)
-	//   Question -> Answer (sinh bởi AI, chờ thêm vào Assignment)
-	//   Report (question, reporter, note)
-	// Khi nối API thật: thay các hàm `mock*()` bằng fetch tới backend.
-	// ============================================================
-
 	type ChatRole = 'user' | 'ai';
 
 	interface ChatMessage {
@@ -57,7 +47,6 @@
 
 	type Mode = 'qa' | 'exercise';
 
-	// --- Người dùng thật (đồng bộ với Trang chủ) ---
 	let studentName = $state(auth.user?.full_name);
 	let avatarUrl = $state(auth.user?.avatar);
 	let showUserMenu = $state(false);
@@ -66,10 +55,10 @@
 
 	let navItems = $state([
 		{ id: 'home', label: 'Trang chủ', icon: Home, href: '/stu-dashboard' },
-		{ id: 'chatbot', label: 'Trợ lý ảo AI', icon: MessageCircle, badge: true, href: '/chabot' },
+		{ id: 'chatbot', label: 'Trợ lý ảo AI', icon: MessageCircle, badge: true, href: '/chatbot' },
 		{ id: 'history', label: 'Lịch sử làm bài', icon: History, href: '/history' }
 	]);
-	let activeNav = $state('assistant');
+	let activeNav = $state('chatbot');
 
 	function navigateTo(item: (typeof navItems)[number]) {
 		activeNav = item.id;
@@ -89,18 +78,15 @@
 		}
 	}
 
-	// --- Khóa học thật của học sinh: GET /courses/ + GET /courses/{id}/tree/ ---
 	let { data }: PageProps = $props();
 
 	let courses = $derived(data.courses);
 
-	// --- State chat ---
 	let mode = $state<Mode>('qa');
 	let selectedCourseId = $state<number | null>(null);
-	let selectedLessonId = $state<number | null>(null); // null = toàn khóa học
+	let selectedLessonId = $state<number | null>(null);
 	let chapters = $state<Chapter[]>([]);
 
-	// Chọn sẵn khóa học đầu tiên kèm cây chương/bài đã tải cùng trang.
 	$effect(() => {
 		selectedCourseId = data.courses[0]?.id ?? null;
 		chapters = data.firstTree?.chapters ?? [];
@@ -113,7 +99,6 @@
 		selectedLesson ? selectedLesson.title : `Toàn bộ khóa học: ${selectedCourse?.name ?? ''}`
 	);
 
-	/** Đổi khóa học thì nạp lại cây chương/bài của khóa đó. */
 	async function loadChapters(courseId: number | null) {
 		selectedLessonId = null;
 		if (!courseId) {
@@ -184,7 +169,6 @@
 		isThinking = true;
 
 		try {
-			// POST /rag/ask/ - backend chỉ trả lời dựa trên tài liệu của khóa/bài học này.
 			const res = await askAI(content, selectedCourseId, selectedLesson?.id);
 			messages.push({
 				id: Date.now() + 1,
@@ -218,7 +202,6 @@
 		];
 	}
 
-	// --- Chế độ "Sinh bài tập" (mô phỏng AIGeneratedExercise -> Question/Answer) ---
 	let exerciseType = $state<QuestionType>('MULTIPLE_CHOICE');
 	let exerciseCount = $state(3);
 	let isGenerating = $state(false);
@@ -232,7 +215,6 @@
 		ESSAY: 'Tự luận'
 	};
 
-	// TODO: thay bằng API sinh câu hỏi thật (AI đọc LearningResource đã RAG-index của bài học)
 	async function mockGenerateQuestions(): Promise<void> {
 		isGenerating = true;
 		generatedQuestions = [];
@@ -276,7 +258,6 @@
 	}
 
 	function addToAssignment(q: GeneratedQuestion): void {
-		// TODO: gọi API tạo Question/Answer thật gắn vào Assignment của chương hiện tại
 		q.added = true;
 	}
 
@@ -286,7 +267,6 @@
 	}
 
 	function submitReport(q: GeneratedQuestion): void {
-		// TODO: POST tới Report { question, reporter: currentUser, note }
 		q.reported = true;
 		reportingId = null;
 	}
@@ -303,16 +283,15 @@
 </svelte:head>
 
 <div
-	class="flex h-screen w-full bg-[#F5F6FA] text-slate-900"
+	class="flex h-screen w-full bg-slate-50 text-slate-900"
 	style="font-family:'Inter',sans-serif;"
 >
-	<!-- ===================== SIDEBAR (đồng bộ với Trang chủ) ===================== -->
 	<aside
-		class={`relative flex flex-col bg-[#0C1550] text-white transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}
+		class={`relative flex flex-col bg-brand-950 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}
 	>
 		<div class="flex items-center gap-3 px-5 py-6">
 			<div
-				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-tr from-indigo-500 to-violet-500 shadow-lg shadow-indigo-900/40"
+				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-tr from-brand-500 to-brand-500 shadow-lg shadow-brand-900/40"
 			>
 				<Sparkles class="h-5 w-5 text-white" />
 			</div>
@@ -331,7 +310,7 @@
 						${
 							activeNav === item.id
 								? 'bg-white/10 text-white shadow-inner'
-								: 'text-indigo-100/60 hover:bg-white/5 hover:text-white'
+								: 'text-brand-100/60 hover:bg-white/5 hover:text-white'
 						}`}
 				>
 					<span class="relative shrink-0">
@@ -346,7 +325,7 @@
 						<span class="truncate">{item.label}</span>
 					{/if}
 					{#if activeNav === item.id && !sidebarCollapsed}
-						<span class="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-400"></span>
+						<span class="ml-auto h-1.5 w-1.5 rounded-full bg-brand-400"></span>
 					{/if}
 				</button>
 			{/each}
@@ -354,16 +333,14 @@
 
 		<button
 			onclick={() => (sidebarCollapsed = !sidebarCollapsed)}
-			class="mx-3 mb-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-indigo-100/40 hover:bg-white/5 hover:text-white"
+			class="mx-3 mb-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-brand-100/40 hover:bg-white/5 hover:text-white"
 		>
 			<Menu class="h-4 w-4" />
 			{#if !sidebarCollapsed}Thu gọn{/if}
 		</button>
 	</aside>
 
-	<!-- ===================== MAIN ===================== -->
 	<div class="flex flex-1 flex-col min-w-0">
-		<!-- TOP BAR (đồng bộ với Trang chủ: search + user menu + logout) -->
 		<header
 			class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 		>
@@ -437,7 +414,6 @@
 			</div>
 		</header>
 
-		<!-- Tiêu đề trang + nút cuộc trò chuyện mới -->
 		<div class="flex items-center justify-between px-8 py-5 bg-white border-b border-slate-100">
 			<div>
 				<h1 class="text-xl font-extrabold m-0" style="font-family:'Sora',sans-serif;">
@@ -455,10 +431,9 @@
 			</button>
 		</div>
 
-		<!-- Thanh chọn ngữ cảnh (Course -> Lesson) + tab chế độ -->
 		<div class="bg-white border-b border-slate-100 px-8 py-3 flex flex-wrap items-center gap-3">
 			<select
-				class="text-[13px] border border-slate-200 rounded-lg px-3 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+				class="text-[13px] border border-slate-200 rounded-lg px-3 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-400"
 				bind:value={selectedCourseId}
 				onchange={() => loadChapters(selectedCourseId)}
 			>
@@ -468,7 +443,7 @@
 			</select>
 
 			<select
-				class="text-[13px] border border-slate-200 rounded-lg px-3 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+				class="text-[13px] border border-slate-200 rounded-lg px-3 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-400"
 				bind:value={selectedLessonId}
 			>
 				<option value={null}>Toàn bộ khóa học</option>
@@ -494,7 +469,7 @@
 			>
 				<button
 					class="px-3.5 py-1.5 rounded-full transition {mode === 'qa'
-						? 'bg-white shadow text-indigo-600'
+						? 'bg-white shadow text-brand-600'
 						: 'text-slate-500'}"
 					onclick={() => (mode = 'qa')}
 				>
@@ -502,7 +477,7 @@
 				</button>
 				<button
 					class="px-3.5 py-1.5 rounded-full transition {mode === 'exercise'
-						? 'bg-white shadow text-indigo-600'
+						? 'bg-white shadow text-brand-600'
 						: 'text-slate-500'}"
 					onclick={() => (mode = 'exercise')}
 				>
@@ -512,13 +487,12 @@
 		</div>
 
 		{#if mode === 'qa'}
-			<!-- ===================== CHẾ ĐỘ HỎI ĐÁP ===================== -->
 			<section class="flex-1 flex flex-col min-h-0 max-w-215 w-full mx-auto px-6 box-border">
 				<div bind:this={scrollEl} class="flex-1 overflow-y-auto py-7 px-1 flex flex-col gap-4.5">
 					{#if !hasConversation}
 						<div class="m-auto text-center max-w-95 text-slate-500">
 							<div
-								class="w-14 h-14 rounded-2xl bg-linear-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-2xl mx-auto mb-3.5 shadow-lg shadow-indigo-900/20"
+								class="w-14 h-14 rounded-2xl bg-linear-to-br from-brand-500 to-brand-500 flex items-center justify-center text-2xl mx-auto mb-3.5 shadow-lg shadow-brand-900/20"
 							>
 								<Sparkles class="h-6 w-6 text-white" />
 							</div>
@@ -540,18 +514,18 @@
 						<div class="flex items-end gap-2.5 {msg.role === 'user' ? 'justify-end' : ''}">
 							{#if msg.role === 'ai'}
 								<div
-									class="w-7.5 h-7.5 rounded-full shrink-0 flex items-center justify-center text-white bg-linear-to-br from-indigo-500 to-violet-500"
+									class="w-7.5 h-7.5 rounded-full shrink-0 flex items-center justify-center text-white bg-linear-to-br from-brand-500 to-brand-500"
 								>
 									<Sparkles class="h-4 w-4" />
 								</div>
 							{/if}
 							<div
 								class="max-w-[70%] rounded-2xl px-4 py-3 shadow-sm {msg.role === 'user'
-									? 'bg-[#0C1550] text-white rounded-br-sm'
+									? 'bg-brand-950 text-white rounded-br-sm'
 									: 'bg-white border border-slate-100 rounded-bl-sm'}"
 							>
 								{#if msg.sourceLesson}
-									<span class="block text-[10.5px] font-medium text-indigo-500 mb-1">
+									<span class="block text-[10.5px] font-medium text-brand-500 mb-1">
 										📎 Nguồn: {msg.sourceLesson}
 									</span>
 								{/if}
@@ -585,7 +559,7 @@
 					{#if isThinking}
 						<div class="flex items-end gap-2.5">
 							<div
-								class="w-7.5 h-7.5 rounded-full shrink-0 flex items-center justify-center text-white bg-linear-to-br from-indigo-500 to-violet-500"
+								class="w-7.5 h-7.5 rounded-full shrink-0 flex items-center justify-center text-white bg-linear-to-br from-brand-500 to-brand-500"
 							>
 								<Sparkles class="h-4 w-4" />
 							</div>
@@ -610,7 +584,7 @@
 					<div class="flex flex-wrap gap-2 justify-center pb-4">
 						{#each suggestedPrompts as s (s)}
 							<button
-								class="bg-white border border-slate-200 rounded-full px-3.5 py-2 text-[12.5px] text-slate-600 hover:border-indigo-400 hover:text-indigo-600"
+								class="bg-white border border-slate-200 rounded-full px-3.5 py-2 text-[12.5px] text-slate-600 hover:border-brand-400 hover:text-brand-600"
 								onclick={() => sendPrompt(s)}
 							>
 								{s}
@@ -629,7 +603,7 @@
 						bind:value={draft}
 						onkeydown={handleKeydown}></textarea>
 					<button
-						class="w-9.5 h-9.5 rounded-xl text-white text-[15px] shrink-0 disabled:bg-slate-300 disabled:cursor-not-allowed bg-[#0C1550] hover:bg-indigo-600 transition-colors"
+						class="w-9.5 h-9.5 rounded-xl text-white text-[15px] shrink-0 disabled:bg-slate-300 disabled:cursor-not-allowed bg-brand-950 hover:bg-brand-600 transition-colors"
 						disabled={!draft.trim() || isThinking}
 						onclick={() => sendPrompt()}
 					>
@@ -641,7 +615,6 @@
 				</p>
 			</section>
 		{:else}
-			<!-- ===================== CHẾ ĐỘ SINH BÀI TẬP ===================== -->
 			<section class="flex-1 overflow-y-auto max-w-215 w-full mx-auto px-6 py-7 box-border">
 				<div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm shadow-slate-200/50">
 					<h2 class="text-[15px] font-bold mb-1" style="font-family:'Sora',sans-serif;">
@@ -682,7 +655,7 @@
 							/>
 						</div>
 						<button
-							class="ml-auto bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-semibold rounded-[10px] px-5 py-2 disabled:opacity-50"
+							class="ml-auto bg-brand-600 hover:bg-brand-700 text-white text-[13px] font-semibold rounded-[10px] px-5 py-2 disabled:opacity-50"
 							disabled={isGenerating}
 							onclick={mockGenerateQuestions}
 						>
@@ -707,7 +680,7 @@
 						>
 							<div class="flex items-start justify-between gap-3">
 								<span
-									class="text-[11px] font-semibold text-indigo-600 bg-indigo-50 rounded-full px-2.5 py-1"
+									class="text-[11px] font-semibold text-brand-600 bg-brand-50 rounded-full px-2.5 py-1"
 								>
 									{typeLabel[q.type]}
 								</span>
@@ -742,7 +715,7 @@
 
 							<div class="flex items-center gap-2 pt-2 border-t border-slate-100">
 								<button
-									class="text-[12.5px] font-semibold text-white bg-[#0C1550] hover:bg-indigo-600 transition-colors rounded-lg px-3 py-1.5 disabled:opacity-50"
+									class="text-[12.5px] font-semibold text-white bg-brand-950 hover:bg-brand-600 transition-colors rounded-lg px-3 py-1.5 disabled:opacity-50"
 									disabled={q.added}
 									onclick={() => addToAssignment(q)}
 								>

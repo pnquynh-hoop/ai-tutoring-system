@@ -1,3 +1,23 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@theme {
+	/* Màu thương hiệu: xanh dương, mốc chính là brand-600 */
+	--color-brand-50: #eff4ff;
+	--color-brand-100: #dbe6fe;
+	--color-brand-200: #bfd3fe;
+	--color-brand-300: #93b4fd;
+	--color-brand-400: #6090fa;
+	--color-brand-500: #3b70f6;
+	--color-brand-600: #175ddc;
+	--color-brand-700: #1449b0;
+	--color-brand-800: #163e8c;
+	--color-brand-900: #17376f;
+	--color-brand-950: #0f2350;
+
+	/* Đầu nhạt của thang slate kéo ngả xanh cho khớp màu thương hiệu */
+	--color-slate-50: #f5f8fd;
+	--color-slate-100: #ebf1fa;
+	--color-slate-200: #e3eaf5;
+}

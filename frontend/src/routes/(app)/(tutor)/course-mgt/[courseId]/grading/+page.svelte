@@ -9,12 +9,6 @@
 	import { ArrowLeft, CheckCircle2, ClipboardCheck, Clock } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
-	// ============================================================
-	// Chấm bài: câu trắc nghiệm/điền khuyết đã được backend chấm tự động khi nộp,
-	// gia sư chỉ nhập điểm cho câu tự luận (point === null), sau đó backend tính
-	// lại điểm tổng của Submission.
-	// ============================================================
-
 	let { data }: PageProps = $props();
 
 	let courseId = $derived(data.courseId);
@@ -23,8 +17,7 @@
 	let selected = $state<SubmissionDetail | null>(null);
 	let isLoadingDetail = $state(false);
 	let isSaving = $state(false);
-	/** Điểm và nhận xét gia sư đang nhập, khóa theo id của StudentAnswer. */
-	let drafts = $state<Record<number, { point: string; tutor_comment: string }>>({});
+	let drafts = $state<Record<number, { point: number | null; tutor_comment: string }>>({});
 
 	let pendingCount = $derived(submissions.filter((s) => s.score === null).length);
 
@@ -46,7 +39,10 @@
 			drafts = Object.fromEntries(
 				detail.stu_answers.map((answer) => [
 					answer.id,
-					{ point: answer.point ?? '', tutor_comment: answer.tutor_comment ?? '' }
+					{
+						point: answer.point === null ? null : Number(answer.point),
+						tutor_comment: answer.tutor_comment ?? ''
+					}
 				])
 			);
 		} catch (err) {
@@ -88,7 +84,7 @@
 	<title>Chấm bài</title>
 </svelte:head>
 
-<div class="min-h-screen bg-[#F4F5F8]" style="font-family:'Inter',sans-serif;">
+<div class="min-h-screen bg-slate-50" style="font-family:'Inter',sans-serif;">
 	<header
 		class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 	>
@@ -108,7 +104,6 @@
 	</header>
 
 	<main class="grid grid-cols-1 gap-6 px-8 py-8 lg:grid-cols-[360px_1fr]">
-		<!-- DANH SÁCH BÀI NỘP -->
 		<div class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm shadow-slate-200/50">
 			<h2 class="mb-4 text-sm font-semibold text-slate-800" style="font-family:'Sora',sans-serif;">
 				Bài đã nộp - {data.course.name}
@@ -120,7 +115,7 @@
 						onclick={() => openSubmission(submission.id)}
 						class={`w-full rounded-xl border p-3 text-left transition-colors ${
 							selected?.id === submission.id
-								? 'border-[#0C1550] bg-slate-50'
+								? 'border-brand-950 bg-slate-50'
 								: 'border-slate-100 hover:bg-slate-50'
 						}`}
 					>
@@ -163,7 +158,6 @@
 			</div>
 		</div>
 
-		<!-- CHI TIẾT BÀI LÀM -->
 		<div class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50">
 			{#if isLoadingDetail}
 				<p class="py-20 text-center text-sm text-slate-400">Đang tải bài làm...</p>
@@ -212,19 +206,24 @@
 							</div>
 
 							{#if answer.question_type === 'ESSAY'}
-								<div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[120px_1fr]">
-									<input
-										type="number"
-										step="0.25"
-										min="0"
-										max={selected.point_per_question}
-										placeholder="Điểm"
-										class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-300"
-										bind:value={drafts[answer.id].point}
-									/>
+								<div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[150px_1fr]">
+									<div class="flex items-center gap-1.5">
+										<input
+											type="number"
+											step="0.25"
+											min="0"
+											max={selected.point_per_question}
+											placeholder="Điểm"
+											class="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
+											bind:value={drafts[answer.id].point}
+										/>
+										<span class="shrink-0 text-xs text-slate-400">
+											/ {selected.point_per_question}
+										</span>
+									</div>
 									<input
 										placeholder="Nhận xét cho học sinh"
-										class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-300"
+										class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
 										bind:value={drafts[answer.id].tutor_comment}
 									/>
 								</div>
@@ -250,7 +249,7 @@
 					<button
 						onclick={saveGrade}
 						disabled={isSaving}
-						class="flex items-center gap-2 rounded-xl bg-[#0C1550] px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+						class="flex items-center gap-2 rounded-xl bg-brand-950 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
 					>
 						<ClipboardCheck class="h-4 w-4" />
 						Lưu điểm

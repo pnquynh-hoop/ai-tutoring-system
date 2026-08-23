@@ -12,16 +12,22 @@ SUBMIT_GRACE = timedelta(seconds=30)
 MAX_ATTEMPTS = 3
 
 
-def count_submitted_attempts(student, assignment) -> int:
+def count_submitted_attempts(student, assignment):
     return Submission.objects.filter(
         assignment=assignment, student=student, submitted_at__isnull=False
     ).count()
 
 
-def has_submissions(assignment) -> bool:
+def has_submissions(assignment):
     return Submission.objects.filter(
         assignment=assignment, submitted_at__isnull=False
     ).exists()
+
+
+def delete_question(question):
+    if has_submissions(question.assignment):
+        raise ValidationError("Bài tập đã có bài nộp nên không xóa được câu hỏi.")
+    question.delete()
 
 
 def get_open_attempt(student, assignment):
@@ -30,7 +36,7 @@ def get_open_attempt(student, assignment):
     ).first()
 
 
-def point_per_question(total_questions: int) -> Decimal:
+def point_per_question(total_questions):
     if not total_questions:
         return Decimal(0)
     return (TOTAL_SCORE / total_questions).quantize(
@@ -38,7 +44,7 @@ def point_per_question(total_questions: int) -> Decimal:
     )
 
 
-def _scale_to_total(points, total_questions: int):
+def scale_to_total(points, total_questions):
     if any(point is None for point in points):
         return None
 
@@ -50,36 +56,36 @@ def _scale_to_total(points, total_questions: int):
     )
 
 
-def _ensure_within_due_date(assignment):
+def ensure_within_due_date(assignment):
     if assignment.due_date and timezone.now() > assignment.due_date:
         raise ValidationError("Bài tập đã hết hạn nộp.")
 
 
-def _is_expired(attempt) -> bool:
+def is_expired(attempt):
     deadline = attempt.deadline
     return bool(deadline and timezone.now() > deadline + SUBMIT_GRACE)
 
 
-def _get_attempt_to_submit(student, assignment):
+def get_attempt_to_submit(student, assignment):
     attempt = get_open_attempt(student, assignment)
     if attempt is None:
         raise ValidationError("Bạn chưa bắt đầu lượt làm bài nào cho bài tập này.")
 
-    if _is_expired(attempt):
+    if is_expired(attempt):
         raise ValidationError("Đã hết thời gian làm bài của lượt làm này.")
     return attempt
 
 
 @transaction.atomic
 def start_attempt(student, assignment):
-    _ensure_within_due_date(assignment)
+    ensure_within_due_date(assignment)
 
     if not assignment.questions.exists():
         raise ValidationError("Bài tập chưa có câu hỏi nào.")
 
     attempt = get_open_attempt(student, assignment)
     if attempt is not None:
-        if not _is_expired(attempt):
+        if not is_expired(attempt):
             return attempt
 
         attempt.submitted_at = attempt.deadline
@@ -99,7 +105,7 @@ def start_attempt(student, assignment):
     )
 
 
-def _ensure_answers_match_questions(questions, answers):
+def ensure_answers_match_questions(questions, answers):
     question_ids = [item["question_id"] for item in answers]
 
     unknown_ids = [qid for qid in question_ids if qid not in questions]
@@ -127,7 +133,7 @@ def _ensure_answers_match_questions(questions, answers):
 
 @transaction.atomic
 def submit_assignment(student, assignment, answers):
-    _ensure_within_due_date(assignment)
+    ensure_within_due_date(assignment)
 
     questions = {}
     for q in assignment.questions.prefetch_related("answers"):
@@ -136,8 +142,8 @@ def submit_assignment(student, assignment, answers):
     if not questions:
         raise ValidationError("Bài tập chưa có câu hỏi nào.")
 
-    attempt = _get_attempt_to_submit(student, assignment)
-    _ensure_answers_match_questions(questions, answers)
+    attempt = get_attempt_to_submit(student, assignment)
+    ensure_answers_match_questions(questions, answers)
 
     unit_point = point_per_question(len(questions))
 
@@ -175,14 +181,14 @@ def submit_assignment(student, assignment, answers):
     StudentAnswer.objects.bulk_create(stu_answers)
 
     attempt.submitted_at = timezone.now()
-    attempt.score = _scale_to_total(
+    attempt.score = scale_to_total(
         [answer.point for answer in stu_answers], len(questions)
     )
     attempt.save(update_fields=["score", "submitted_at"])
     return attempt
 
 
-def _ensure_gradable(submission, answers):
+def ensure_gradable(submission, answers):
     if submission.submitted_at is None:
         raise ValidationError("Bài làm này chưa được nộp nên chưa thể chấm.")
 
@@ -200,7 +206,7 @@ def _ensure_gradable(submission, answers):
 
 @transaction.atomic
 def grade_submission(submission, answers):
-    _ensure_gradable(submission, answers)
+    ensure_gradable(submission, answers)
 
     stu_answers = {}
     for answer in submission.stu_answers.all():
@@ -216,7 +222,7 @@ def grade_submission(submission, answers):
 
     StudentAnswer.objects.bulk_update(graded, ["point", "tutor_comment"])
 
-    submission.score = _scale_to_total(
+    submission.score = scale_to_total(
         [answer.point for answer in stu_answers.values()],
         submission.assignment.questions.count(),
     )

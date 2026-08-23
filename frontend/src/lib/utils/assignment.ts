@@ -5,10 +5,6 @@ import type {
 	UserAnswer
 } from '$lib/api/entities';
 
-/**
- * Chuyển câu trả lời của học sinh sang đúng cấu trúc backend yêu cầu ở
- * POST /assignments/{id}/submit/.
- */
 export function buildAnswerPayload(userAnswers: Record<number, UserAnswer>): SubmitAnswerItem[] {
 	return Object.entries(userAnswers).map(([questionId, answer]) =>
 		answer.type === 'MULTIPLE_CHOICE'
@@ -17,44 +13,76 @@ export function buildAnswerPayload(userAnswers: Record<number, UserAnswer>): Sub
 	);
 }
 
-/** Số câu đã thực sự trả lời (bỏ qua ô text để trống). */
 export function countAnswered(userAnswers: Record<number, UserAnswer>): number {
 	return Object.values(userAnswers).filter((answer) =>
 		answer.type === 'MULTIPLE_CHOICE' ? answer.answerId !== undefined : answer.text.trim() !== ''
 	).length;
 }
 
-/**
- * Số giây còn lại tính từ deadline do server trả về.
- * Không có deadline nghĩa là bài không giới hạn thời gian.
- */
 export function remainingSeconds(deadline: string | null, now: number = Date.now()): number {
 	if (!deadline) return 0;
 	return Math.max(0, Math.floor((new Date(deadline).getTime() - now) / 1000));
 }
 
-/** Câu tự luận chưa chấm là những câu backend trả về `point === null`. */
 export function pendingEssayAnswers(answers: StudentAnswerReview[]): StudentAnswerReview[] {
 	return answers.filter((answer) => answer.point === null);
 }
 
-/**
- * Gom điểm gia sư nhập thành payload chấm bài, bỏ qua câu chưa nhập điểm.
- * Backend chặn điểm vượt trần nên ở đây chỉ lọc dữ liệu chưa hợp lệ.
- */
 export function buildGradePayload(
-	drafts: Record<number, { point: string; tutor_comment: string }>
+	drafts: Record<number, { point: number | null; tutor_comment: string }>
 ): GradeAnswerItem[] {
-	return Object.entries(drafts)
-		.filter(([, draft]) => draft.point.trim() !== '' && !Number.isNaN(Number(draft.point)))
-		.map(([id, draft]) => ({
+	const items: GradeAnswerItem[] = [];
+
+	for (const [id, draft] of Object.entries(drafts)) {
+		const point = draft.point;
+		if (point === null || Number.isNaN(point)) continue;
+
+		items.push({
 			id: Number(id),
-			point: Number(draft.point),
+			point,
 			tutor_comment: draft.tutor_comment.trim() || null
-		}));
+		});
+	}
+
+	return items;
 }
 
-/** Bài đã chấm xong khi backend trả về score khác null. */
 export function isGraded(score: string | null): boolean {
 	return score !== null;
+}
+
+const ANSWER_DRAFT_PREFIX = 'assignment-answer-draft-';
+
+function answerDraftKey(attemptId: number): string {
+	return `${ANSWER_DRAFT_PREFIX}${attemptId}`;
+}
+
+export function loadAnswerDraft(attemptId: number): Record<number, UserAnswer> {
+	try {
+		const stored = localStorage.getItem(answerDraftKey(attemptId));
+		return stored ? JSON.parse(stored) : {};
+	} catch {
+		return {};
+	}
+}
+
+export function saveAnswerDraft(
+	attemptId: number,
+	userAnswers: Record<number, UserAnswer>
+): boolean {
+	try {
+		localStorage.setItem(answerDraftKey(attemptId), JSON.stringify(userAnswers));
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+export function clearAnswerDraft(attemptId: number): boolean {
+	try {
+		localStorage.removeItem(answerDraftKey(attemptId));
+		return true;
+	} catch {
+		return false;
+	}
 }

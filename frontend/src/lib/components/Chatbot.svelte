@@ -6,19 +6,11 @@
 	import { formatSourceLabel, resolveChatContext } from '$lib/utils/chat';
 	import { Bot, Send, Sparkles, X } from 'lucide-svelte';
 
-	// ============================================================
-	// Trợ lý AI dạng nút nổi góc phải + sidebar chat trượt ra bên phải.
-	// Ngữ cảnh (khóa học / bài học) lấy từ route hiện tại: backend chỉ trả lời
-	// dựa trên tài liệu của khóa học mà học sinh đã ghi danh, nên phải gửi kèm
-	// course_id. Route nào không có courseId thì hiện ô chọn khóa học.
-	// ============================================================
-
 	interface ChatMessage {
 		id: number;
 		role: 'user' | 'ai';
 		text: string;
 		sources?: RagSource[];
-		/** false: câu trả lời nằm ngoài tài liệu khóa học */
 		grounded?: boolean;
 	}
 
@@ -33,7 +25,6 @@
 	let isThinking = $state(false);
 	let scrollEl = $state<HTMLDivElement | null>(null);
 
-	// Khóa học/bài học suy ra từ URL, ví dụ /course/3/lesson/12
 	let routeCourseId = $derived(Number(page.params.courseId) || null);
 
 	let courses = $state<Course[]>([]);
@@ -62,7 +53,6 @@
 
 		if (messages.length === 0) messages = [greeting()];
 
-		// Không ở trong khóa học nào thì phải cho học sinh chọn khóa để gửi course_id.
 		if (!routeCourseId && courses.length === 0) {
 			try {
 				courses = await getListCourses();
@@ -120,12 +110,11 @@
 	}
 </script>
 
-<!-- NÚT NỔI GÓC PHẢI: ẩn khi sidebar đang mở vì đã có nút đóng ở đầu sidebar -->
 {#if !isOpen}
 	<div class="fixed bottom-8 right-8 z-50">
 		<div class="group relative">
 			<div
-				class="pointer-events-none absolute bottom-full right-0 mb-3 whitespace-nowrap rounded-2xl border border-indigo-100 bg-white px-5 py-3 text-sm font-bold text-indigo-600 opacity-0 shadow-xl shadow-indigo-100/50 transition-opacity duration-200 group-hover:opacity-100"
+				class="pointer-events-none absolute bottom-full right-0 mb-3 whitespace-nowrap rounded-2xl border border-brand-100 bg-white px-5 py-3 text-sm font-bold text-brand-600 opacity-0 shadow-xl shadow-brand-100/50 transition-opacity duration-200 group-hover:opacity-100"
 			>
 				Chào {userName || 'bạn'}! Mình giúp gì được bạn? 👋
 			</div>
@@ -133,7 +122,7 @@
 			<button
 				onclick={toggleOpen}
 				aria-label="Mở trợ lý AI"
-				class="flex h-16 w-16 items-center justify-center rounded-full bg-blue-700 text-white shadow-xl shadow-indigo-900/40 transition-all hover:scale-110 hover:bg-blue-800"
+				class="flex h-16 w-16 items-center justify-center rounded-full bg-blue-700 text-white shadow-xl shadow-brand-900/40 transition-all hover:scale-110 hover:bg-blue-800"
 			>
 				<Bot class="h-8 w-8 animate-bounce" />
 			</button>
@@ -141,14 +130,13 @@
 	</div>
 {/if}
 
-<!-- SIDEBAR CHAT BÊN PHẢI -->
 {#if isOpen}
 	<aside
 		class="fixed right-0 top-0 z-40 flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl shadow-slate-300/50"
 		style="font-family:'Inter',sans-serif;"
 	>
 		<header class="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
-			<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0C1550] text-white">
+			<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-950 text-white">
 				<Sparkles class="h-5 w-5" />
 			</div>
 			<div class="min-w-0 flex-1">
@@ -174,7 +162,7 @@
 					<span class="mb-1 block text-xs font-medium text-slate-500">Khóa học</span>
 					<select
 						bind:value={pickedCourseId}
-						class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm outline-none focus:border-indigo-300"
+						class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm outline-none focus:border-brand-300"
 					>
 						{#each courses as course (course.id)}
 							<option value={course.id}>{course.name}</option>
@@ -189,13 +177,13 @@
 			</div>
 		{/if}
 
-		<div bind:this={scrollEl} class="flex-1 space-y-4 overflow-y-auto bg-[#F4F5F8] px-5 py-4">
+		<div bind:this={scrollEl} class="flex-1 space-y-4 overflow-y-auto bg-slate-50 px-5 py-4">
 			{#each messages as message (message.id)}
 				<div class={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 					<div
 						class={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
 							message.role === 'user'
-								? 'bg-[#0C1550] text-white'
+								? 'bg-brand-950 text-white'
 								: 'border border-slate-200/70 bg-white text-slate-700'
 						}`}
 					>
@@ -253,13 +241,13 @@
 				bind:value={draft}
 				onkeydown={handleKeydown}
 				placeholder="Nhập câu hỏi của bạn..."
-				class="max-h-28 min-h-[38px] flex-1 resize-none rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-indigo-300"
+				class="max-h-28 min-h-[38px] flex-1 resize-none rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-brand-300"
 			></textarea>
 			<button
 				onclick={() => send()}
 				disabled={!draft.trim() || isThinking}
 				aria-label="Gửi câu hỏi"
-				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0C1550] text-white transition-colors hover:bg-indigo-800 disabled:opacity-40"
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-950 text-white transition-colors hover:bg-brand-800 disabled:opacity-40"
 			>
 				<Send class="h-4 w-4" />
 			</button>
