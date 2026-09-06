@@ -14,6 +14,8 @@
 	import type { PageData } from './$types';
 	import type { Chapter, Comment, Lesson, LessonDetail } from '$lib/api/entities';
 	import Chatbot from '$lib/components/Chatbot.svelte';
+	import FieldError from '$lib/components/FieldError.svelte';
+	import { FIELD_LIMITS, textError } from '$lib/utils/validation';
 	import { postComment, postCompleteLesson, toggleCommentRight } from '$lib/api/calledAPI';
 	import { showToast } from '$lib/stores/toast.svelte';
 	import axios from 'axios';
@@ -48,6 +50,7 @@
 		activeChapter?.lessons.find((ls: Lesson) => ls.id === lesson.id) ?? null
 	);
 	let newComment = $state('');
+	let commentError = $state('');
 	let isSubmittingComment = $state(false);
 
 	const topLevelComments = $derived(comments.filter((c) => c.parent === null));
@@ -67,7 +70,10 @@
 	}
 
 	async function submitComment() {
-		if (!newComment.trim() || isSubmittingComment) return;
+		if (isSubmittingComment) return;
+
+		commentError = textError(newComment, FIELD_LIMITS.comment, 'Bình luận');
+		if (commentError) return;
 
 		isSubmittingComment = true;
 		try {
@@ -86,6 +92,7 @@
 
 	let replyingToId = $state<number | null>(null);
 	let replyContent = $state('');
+	let replyError = $state('');
 	let isSubmittingReply = $state(false);
 
 	function toggleReplyBox(commentId: number) {
@@ -94,7 +101,10 @@
 	}
 
 	async function submitReply(parentId: number) {
-		if (!replyContent.trim() || isSubmittingReply) return;
+		if (isSubmittingReply) return;
+
+		replyError = textError(replyContent, FIELD_LIMITS.comment, 'Phản hồi');
+		if (replyError) return;
 
 		isSubmittingReply = true;
 		try {
@@ -178,17 +188,11 @@
 </script>
 
 <svelte:head>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=Sora:wght@600;700;800&display=swap"
-		rel="stylesheet"
-	/>
 	<title>{lesson.title}</title>
 </svelte:head>
 
 <div class="flex-1 overflow-y-auto">
-	<div class="flex h-full min-h-0 flex-1 flex-col" style="font-family:'Inter',sans-serif;">
+	<div class="flex h-full min-h-0 flex-1 flex-col">
 		<header
 			class="flex items-center justify-between gap-4 border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 		>
@@ -199,12 +203,12 @@
 					<span class="min-w-0 truncate font-medium text-slate-700">{activeChapter.title}</span>
 				{/if}
 				<ChevronRight class="h-3.5 w-3.5 shrink-0 text-slate-300" />
-				<span class="min-w-0 truncate font-semibold text-brand-950">{lesson.title}</span>
+				<span class="min-w-0 truncate font-semibold text-brand-600">{lesson.title}</span>
 			</nav>
 
 			<a
 				href="/stu-dashboard"
-				class="flex shrink-0 items-center gap-2 rounded-full bg-brand-950 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900"
+				class="flex shrink-0 items-center gap-2 rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
 			>
 				<Home class="h-4 w-4" />
 				Trang chủ
@@ -213,8 +217,7 @@
 
 		<main class="flex-1 overflow-y-auto px-8 py-8">
 			<h1
-				class="mb-6 text-center text-xl font-bold uppercase tracking-tight text-slate-900"
-				style="font-family:'Sora',sans-serif;"
+				class="mb-6 text-center text-xl font-bold uppercase tracking-tight text-slate-900 font-heading"
 			>
 				{lesson.title}
 			</h1>
@@ -232,10 +235,7 @@
 									<PlayCircle class="h-5 w-5" />
 								</div>
 								<div class="min-w-0">
-									<h2
-										class="text-sm font-semibold text-slate-800"
-										style="font-family:'Sora',sans-serif;"
-									>
+									<h2 class="text-sm font-semibold text-slate-800 font-heading">
 										{res.title}
 									</h2>
 									{#if res.content}
@@ -260,7 +260,7 @@
 						<div
 							class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 						>
-							<div class="mb-4 flex items-center justify-between gap-3">
+							<div class="flex items-center justify-between gap-3">
 								<div class="flex min-w-0 items-center gap-3">
 									<div
 										class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600"
@@ -268,14 +268,18 @@
 										<FileText class="h-5 w-5" />
 									</div>
 									<div class="min-w-0">
-										<h2
-											class="text-sm font-semibold text-slate-800"
-											style="font-family:'Sora',sans-serif;"
+										<a
+											href={res.file_url}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="font-heading text-sm font-semibold text-teal-700 underline decoration-teal-300 underline-offset-4 hover:text-teal-800 hover:decoration-teal-500"
 										>
 											{res.title}
-										</h2>
+										</a>
 										{#if res.content}
 											<p class="text-xs text-slate-500">{res.content}</p>
+										{:else}
+											<p class="text-xs text-slate-500">Bấm để mở tệp PDF ở tab mới</p>
 										{/if}
 									</div>
 								</div>
@@ -288,11 +292,6 @@
 									Tải PDF
 								</a>
 							</div>
-							<div
-								class="h-180 w-full overflow-hidden rounded-xl border border-slate-100 bg-slate-50"
-							>
-								<iframe class="h-full w-full" src={res.file_url} title={res.title}></iframe>
-							</div>
 						</div>
 					{:else if res.resource_type === 'OTHERS' && res.content}
 						<div
@@ -304,15 +303,12 @@
 								>
 									<BookOpen class="h-5 w-5" />
 								</div>
-								<h2
-									class="text-sm font-semibold text-slate-800"
-									style="font-family:'Sora',sans-serif;"
-								>
+								<h2 class="text-sm font-semibold text-slate-800 font-heading">
 									{res.title}
 								</h2>
 							</div>
 							<div
-								class="max-h-150 overflow-y-auto whitespace-pre-line rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-700"
+								class="max-h-150 overflow-y-auto whitespace-pre-line rounded-xl border border-slate-100 bg-white p-4 text-sm leading-relaxed text-slate-700"
 							>
 								{res.content}
 							</div>
@@ -327,15 +323,10 @@
 								>
 									<Paperclip class="h-5 w-5" />
 								</div>
-								<h2
-									class="text-sm font-semibold text-slate-800"
-									style="font-family:'Sora',sans-serif;"
-								>
-									Tài liệu bổ sung
-								</h2>
+								<h2 class="text-sm font-semibold text-slate-800 font-heading">Tài liệu bổ sung</h2>
 							</div>
 							<div
-								class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"
+								class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3"
 							>
 								<div class="flex min-w-0 items-center gap-3">
 									<span
@@ -388,7 +379,7 @@
 				<div class="flex justify-center">
 					{#if currentLessonInTree?.is_completed}
 						<span
-							class="flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-emerald-900"
+							class="flex items-center gap-2 rounded-full bg-[#407F3E] px-6 py-2.5 text-sm font-semibold text-white shadow-sm shadow-[#407F3E]/30"
 						>
 							Đã hoàn thành
 						</span>
@@ -396,7 +387,7 @@
 						<button
 							onclick={handleComplete}
 							disabled={isHandlingComplete}
-							class="rounded-full bg-brand-950 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-900 disabled:opacity-60"
+							class="rounded-full bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
 						>
 							{isHandlingComplete ? 'Đang lưu...' : 'Hoàn thành'}
 						</button>
@@ -407,7 +398,7 @@
 					{#if nextLesson}
 						<button
 							onclick={() => goto(`/course/${course_tree.id}/lesson/${nextLesson.id}`)}
-							class="flex items-center gap-2 rounded-full bg-brand-950 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-900"
+							class="flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
 						>
 							{nextLesson.title}
 							<ChevronRight class="h-4 w-4" />
@@ -419,12 +410,7 @@
 			<div
 				class="rounded-2xl border border-slate-200/70 bg-white p-6 pb-24 shadow-sm shadow-slate-200/50"
 			>
-				<h2
-					class="mb-4 text-sm font-semibold text-slate-800"
-					style="font-family:'Sora',sans-serif;"
-				>
-					Bình luận
-				</h2>
+				<h2 class="mb-4 text-sm font-semibold text-slate-800 font-heading">Diễn đàn thảo luận</h2>
 
 				<div class="space-y-5">
 					{#each topLevelComments as comment (comment.id)}
@@ -466,22 +452,26 @@
 							</div>
 
 							{#if replyingToId === comment.id}
-								<div class="mt-3 ml-11 flex items-center gap-2">
-									<input
-										type="text"
-										bind:value={replyContent}
-										onkeydown={(e) => e.key === 'Enter' && submitReply(comment.id)}
-										placeholder="Viết phản hồi..."
-										disabled={isSubmittingReply}
-										class="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none focus:border-brand-300"
-									/>
-									<button
-										onclick={() => submitReply(comment.id)}
-										disabled={!replyContent.trim() || isSubmittingReply}
-										class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-blue-600 hover:bg-blue-50 disabled:opacity-40"
-									>
-										<Send class="h-4 w-4" />
-									</button>
+								<div class="mt-3 ml-11">
+									<div class="flex items-center gap-2">
+										<input
+											type="text"
+											bind:value={replyContent}
+											oninput={() => (replyError = '')}
+											onkeydown={(e) => e.key === 'Enter' && submitReply(comment.id)}
+											placeholder="Viết phản hồi..."
+											disabled={isSubmittingReply}
+											class="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none focus:border-brand-300"
+										/>
+										<button
+											onclick={() => submitReply(comment.id)}
+											disabled={!replyContent.trim() || isSubmittingReply}
+											class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-blue-600 hover:bg-blue-50 disabled:opacity-40"
+										>
+											<Send class="h-4 w-4" />
+										</button>
+									</div>
+									<FieldError message={replyError} />
 								</div>
 							{/if}
 
@@ -534,6 +524,7 @@
 					<input
 						type="text"
 						bind:value={newComment}
+						oninput={() => (commentError = '')}
 						onkeydown={(e) => e.key === 'Enter' && submitComment()}
 						placeholder="Nhập bình luận..."
 						disabled={isSubmittingComment}
@@ -547,6 +538,7 @@
 						<Send class="h-4 w-4" />
 					</button>
 				</div>
+				<FieldError message={commentError} />
 			</div>
 		</main>
 

@@ -1,5 +1,4 @@
 import re
-
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
@@ -18,20 +17,9 @@ from .utils import blacklist_user_tokens
 
 def build_token_claims(user):
     group = user.groups.first()
-    profile = getattr(user, "studentprofile", None)
-
-    avatar = None
-    if user.avatar:
-        try:
-            avatar = user.avatar.url
-        except AttributeError:
-            avatar = str(user.avatar)
 
     return {
         "role": group.name if group else None,
-        "full_name": user.full_name,
-        "avatar": avatar,
-        "grade": profile.grade_level.name if profile and profile.grade_level else None,
     }
 
 
@@ -53,11 +41,9 @@ class RefreshTokenSerializer(TokenRefreshSerializer):
             raise InvalidToken("Refresh token không hợp lệ hoặc đã hết hạn.")
 
         access = AccessToken(data["access"])
-        user = (
-            User.objects.select_related("studentprofile__grade_level")
-            .filter(pk=access.payload.get(api_settings.USER_ID_CLAIM))
-            .first()
-        )
+        user = User.objects.filter(
+            pk=access.payload.get(api_settings.USER_ID_CLAIM)
+        ).first()
         if user:
             access.payload.update(build_token_claims(user))
             data["access"] = str(access)

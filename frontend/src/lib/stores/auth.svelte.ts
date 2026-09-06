@@ -1,5 +1,5 @@
-import type { SessionUser } from '$lib/api/entities';
+import type { CurrentUser } from '$lib/api/entities';
 
 export const auth = $state({
-	user: null as SessionUser | null
+	user: null as CurrentUser | null
 });

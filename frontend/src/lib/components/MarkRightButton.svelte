@@ -11,7 +11,9 @@
 	let { isRight, canEdit, isLoading, onToggle }: Props = $props();
 
 	const circleClass = $derived(
-		isRight ? 'bg-sky-600 text-white shadow-sm shadow-sky-200' : 'bg-slate-100 text-slate-400'
+		isRight
+			? 'bg-[#DCFCE7] text-[#15803D] shadow-sm shadow-green-200'
+			: 'bg-slate-100 text-slate-400'
 	);
 </script>
 

@@ -3,15 +3,7 @@
 	import { logoutApi } from '$lib/api/calledAPI';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { auth } from '$lib/stores/auth.svelte';
-	import {
-		LogOut,
-		User,
-		Users,
-		ClipboardCheck,
-		BookOpen,
-		ChevronRight,
-		BarChart3
-	} from 'lucide-svelte';
+	import { LogOut, Users, ClipboardCheck, BookOpen, ChevronRight, BarChart3 } from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -32,13 +24,13 @@
 		},
 		{
 			label: 'Học sinh đang theo học',
-			value: String(summary.students_count),
+			value: String(summary.total_students_count),
 			icon: Users,
 			tone: 'slate'
 		},
 		{
 			label: 'Bài chờ chấm',
-			value: String(summary.pending_submission_count),
+			value: String(summary.total_pending_submission_count),
 			icon: ClipboardCheck,
 			tone: 'amber'
 		}
@@ -67,28 +59,19 @@
 </script>
 
 <svelte:head>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap"
-		rel="stylesheet"
-	/>
 	<title>Trang chủ gia sư</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-50" style="font-family:'Inter',sans-serif;">
+<div class="min-h-screen bg-slate-50">
 	<header
 		class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 	>
 		<div class="flex items-center gap-2.5">
-			<div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-950">
+			<div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600">
 				<BookOpen class="h-4.5 w-4.5 text-white" />
 			</div>
-			<span
-				class="font-semibold tracking-tight text-slate-800"
-				style="font-family:'Sora',sans-serif;"
-			>
-				Gia sư AI CaSiu
+			<span class="font-semibold tracking-tight text-slate-800 font-heading">
+				Trung tâm gia sư Novi
 			</span>
 		</div>
 
@@ -112,14 +95,6 @@
 					class="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-2xl border border-slate-200/70 bg-white py-2 shadow-xl shadow-slate-200/70"
 				>
 					<button
-						class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50"
-						onclick={() => goto('/profile')}
-					>
-						<User class="h-4 w-4" />
-						Xem hồ sơ
-					</button>
-					<div class="my-1 border-t border-slate-100"></div>
-					<button
 						class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50"
 						onclick={handleLogout}
 					>
@@ -133,10 +108,7 @@
 
 	<main class="px-8 py-8">
 		<div class="mb-8">
-			<h1
-				class="text-2xl font-bold tracking-tight text-slate-900"
-				style="font-family:'Sora',sans-serif;"
-			>
+			<h1 class="text-2xl font-bold tracking-tight text-slate-900 font-heading">
 				Chào thầy/cô, {tutorName}
 			</h1>
 			<p class="mt-1 text-sm text-slate-500">Tổng quan các khóa học thầy/cô đang phụ trách.</p>
@@ -149,7 +121,7 @@
 				>
 					<div
 						class={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl
-							${stat.tone === 'navy' ? 'bg-brand-950/5 text-brand-950' : ''}
+							${stat.tone === 'navy' ? 'bg-brand-50 text-brand-600' : ''}
 							${stat.tone === 'slate' ? 'bg-slate-100 text-slate-600' : ''}
 							${stat.tone === 'amber' ? 'bg-amber-50 text-amber-600' : ''}`}
 					>
@@ -164,9 +136,7 @@
 		</div>
 
 		<div class="mb-4 flex items-center justify-between">
-			<h2 class="text-base font-semibold text-slate-800" style="font-family:'Sora',sans-serif;">
-				Khóa học đang giảng dạy
-			</h2>
+			<h2 class="text-base font-semibold text-slate-800 font-heading">Khóa học đang giảng dạy</h2>
 		</div>
 
 		{#if courses.length === 0}
@@ -180,7 +150,7 @@
 						class="flex h-full flex-col rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50 transition-all hover:-translate-y-0.5 hover:shadow-md"
 					>
 						<div class="mb-4 flex-1">
-							<h3 class="text-lg font-bold text-slate-900" style="font-family:'Sora',sans-serif;">
+							<h3 class="text-lg font-bold text-slate-900 font-heading">
 								{course.name}
 							</h3>
 							<div
@@ -215,7 +185,7 @@
 							</button>
 							<button
 								onclick={() => goManage(course.id)}
-								class="flex items-center justify-center gap-2 rounded-xl bg-brand-950 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+								class="flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
 							>
 								Quản lý
 								<ChevronRight class="h-4 w-4" />

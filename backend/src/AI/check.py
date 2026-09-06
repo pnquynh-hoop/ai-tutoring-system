@@ -19,21 +19,22 @@ import django
 
 django.setup()
 
+from AI.ingest import ingest_material, pending_queryset
 from AI.rag_service import (
-    DEFAULT_TOP_K,
     HYBRID_PROMPT,
     STRICT_PROMPT,
-    build_chroma_filter,
     format_sources,
     generate_exercises_rag,
+    is_grounded,
     message_text,
     query_rag_answer,
-    split_grounding,
+    retrieve_layered,
 )
-from AI.vector_store import get_llm, get_vector_store
+from AI.vector_store import get_llm
+from academics.models import Material
 from assignments.models import Question
 
-COMMANDS = ("ask", "compare", "exercises")
+COMMANDS = ("ingest", "ask", "compare", "exercises")
 QUESTION_TYPES = Question.QuestionType.values
 
 
@@ -44,6 +45,67 @@ def log(message="", end="\n"):
 
 
 LINE = "-" * 78
+
+
+def describe_material(material):
+    return (
+        f"Material #{material.id} {material.name} — {material.subject} "
+        f"{material.grade} [{material.get_rag_status_display()}]"
+    )
+
+
+def material_queryset(args):
+    if args.redo:
+        materials = Material.objects.filter(is_active=True)
+    else:
+        materials = pending_queryset(Material)
+
+    if args.subject:
+        materials = materials.filter(subject_id=args.subject)
+    if args.grade:
+        materials = materials.filter(grade_id=args.grade)
+    if args.id:
+        materials = materials.filter(id__in=args.id)
+
+    return materials.select_related("subject", "grade").order_by(
+        "grade__number", "subject__name", "name"
+    )
+
+
+def run_ingest(args):
+    logging.basicConfig(level=logging.WARNING, format="%(message)s")
+    logging.getLogger("AI").setLevel(logging.INFO)
+
+    materials = list(material_queryset(args))
+    log(f"{len(materials)} tài liệu sẽ nạp")
+
+    if not materials:
+        return
+
+    if args.dry_run:
+        for material in materials:
+            log(f"  {describe_material(material)}")
+        return
+
+    started_at = time.monotonic()
+    total = 0
+
+    for order, material in enumerate(materials, start=1):
+        log(f"\n[{order}/{len(materials)}] {describe_material(material)}")
+        material_started_at = time.monotonic()
+
+        total += ingest_material(material)
+
+        log(
+            f"  -> {material.rag_progress} chunk, trạng thái "
+            f"{material.get_rag_status_display()} "
+            f"({time.monotonic() - material_started_at:.1f}s)"
+        )
+        if material.rag_error:
+            log(f"  lỗi: {material.rag_error}")
+
+    log(f"\nThêm mới {total} chunk, hết {time.monotonic() - started_at:.1f}s")
+
 
 REPL_HELP = """
 Gõ nội dung rồi Enter để chạy. Lệnh trong phiên:
@@ -95,16 +157,6 @@ def print_answer(answer, grounded, sources):
         log(f"  - {source['title']}{page}")
 
 
-def retrieve(query, state):
-    search_kwargs = {"k": DEFAULT_TOP_K}
-    chroma_filter = build_chroma_filter(state["course_id"], state["lesson_id"])
-    if chroma_filter:
-        search_kwargs["filter"] = chroma_filter
-
-    retriever = get_vector_store().as_retriever(search_kwargs=search_kwargs)
-    return retriever.invoke(query)
-
-
 def handle_ask(question, state):
     result = query_rag_answer(
         query=question,
@@ -115,12 +167,13 @@ def handle_ask(question, state):
 
 
 def handle_compare(question, state):
-    docs = retrieve(question, state)
-    log(f"  {len(docs)} chunk khớp")
+    course_ids = [state["course_id"]] if state["course_id"] else []
+    documents = retrieve_layered(question, course_ids, state["lesson_id"])
+    log(f"  {len(documents)} chunk khớp")
 
     context = (
-        "\n\n".join(doc.page_content for doc in docs)
-        if docs
+        "\n\n".join(document.page_content for document in documents)
+        if documents
         else "(Không có tài liệu nào khớp với câu hỏi này.)"
     )
 
@@ -129,8 +182,11 @@ def handle_compare(question, state):
         response = (prompt | get_llm()).invoke(
             {"context": context, "question": question}
         )
-        answer, grounded = split_grounding(message_text(response))
-        print_answer(answer, grounded, format_sources(docs) if grounded else [])
+        answer = message_text(response).strip()
+        grounded = is_grounded(answer)
+        print_answer(
+            answer, grounded, format_sources(documents) if grounded else []
+        )
 
 
 def handle_exercises(_, state):
@@ -204,7 +260,19 @@ def run_cli():
     parser.add_argument("--count", type=int, default=5, help="Số câu bài tập cần sinh")
     parser.add_argument("--type", default=Question.QuestionType.MULTIPLE_CHOICE,
                         choices=QUESTION_TYPES, help="Loại câu hỏi cần sinh")
+    parser.add_argument("--id", type=int, action="append",
+                        help="Chỉ nạp Material có id này, lặp lại được")
+    parser.add_argument("--subject", type=int, help="Lọc Material theo subject_id")
+    parser.add_argument("--grade", type=int, help="Lọc Material theo grade_id")
+    parser.add_argument("--redo", action="store_true",
+                        help="Nạp lại cả tài liệu đã nạp xong")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Chỉ liệt kê tài liệu sẽ nạp, không đọc tệp và không gọi API")
     args = parser.parse_args()
+
+    if args.command == "ingest":
+        run_ingest(args)
+        return
 
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
 

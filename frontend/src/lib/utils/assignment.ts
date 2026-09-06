@@ -86,3 +86,38 @@ export function clearAnswerDraft(attemptId: number): boolean {
 		return false;
 	}
 }
+
+export const TOTAL_SCORE = 10;
+export const POINT_STEP = 0.05;
+const POINT_STEPS = [0.25, 0.1, POINT_STEP];
+
+export function isValidPointStep(point: number): boolean {
+	const units = point / POINT_STEP;
+	return Math.abs(units - Math.round(units)) < 1e-9;
+}
+
+export function roundPoint(point: number): number {
+	return Math.round(point * 100) / 100;
+}
+
+export function distributePoints(questionCount: number): number[] {
+	if (questionCount <= 0) return [];
+
+	for (const step of POINT_STEPS) {
+		const units = Math.round(TOTAL_SCORE / step);
+		if (units < questionCount) continue;
+
+		const base = Math.floor(units / questionCount);
+		const extra = units - base * questionCount;
+
+		return Array.from({ length: questionCount }, (_, index) =>
+			roundPoint(step * (index < extra ? base + 1 : base))
+		);
+	}
+
+	return Array.from({ length: questionCount }, () => POINT_STEP);
+}
+
+export function sumPoints(points: number[]): number {
+	return roundPoint(points.reduce((total, point) => total + point, 0));
+}

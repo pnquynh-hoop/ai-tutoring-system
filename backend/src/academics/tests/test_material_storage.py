@@ -1,15 +1,18 @@
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from model_bakery import baker
-
 from academics.admin import MaterialForm
-from core.validators import MAX_DOCUMENT_SIZE
-
+from core.validators import LOCAL_STORAGE_THRESHOLD
 
 
 def make_pdf_upload(size, name="sgk.pdf"):
-    content = b"%PDF-1.4\n" + b"0" * (size - 9)
-    return SimpleUploadedFile(name, content, content_type="application/pdf")
+    pdf_header = b"%PDF-1.4\n"
+    padding = b"0" * (size - len(pdf_header))
+    return SimpleUploadedFile(
+        name,
+        pdf_header + padding,
+        content_type="application/pdf",
+    )
 
 
 @pytest.fixture
@@ -40,7 +43,7 @@ class TestMaterialStorageRouting:
 
     def test_large_file_goes_to_local_disk(self, material_data, settings, tmp_path):
         settings.MEDIA_ROOT = tmp_path
-        form = build_form(material_data, make_pdf_upload(MAX_DOCUMENT_SIZE + 1))
+        form = build_form(material_data, make_pdf_upload(LOCAL_STORAGE_THRESHOLD + 1))
 
         material = form.save()
 
@@ -52,7 +55,7 @@ class TestMaterialStorageRouting:
         self, material_data, settings, tmp_path
     ):
         settings.MEDIA_ROOT = tmp_path
-        build_form(material_data, make_pdf_upload(MAX_DOCUMENT_SIZE + 1)).save()
+        build_form(material_data, make_pdf_upload(LOCAL_STORAGE_THRESHOLD + 1)).save()
 
         assert list(tmp_path.glob("*.pdf")) == []
 
@@ -76,19 +79,25 @@ class TestMaterialRagStatus:
     def test_new_material_starts_pending(self, material_data, settings, tmp_path):
         settings.MEDIA_ROOT = tmp_path
 
-        material = build_form(material_data, make_pdf_upload(MAX_DOCUMENT_SIZE + 1)).save()
+        material = build_form(
+            material_data, make_pdf_upload(LOCAL_STORAGE_THRESHOLD + 1)
+        ).save()
 
         assert material.rag_status == material.RAGStatus.PENDING
         assert material.rag_progress == 0
 
     def test_reupload_resets_status_to_pending(self, material_data, settings, tmp_path):
         settings.MEDIA_ROOT = tmp_path
-        material = build_form(material_data, make_pdf_upload(MAX_DOCUMENT_SIZE + 1)).save()
+        material = build_form(
+            material_data, make_pdf_upload(LOCAL_STORAGE_THRESHOLD + 1)
+        ).save()
         material.mark_rag_indexed(chunks=42)
 
         form = MaterialForm(
             data=material_data,
-            files={"upload": make_pdf_upload(MAX_DOCUMENT_SIZE + 1, "sgk_v2.pdf")},
+            files={
+                "upload": make_pdf_upload(LOCAL_STORAGE_THRESHOLD + 1, "sgk_v2.pdf")
+            },
             instance=material,
         )
         assert form.is_valid(), form.errors
@@ -100,7 +109,9 @@ class TestMaterialRagStatus:
 
     def test_mark_failed_keeps_reason(self, material_data, settings, tmp_path):
         settings.MEDIA_ROOT = tmp_path
-        material = build_form(material_data, make_pdf_upload(MAX_DOCUMENT_SIZE + 1)).save()
+        material = build_form(
+            material_data, make_pdf_upload(LOCAL_STORAGE_THRESHOLD + 1)
+        ).save()
 
         material.mark_rag_failed("PdfReadError: file hỏng")
         material.refresh_from_db()

@@ -1,30 +1,13 @@
 import pytest
+from django.utils import timezone
 from model_bakery import baker
 
-from core.testing import make_published
-
-from courses.models import Course, LessonProgress
+from courses.models import Chapter, Course, Lesson, LessonProgress
 from courses.services import get_courses_with_progress
 
 
 @pytest.mark.django_db
 class TestCourseServices:
-    @pytest.fixture
-    def student(self):
-        return baker.make("accounts.User")
-
-    @pytest.fixture
-    def tutor(self):
-        return baker.make("accounts.User")
-
-    @pytest.fixture
-    def course(self, tutor):
-        return baker.make("courses.Course", tutor=tutor)
-
-    @pytest.fixture
-    def chapter(self, course):
-        return make_published("courses.Chapter", course=course)
-
     @pytest.fixture
     def course_query(self):
         return Course.objects.all()
@@ -33,7 +16,13 @@ class TestCourseServices:
         return baker.make("courses.Enrollment", course=course, student=student)
 
     def make_lesson(self, chapter):
-        return make_published("courses.Lesson", chapter=chapter)
+        order = chapter.lessons.count() + 1
+        return Lesson.objects.create(
+            chapter=chapter,
+            title=f"Bài {order}",
+            order=order,
+            published_at=timezone.now(),
+        )
 
     def test_course_without_lessons_returns_zero_progress(
         self, student, course, course_query
@@ -137,7 +126,12 @@ class TestCourseServices:
         for i in range(5):
             course = baker.make("courses.Course", tutor=tutor, name=f"Course {i}")
             self.enroll(course, student)
-            chapter = make_published("courses.Chapter", course=course)
+            chapter = Chapter.objects.create(
+                course=course,
+                title="Chương 1",
+                order=1,
+                published_at=timezone.now(),
+            )
             lesson = self.make_lesson(chapter)
             baker.make(
                 LessonProgress, student=student, lesson=lesson, is_completed=True
@@ -156,8 +150,18 @@ class TestCourseServices:
         self.enroll(course_a, student)
         self.enroll(course_b, student)
 
-        chapter_a = make_published("courses.Chapter", course=course_a)
-        chapter_b = make_published("courses.Chapter", course=course_b)
+        chapter_a = Chapter.objects.create(
+            course=course_a,
+            title="Chương 1",
+            order=1,
+            published_at=timezone.now(),
+        )
+        chapter_b = Chapter.objects.create(
+            course=course_b,
+            title="Chương 1",
+            order=1,
+            published_at=timezone.now(),
+        )
 
         lesson_a1 = self.make_lesson(chapter_a)
         self.make_lesson(chapter_a)

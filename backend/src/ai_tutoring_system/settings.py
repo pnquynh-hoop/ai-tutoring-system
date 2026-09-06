@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "debug_toolbar",
+    "django_cleanup.apps.CleanupConfig",
 ]
 
 MIDDLEWARE = [
@@ -86,7 +87,7 @@ ROOT_URLCONF = "ai_tutoring_system.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "core" / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -185,6 +186,8 @@ RAG_ALLOW_GENERAL_KNOWLEDGE = (
     os.environ.get("RAG_ALLOW_GENERAL_KNOWLEDGE", "True").strip().lower() == "true"
 )
 
+RAG_MAX_DISTANCE = float(os.environ.get("RAG_MAX_DISTANCE", 0.62))
+
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(
@@ -236,3 +239,25 @@ AUTH_COOKIE = {
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER") == "1"
+CELERY_TASK_TIME_LIMIT = 60 * 60
+
+CLOSE_OVERDUE_EVERY_SECONDS = int(
+    os.environ.get("CLOSE_OVERDUE_EVERY_SECONDS", 5 * 60)
+)
+
+CELERY_BEAT_SCHEDULE = {
+    "close-overdue-attempts": {
+        "task": "assignments.close_overdue_attempts",
+        "schedule": CLOSE_OVERDUE_EVERY_SECONDS,
+    },
+}

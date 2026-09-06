@@ -32,12 +32,6 @@ export interface CourseDetail extends Course {
 	tutor: CourseTutor | null;
 }
 
-export interface TutorCourseDetail extends TutorCourse {
-	description: string;
-	subject_name: string;
-	grade: string;
-}
-
 export interface Lesson {
 	id: number;
 	title: string;
@@ -76,10 +70,15 @@ export interface Student {
 export interface SessionUser {
 	id: number;
 	role: Role | null;
+}
+
+export interface CurrentUser extends SessionUser {
 	full_name: string;
 	avatar: string | null;
 	grade: string | null;
 }
+
+export type RagStatus = 'PENDING' | 'PROCESSING' | 'INDEXED' | 'FAILED';
 
 export interface LessonResource {
 	id: number;
@@ -89,7 +88,12 @@ export interface LessonResource {
 	content: string | null;
 	file_url: string | null;
 	video_url: string | null;
+}
+
+export interface TutorLessonResource extends LessonResource {
 	is_published: boolean;
+	rag_status: RagStatus;
+	rag_progress: number;
 }
 
 export interface LessonDetail {
@@ -111,8 +115,6 @@ export interface Comment {
 	created_by: CommentUser;
 	parent: number | null;
 	created_at: string;
-	lesson: number;
-	is_active: boolean;
 }
 
 export interface Answer {
@@ -124,6 +126,7 @@ export interface Question {
 	id: number;
 	content: string;
 	question_type: QuestionType;
+	point: string | null;
 	answers: Answer[];
 }
 
@@ -170,6 +173,7 @@ export interface StudentAnswerReview {
 	question_content: string;
 	question_type: QuestionType;
 	explanation: string;
+	question_point: string;
 	answer: number | null;
 	selected_answer: string | null;
 	correct_answer: string | null;
@@ -180,7 +184,6 @@ export interface StudentAnswerReview {
 }
 
 export interface SubmissionDetail extends Submission {
-	point_per_question: number;
 	stu_answers: StudentAnswerReview[];
 }
 
@@ -209,6 +212,7 @@ export interface TutorQuestion {
 	content: string;
 	question_type: QuestionType;
 	explanation: string;
+	point: string | null;
 	order: number | null;
 	answers: TutorAnswer[];
 }
@@ -218,9 +222,12 @@ export interface TutorQuestionPayload {
 	content: string;
 	question_type: QuestionType;
 	explanation: string;
+	point: number | null;
 	answers: TutorAnswer[];
 	order?: number | null;
 }
+
+export type TutorQuestionUpdatePayload = Omit<TutorQuestionPayload, 'assignment'>;
 
 export interface TutorStudentStat {
 	id: number;
@@ -229,7 +236,7 @@ export interface TutorStudentStat {
 	completed_lessons: number;
 	total_lessons: number;
 	progress: number;
-	average_score: number | null;
+	average_score: string | null;
 }
 
 export interface TutorAssignmentStat {
@@ -238,9 +245,8 @@ export interface TutorAssignmentStat {
 	chapter_title: string;
 	due_date: string;
 	submitted_count: number;
-	graded_count: number;
 	pending_count: number;
-	average_score: number | null;
+	average_score: string | null;
 }
 
 export interface TutorCourseStats {
@@ -294,7 +300,6 @@ export interface UpdateMePayload {
 	email?: string;
 	phone?: string;
 	student_profile?: Partial<Omit<StudentProfile, 'grade_name'>>;
-	tutor_profile?: Partial<Omit<TutorProfile, 'is_verified'>>;
 }
 
 export interface RagSource {
@@ -342,5 +347,5 @@ export interface ResourcePayload {
 	resource_type: ResourceType;
 	content?: string | null;
 	video_url?: string | null;
-	file_url?: string | null;
+	file_url?: File | null;
 }

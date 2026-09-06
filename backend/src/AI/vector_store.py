@@ -37,18 +37,15 @@ def get_vector_store():
         client=client,
         collection_name=COLLECTION_NAME,
         embedding_function=get_embeddings(),
+        collection_metadata={"hnsw:space": "cosine"},
     )
 
 
 @lru_cache(maxsize=1)
 def get_llm():
-    return ChatGoogleGenerativeAI(
-        model=LLM_MODEL, google_api_key=google_api_key(), temperature=0.2
-    )
+    return ChatGoogleGenerativeAI(model=LLM_MODEL, google_api_key=google_api_key())
 
 
 @lru_cache(maxsize=1)
 def get_ocr_llm():
-    return ChatGoogleGenerativeAI(
-        model=OCR_MODEL, google_api_key=google_api_key(), temperature=0
-    )
+    return ChatGoogleGenerativeAI(model=OCR_MODEL, google_api_key=google_api_key())

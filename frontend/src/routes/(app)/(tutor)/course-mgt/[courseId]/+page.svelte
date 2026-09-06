@@ -1,273 +1,133 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { invalidateAll } from '$app/navigation';
 	import {
-		createChapter,
-		createLesson,
 		createResource,
-		deleteChapter,
-		deleteLesson,
 		deleteResource,
-		getCourseTree,
 		getLessonResources,
 		getListComments,
-		logoutApi,
 		postComment,
-		publishChapter,
-		publishLesson,
+		ingestResource,
 		publishResource,
 		toggleCommentRight,
-		updateChapter,
 		updateLesson
 	} from '$lib/api/calledAPI';
 	import { getApiErrorMessage } from '$lib/api/errors';
-	import type { Chapter, Comment, Lesson, LessonResource, ResourceType } from '$lib/api/entities';
-	import { nextOrder } from '$lib/utils/order';
-	import { auth } from '$lib/stores/auth.svelte';
+	import type { Comment, RagStatus, ResourceType, TutorLessonResource } from '$lib/api/entities';
+	import { treeSelection } from '$lib/stores/courseTree.svelte';
+	import { confirmAction } from '$lib/stores/confirm.svelte';
 	import { showToast } from '$lib/stores/toast.svelte';
+	import { fileNameFromUrl } from '$lib/utils/resource';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import MarkRightButton from '$lib/components/MarkRightButton.svelte';
+	import FieldError from '$lib/components/FieldError.svelte';
+	import {
+		DOCUMENT_EXTENSIONS,
+		documentFileError,
+		FIELD_LIMITS,
+		hasError,
+		MAX_DOCUMENT_MB,
+		textError
+	} from '$lib/utils/validation';
 	import type { PageProps } from './$types';
 	import {
-		Menu,
-		LogOut,
-		ChevronRight,
-		ChevronDown,
-		Plus,
-		Pencil,
-		Trash2,
 		Check,
-		X,
-		PlayCircle,
 		FileText,
+		Globe,
+		Warehouse,
 		Paperclip,
+		Pencil,
+		PlayCircle,
+		Plus,
 		Send,
-		ClipboardEdit,
-		BarChart3,
-		ClipboardCheck,
-		Network,
-		Globe
+		Trash2
 	} from 'lucide-svelte';
 
 	let { data }: PageProps = $props();
 
-	let courseId = $derived(data.courseId);
-	let courseName = $derived(data.course.name);
-	let studentsCount = $derived(data.course.students_count);
+	let chapters = $derived(data.tree.chapters);
 
-	let chapters = $state<Chapter[]>([]);
-
-	let tutorName = $derived(auth.user?.full_name);
-	let avatarUrl = $derived(auth.user?.avatar);
-	let showUserMenu = $state(false);
-	let isLoggingOut = false;
-
-	async function handleLogout() {
-		if (isLoggingOut) return;
-		isLoggingOut = true;
-		try {
-			await logoutApi();
-		} catch (err) {
-			console.error(err);
-		} finally {
-			isLoggingOut = false;
-			await goto('/login');
-		}
-	}
-
-	let sidebarCollapsed = $state(false);
-
-	function goStats() {
-		goto(`/course-mgt/${courseId}/stats`);
-	}
-	function goGrading() {
-		goto(`/course-mgt/${courseId}/grading`);
-	}
-	function goChapterAssignment(chapterId: number) {
-		goto(`/course-mgt/${courseId}/assignment-mgt?chapter=${chapterId}`);
-	}
-
-	let expandedChapterId = $state<number | null>(null);
-	let selectedLessonId = $state<number | null>(null);
-
-	$effect(() => {
-		const tree = data.tree.chapters;
-		chapters = tree;
-		expandedChapterId = tree[0]?.id ?? null;
-		selectedLessonId = tree[0]?.lessons[0]?.id ?? null;
-	});
-
-	let allLessons = $derived(chapters.flatMap((c) => c.lessons));
-	let selectedLesson = $derived(allLessons.find((l) => l.id === selectedLessonId) ?? null);
+	let selectedLessonId = $derived(treeSelection.lessonId);
+	let selectedLesson = $derived(
+		chapters
+			.flatMap((chapter) => chapter.lessons)
+			.find((lesson) => lesson.id === selectedLessonId) ?? null
+	);
 	let selectedChapter = $derived(
-		chapters.find((c) => c.lessons.some((l) => l.id === selectedLessonId)) ?? null
+		chapters.find((chapter) => chapter.lessons.some((lesson) => lesson.id === selectedLessonId)) ??
+			null
 	);
 
-	function selectLesson(lessonId: number) {
-		selectedLessonId = lessonId;
+	let isRenaming = $state(false);
+	let renameTitle = $state('');
+	let isSavingRename = $state(false);
+	let renameError = $state('');
+
+	function startRename() {
+		if (!selectedLesson) return;
+		renameTitle = selectedLesson.title;
+		renameError = '';
+		isRenaming = true;
 	}
 
-	async function reloadTree() {
-		chapters = (await getCourseTree(courseId)).chapters;
-	}
+	async function confirmRename() {
+		if (!selectedLesson || isSavingRename) return;
 
-	let addingChapter = $state(false);
-	let newChapterTitle = $state('');
-	let editingChapterId = $state<number | null>(null);
-	let editChapterTitle = $state('');
-	let isSavingTree = $state(false);
+		renameError = textError(renameTitle, FIELD_LIMITS.title, 'Tên bài học');
+		if (renameError) return;
 
-	function startAddChapter() {
-		addingChapter = true;
-		newChapterTitle = '';
-	}
-
-	async function confirmAddChapter() {
-		if (!newChapterTitle.trim() || isSavingTree) return;
-		isSavingTree = true;
+		isSavingRename = true;
 		try {
-			await createChapter({
-				course: courseId,
-				title: newChapterTitle.trim(),
-				order: nextOrder(chapters)
-			});
-			await reloadTree();
-			addingChapter = false;
-			showToast('Đã thêm chương', 'success');
-		} catch (err) {
-			showToast(getApiErrorMessage(err, 'Thêm chương không thành công.'), 'error');
-		} finally {
-			isSavingTree = false;
-		}
-	}
-
-	function startEditChapter(ch: Chapter) {
-		editingChapterId = ch.id;
-		editChapterTitle = ch.title;
-	}
-
-	async function confirmEditChapter(ch: Chapter) {
-		if (!editChapterTitle.trim() || isSavingTree) return;
-		isSavingTree = true;
-		try {
-			await updateChapter(ch.id, { title: editChapterTitle.trim() });
-			ch.title = editChapterTitle.trim();
-			editingChapterId = null;
-		} catch (err) {
-			showToast(getApiErrorMessage(err, 'Đổi tên chương không thành công.'), 'error');
-		} finally {
-			isSavingTree = false;
-		}
-	}
-
-	async function removeChapter(ch: Chapter) {
-		if (!window.confirm(`Xoá chương "${ch.title}"? Toàn bộ bài học bên trong cũng sẽ bị xoá.`))
-			return;
-		try {
-			await deleteChapter(ch.id);
-			if (ch.lessons.some((l) => l.id === selectedLessonId)) selectedLessonId = null;
-			await reloadTree();
-			showToast('Đã xoá chương', 'success');
-		} catch (err) {
-			showToast(getApiErrorMessage(err, 'Xoá chương không thành công.'), 'error');
-		}
-	}
-
-	async function confirmPublishChapter(chapter: Chapter) {
-		const question = `Công khai chương "${chapter.title}" cho học sinh? Đã công khai thì không thể đưa về lại bản nháp.`;
-		if (!window.confirm(question)) return;
-
-		try {
-			await publishChapter(chapter.id);
-			await reloadTree();
-			showToast('Đã công khai chương', 'success');
-		} catch (err) {
-			showToast(getApiErrorMessage(err, 'Công khai chương không thành công.'), 'error');
-		}
-	}
-
-	let addingLessonChapterId = $state<number | null>(null);
-	let newLessonTitle = $state('');
-	let editingLessonId = $state<number | null>(null);
-	let editLessonTitle = $state('');
-
-	function startAddLesson(chapterId: number) {
-		addingLessonChapterId = chapterId;
-		newLessonTitle = '';
-	}
-
-	async function confirmAddLesson(ch: Chapter) {
-		if (!newLessonTitle.trim() || isSavingTree) return;
-		isSavingTree = true;
-		try {
-			await createLesson({
-				chapter: ch.id,
-				title: newLessonTitle.trim(),
-				order: nextOrder(ch.lessons)
-			});
-			await reloadTree();
-			addingLessonChapterId = null;
-			showToast('Đã thêm bài học', 'success');
-		} catch (err) {
-			showToast(getApiErrorMessage(err, 'Thêm bài học không thành công.'), 'error');
-		} finally {
-			isSavingTree = false;
-		}
-	}
-
-	function startEditLesson(lesson: Lesson) {
-		editingLessonId = lesson.id;
-		editLessonTitle = lesson.title;
-	}
-
-	async function confirmEditLesson(lesson: Lesson) {
-		if (!editLessonTitle.trim() || isSavingTree) return;
-		isSavingTree = true;
-		try {
-			await updateLesson(lesson.id, { title: editLessonTitle.trim() });
-			lesson.title = editLessonTitle.trim();
-			editingLessonId = null;
+			await updateLesson(selectedLesson.id, { title: renameTitle.trim() });
+			await invalidateAll();
+			isRenaming = false;
 		} catch (err) {
 			showToast(getApiErrorMessage(err, 'Đổi tên bài học không thành công.'), 'error');
 		} finally {
-			isSavingTree = false;
+			isSavingRename = false;
 		}
 	}
 
-	async function removeLesson(lesson: Lesson) {
-		if (!window.confirm(`Xoá bài học "${lesson.title}"?`)) return;
-		try {
-			await deleteLesson(lesson.id);
-			if (selectedLessonId === lesson.id) selectedLessonId = null;
-			await reloadTree();
-			showToast('Đã xoá bài học', 'success');
-		} catch (err) {
-			showToast(getApiErrorMessage(err, 'Xoá bài học không thành công.'), 'error');
-		}
-	}
-
-	async function confirmPublishLesson(lesson: Lesson) {
-		const question = `Công khai bài học "${lesson.title}" cho học sinh? Đã công khai thì không thể đưa về lại bản nháp.`;
-		if (!window.confirm(question)) return;
-
-		try {
-			await publishLesson(lesson.id);
-			await reloadTree();
-			showToast('Đã công khai bài học', 'success');
-		} catch (err) {
-			showToast(getApiErrorMessage(err, 'Công khai bài học không thành công.'), 'error');
-		}
-	}
-
-	let resources = $state<LessonResource[]>([]);
+	let resources = $state<TutorLessonResource[]>([]);
 	let addingResource = $state(false);
 	let isSavingResource = $state(false);
+	let resourceErrors = $state<Record<string, string>>({});
+
+	function clearResourceError(field: string) {
+		resourceErrors = { ...resourceErrors, [field]: '' };
+	}
+
+	function validateResource(): boolean {
+		const errors: Record<string, string> = {
+			title: textError(newResource.title, FIELD_LIMITS.title, 'Tên tài nguyên'),
+			video_url: '',
+			file_url: '',
+			content: ''
+		};
+
+		if (newResource.resource_type === 'VIDEO_URL') {
+			errors.video_url = textError(newResource.video_url, FIELD_LIMITS.url, 'Đường dẫn video');
+		} else if (newResource.resource_type === 'PDF_FILE') {
+			errors.file_url = documentFileError(newResource.file_url, 'Tệp tài liệu');
+		} else {
+			errors.content = textError(newResource.content, FIELD_LIMITS.resourceContent, 'Nội dung');
+		}
+
+		resourceErrors = errors;
+		return !hasError(errors);
+	}
 	let newResource = $state<{
 		title: string;
 		resource_type: ResourceType;
 		content: string;
 		video_url: string;
-		file_url: string;
-	}>({ title: '', resource_type: 'VIDEO_URL', content: '', video_url: '', file_url: '' });
+		file_url: File | null;
+	}>({ title: '', resource_type: 'VIDEO_URL', content: '', video_url: '', file_url: null });
+
+	function pickResourceFile(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		newResource.file_url = input.files?.[0] ?? null;
+		clearResourceError('file_url');
+	}
 
 	const resourceTypeLabel: Record<ResourceType, string> = {
 		VIDEO_URL: 'Video',
@@ -277,17 +137,20 @@
 
 	function startAddResource() {
 		addingResource = true;
+		resourceErrors = {};
 		newResource = {
 			title: '',
 			resource_type: 'VIDEO_URL',
 			content: '',
 			video_url: '',
-			file_url: ''
+			file_url: null
 		};
 	}
 
 	async function confirmAddResource() {
-		if (!selectedLessonId || !newResource.title.trim() || isSavingResource) return;
+		if (!selectedLessonId || isSavingResource) return;
+		if (!validateResource()) return;
+
 		isSavingResource = true;
 		try {
 			await createResource({
@@ -296,7 +159,7 @@
 				resource_type: newResource.resource_type,
 				content: newResource.resource_type === 'OTHERS' ? newResource.content || null : null,
 				video_url: newResource.resource_type === 'VIDEO_URL' ? newResource.video_url || null : null,
-				file_url: newResource.resource_type === 'PDF_FILE' ? newResource.file_url || null : null
+				file_url: newResource.resource_type === 'PDF_FILE' ? newResource.file_url : null
 			});
 			resources = await getLessonResources(selectedLessonId);
 			addingResource = false;
@@ -308,9 +171,14 @@
 		}
 	}
 
-	async function confirmPublishResource(resource: LessonResource) {
-		const question = `Công khai tài nguyên "${resource.title}" cho học sinh? Đã công khai thì không thể đưa về lại bản nháp.`;
-		if (!window.confirm(question)) return;
+	async function confirmPublishResource(resource: TutorLessonResource) {
+		const agreed = await confirmAction({
+			title: 'Công khai tài nguyên cho học sinh?',
+			message: `Học sinh trong khóa sẽ xem được "${resource.title}". Đã công khai thì không đưa về lại bản nháp được.`,
+			confirmLabel: 'Công khai',
+			tone: 'warning'
+		});
+		if (!agreed) return;
 
 		try {
 			await publishResource(resource.id);
@@ -323,11 +191,73 @@
 		}
 	}
 
-	async function removeResource(resource: LessonResource) {
-		if (!window.confirm(`Xoá tài nguyên "${resource.title}"?`)) return;
+	const ragStatusLabel: Record<RagStatus, string> = {
+		PENDING: 'Chưa nạp',
+		PROCESSING: 'Đang nạp',
+		INDEXED: 'Đã nạp',
+		FAILED: 'Nạp lỗi'
+	};
+
+	const ragStatusStyle: Record<RagStatus, string> = {
+		PENDING: 'bg-slate-100 text-slate-500',
+		PROCESSING: 'bg-sky-50 text-sky-600',
+		INDEXED: 'bg-emerald-50 text-emerald-600',
+		FAILED: 'bg-rose-50 text-rose-600'
+	};
+
+	function canIngest(resource: TutorLessonResource): boolean {
+		if (resource.rag_status === 'PROCESSING') return false;
+		return Boolean(resource.content) || Boolean(resource.file_url);
+	}
+
+	async function confirmIngestResource(resource: TutorLessonResource) {
+		const isReload = resource.rag_status === 'INDEXED';
+		const agreed = await confirmAction({
+			title: isReload ? 'Nạp lại tài nguyên vào trợ lý AI?' : 'Nạp tài nguyên vào trợ lý AI?',
+			message:
+				`Hệ thống sẽ đọc lại toàn bộ "${resource.title}", cắt thành từng đoạn rồi gọi API nhúng ` +
+				'vector của Gemini. Tài liệu nhiều trang có thể mất vài phút và tính vào hạn mức gọi API trong ngày.' +
+				(isReload ? ' Tài nguyên này đã nạp rồi, nạp lại sẽ cập nhật theo nội dung mới nhất.' : ''),
+			confirmLabel: 'Nạp vào trợ lý AI',
+			tone: 'warning'
+		});
+		if (!agreed) return;
+
+		try {
+			await ingestResource(resource.id);
+			await refreshResources();
+			showToast('Đã đưa tài nguyên vào hàng đợi nạp', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Nạp tài nguyên không thành công.'), 'error');
+		}
+	}
+
+	async function refreshResources() {
+		if (!selectedLessonId) return;
+		resources = await getLessonResources(selectedLessonId);
+	}
+
+	$effect(() => {
+		if (!resources.some((resource) => resource.rag_status === 'PROCESSING')) return;
+
+		const timer = setInterval(() => {
+			refreshResources().catch(() => {});
+		}, 5000);
+		return () => clearInterval(timer);
+	});
+
+	async function removeResource(resource: TutorLessonResource) {
+		const agreed = await confirmAction({
+			title: 'Xoá tài nguyên này?',
+			message: `Tài nguyên "${resource.title}" sẽ bị gỡ khỏi bài học. Thao tác này không hoàn tác được.`,
+			confirmLabel: 'Xoá tài nguyên',
+			tone: 'danger'
+		});
+		if (!agreed) return;
+
 		try {
 			await deleteResource(resource.id);
-			resources = resources.filter((r) => r.id !== resource.id);
+			resources = resources.filter((item) => item.id !== resource.id);
 			showToast('Đã xoá tài nguyên', 'success');
 		} catch (err) {
 			showToast(getApiErrorMessage(err, 'Xoá tài nguyên không thành công.'), 'error');
@@ -336,10 +266,10 @@
 
 	let comments = $state<Comment[]>([]);
 
-	let topLevelComments = $derived(comments.filter((c) => c.parent === null));
+	let topLevelComments = $derived(comments.filter((comment) => comment.parent === null));
 
 	function getReplies(parentId: number): Comment[] {
-		return comments.filter((c) => c.parent === parentId);
+		return comments.filter((comment) => comment.parent === parentId);
 	}
 
 	$effect(() => {
@@ -378,15 +308,42 @@
 
 	let replyingToId = $state<number | null>(null);
 	let replyContent = $state('');
+	let replyError = $state('');
 	let isSubmittingReply = $state(false);
+
+	let newComment = $state('');
+	let commentError = $state('');
+	let isSubmittingComment = $state(false);
 
 	function toggleReplyBox(commentId: number) {
 		replyingToId = replyingToId === commentId ? null : commentId;
 		replyContent = '';
 	}
 
+	async function submitComment() {
+		if (isSubmittingComment || !selectedLessonId) return;
+
+		commentError = textError(newComment, FIELD_LIMITS.comment, 'Bình luận');
+		if (commentError) return;
+
+		isSubmittingComment = true;
+		try {
+			const created = await postComment(selectedLessonId, newComment.trim());
+			comments = [...comments, created];
+			newComment = '';
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Gửi bình luận không thành công.'), 'error');
+		} finally {
+			isSubmittingComment = false;
+		}
+	}
+
 	async function submitReply(parentId: number) {
-		if (!replyContent.trim() || isSubmittingReply || !selectedLessonId) return;
+		if (isSubmittingReply || !selectedLessonId) return;
+
+		replyError = textError(replyContent, FIELD_LIMITS.comment, 'Phản hồi');
+		if (replyError) return;
+
 		isSubmittingReply = true;
 		try {
 			const created = await postComment(selectedLessonId, replyContent.trim(), parentId);
@@ -416,620 +373,355 @@
 </script>
 
 <svelte:head>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@600;700;800&display=swap"
-		rel="stylesheet"
-	/>
 	<title>Quản lý khóa học</title>
 </svelte:head>
 
-<div class="flex h-screen w-full bg-slate-50" style="font-family:'Inter',sans-serif;">
-	<aside
-		class={`relative flex h-full shrink-0 flex-col overflow-hidden bg-brand-950 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-80'}`}
-	>
-		<div
-			class={`flex items-center border-b border-white/10 py-6 ${sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-5'}`}
-		>
-			{#if !sidebarCollapsed}
-				<span class="truncate font-semibold tracking-tight" style="font-family:'Sora',sans-serif;">
-					{courseName}
-				</span>
-			{/if}
-			<button
-				onclick={() => (sidebarCollapsed = !sidebarCollapsed)}
-				class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20"
-			>
-				<Menu class="h-4 w-4 text-brand-100/60" />
-			</button>
+<div class="px-8 py-8">
+	{#if !selectedLesson}
+		<div class="flex h-full items-center justify-center py-20 text-center text-slate-400">
+			<p>Chọn một bài học ở cây bên trái để chỉnh sửa.</p>
 		</div>
-
-		{#if !sidebarCollapsed}
-			<div class="flex-1 overflow-y-auto px-3 py-4">
-				<button
-					onclick={startAddChapter}
-					class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 py-2 text-xs font-semibold text-brand-100/70 hover:border-white/40 hover:text-white"
-				>
-					<Plus class="h-3.5 w-3.5" />
-					Thêm chương
-				</button>
-
-				{#if addingChapter}
-					<div class="mb-3 flex items-center gap-1.5 px-1">
+	{:else}
+		<div class="mx-auto max-w-4xl space-y-6">
+			<div
+				class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
+			>
+				<p class="text-xs text-slate-400">
+					{selectedChapter?.title}
+				</p>
+				<div class="mt-1 flex items-center gap-2">
+					{#if isRenaming}
 						<input
-							class="min-w-0 flex-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white placeholder-brand-100/40 outline-none focus:bg-white/15"
-							placeholder="Tên chương mới..."
-							bind:value={newChapterTitle}
-							onkeydown={(e) => e.key === 'Enter' && confirmAddChapter()}
+							class="flex-1 rounded-xl border border-slate-200 px-3 py-1.5 text-lg font-bold text-slate-900 outline-none focus:border-brand-300"
+							bind:value={renameTitle}
+							onkeydown={(e) => e.key === 'Enter' && confirmRename()}
 						/>
 						<button
-							onclick={confirmAddChapter}
-							class="rounded-lg bg-emerald-500/80 p-1.5 hover:bg-emerald-500"
+							onclick={confirmRename}
+							class="rounded-xl bg-brand-600 px-3 py-1.5 text-white hover:bg-brand-700"
 						>
-							<Check class="h-3.5 w-3.5" />
+							<Check class="h-4 w-4" />
 						</button>
+					{:else}
+						<h1 class="flex-1 text-xl font-bold text-slate-900 font-heading">
+							{selectedLesson.title}
+						</h1>
 						<button
-							onclick={() => (addingChapter = false)}
-							class="rounded-lg bg-white/10 p-1.5 hover:bg-white/20"
+							onclick={startRename}
+							class="flex items-center gap-1.5 rounded-xl border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100"
 						>
-							<X class="h-3.5 w-3.5" />
+							<Pencil class="h-3.5 w-3.5" />
+							Đổi tên
 						</button>
+					{/if}
+				</div>
+				<FieldError message={renameError} />
+			</div>
+
+			<div
+				class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
+			>
+				<div class="mb-4 flex items-center justify-between">
+					<h2 class="text-sm font-semibold text-slate-800 font-heading">Tài nguyên bài học</h2>
+					<button
+						onclick={startAddResource}
+						class="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+					>
+						<Plus class="h-3.5 w-3.5" />
+						Thêm tài nguyên
+					</button>
+				</div>
+
+				{#if addingResource}
+					<div class="mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+						<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+							<input
+								oninput={() => clearResourceError('title')}
+								class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
+								placeholder="Tên tài nguyên"
+								bind:value={newResource.title}
+							/>
+							<FieldError message={resourceErrors.title} />
+							<select
+								class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
+								bind:value={newResource.resource_type}
+							>
+								<option value="VIDEO_URL">Video</option>
+								<option value="PDF_FILE">Tệp PDF</option>
+								<option value="OTHERS">Khác</option>
+							</select>
+						</div>
+						{#if newResource.resource_type === 'VIDEO_URL'}
+							<input
+								oninput={() => clearResourceError('video_url')}
+								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
+								placeholder="Đường dẫn video (YouTube...)"
+								bind:value={newResource.video_url}
+							/>
+							<FieldError message={resourceErrors.video_url} />
+						{:else if newResource.resource_type === 'PDF_FILE'}
+							<input
+								type="file"
+								accept={DOCUMENT_EXTENSIONS.join(',')}
+								onchange={pickResourceFile}
+								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-brand-700 focus:border-brand-300"
+							/>
+							<p class="mt-1 text-xs text-slate-400">
+								Chọn tệp từ máy ({DOCUMENT_EXTENSIONS.join(', ')}), tối đa {MAX_DOCUMENT_MB} MB. Hệ thống
+								tự tải lên Cloudinary khi lưu.
+							</p>
+							<FieldError message={resourceErrors.file_url} />
+						{:else}
+							<textarea
+								oninput={() => clearResourceError('content')}
+								rows="2"
+								class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
+								placeholder="Nội dung văn bản"
+								bind:value={newResource.content}></textarea>
+							<FieldError message={resourceErrors.content} />
+						{/if}
+						<div class="flex justify-end gap-2">
+							<button
+								onclick={() => (addingResource = false)}
+								class="rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+							>
+								Huỷ
+							</button>
+							<button
+								onclick={confirmAddResource}
+								class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+							>
+								Lưu tài nguyên
+							</button>
+						</div>
 					</div>
 				{/if}
 
-				<nav class="space-y-1">
-					{#each chapters as chapter (chapter.id)}
-						<div>
-							<div
-								class={`group flex items-center gap-1 rounded-xl px-2 py-1.5 transition-all ${
-									expandedChapterId === chapter.id ? 'bg-white/10' : 'hover:bg-white/5'
-								}`}
-							>
-								{#if editingChapterId === chapter.id}
-									<input
-										class="min-w-0 flex-1 rounded-lg bg-white/10 px-2 py-1 text-xs text-white outline-none"
-										bind:value={editChapterTitle}
-										onkeydown={(e) => e.key === 'Enter' && confirmEditChapter(chapter)}
-									/>
-									<button
-										onclick={() => confirmEditChapter(chapter)}
-										class="rounded-lg p-1 hover:bg-white/10"
-									>
-										<Check class="h-3.5 w-3.5 text-emerald-400" />
-									</button>
-									<button
-										onclick={() => (editingChapterId = null)}
-										class="rounded-lg p-1 hover:bg-white/10"
-									>
-										<X class="h-3.5 w-3.5 text-brand-100/50" />
-									</button>
-								{:else}
-									<button
-										onclick={() =>
-											(expandedChapterId = expandedChapterId === chapter.id ? null : chapter.id)}
-										class="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-brand-100/80"
-									>
-										{#if expandedChapterId === chapter.id}
-											<ChevronDown class="h-3.5 w-3.5 shrink-0 opacity-60" />
-										{:else}
-											<ChevronRight class="h-3.5 w-3.5 shrink-0 opacity-60" />
-										{/if}
-										<span class="truncate">{chapter.title}</span>
-									</button>
-									{#if chapter.assignment !== null}
-										<span
-											class="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-brand-100/60"
-										>
-											BT
-										</span>
-									{/if}
-									{#if chapter.is_published}
-										<span
-											class="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-300"
-										>
-											Công khai
-										</span>
+				<div class="space-y-2">
+					{#each resources as res (res.id)}
+						<div
+							class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3"
+						>
+							<div class="flex min-w-0 items-center gap-3">
+								<div
+									class={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+										res.resource_type === 'VIDEO_URL'
+											? 'bg-brand-50 text-brand-600'
+											: res.resource_type === 'PDF_FILE'
+												? 'bg-teal-50 text-teal-600'
+												: 'bg-amber-50 text-amber-600'
+									}`}
+								>
+									{#if res.resource_type === 'VIDEO_URL'}
+										<PlayCircle class="h-4 w-4" />
+									{:else if res.resource_type === 'PDF_FILE'}
+										<FileText class="h-4 w-4" />
 									{:else}
-										<button
-											onclick={() => confirmPublishChapter(chapter)}
-											title="Công khai chương cho học sinh"
-											class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-emerald-500/20 group-hover:opacity-100"
-										>
-											<Globe class="h-3 w-3 text-emerald-300" />
-										</button>
+										<Paperclip class="h-4 w-4" />
 									{/if}
-									<button
-										onclick={() => startEditChapter(chapter)}
-										class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-white/10 group-hover:opacity-100"
+								</div>
+								<div class="min-w-0">
+									<p class="truncate text-sm font-medium text-slate-700">{res.title}</p>
+									<p class="truncate text-xs text-slate-400">
+										{resourceTypeLabel[res.resource_type]}
+										{#if res.video_url}
+											• {res.video_url}{/if}
+										{#if fileNameFromUrl(res.file_url)}
+											• {fileNameFromUrl(res.file_url)}{/if}
+									</p>
+								</div>
+							</div>
+							<div class="flex shrink-0 items-center gap-1">
+								{#if canIngest(res) || res.rag_status === 'PROCESSING'}
+									<span
+										class={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ragStatusStyle[res.rag_status]}`}
 									>
-										<Pencil class="h-3 w-3 text-brand-100/60" />
-									</button>
+										{ragStatusLabel[res.rag_status]}
+										{#if res.rag_status === 'INDEXED' && res.rag_progress}
+											· {res.rag_progress} đoạn
+										{/if}
+									</span>
+								{/if}
+								{#if canIngest(res)}
 									<button
-										onclick={() => removeChapter(chapter)}
-										class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-rose-500/20 group-hover:opacity-100"
+										onclick={() => confirmIngestResource(res)}
+										title={res.rag_status === 'INDEXED'
+											? 'Nạp lại tài nguyên vào trợ lý AI'
+											: 'Nạp tài nguyên vào trợ lý AI'}
+										class="rounded-lg p-1.5 text-slate-400 hover:bg-sky-50 hover:text-sky-600"
 									>
-										<Trash2 class="h-3 w-3 text-rose-300" />
+										<Warehouse class="h-4 w-4" />
 									</button>
 								{/if}
+								{#if res.is_published}
+									<span
+										class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600"
+									>
+										Đã công khai
+									</span>
+								{:else}
+									<button
+										onclick={() => confirmPublishResource(res)}
+										title="Công khai tài nguyên cho học sinh"
+										class="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
+									>
+										<Globe class="h-4 w-4" />
+									</button>
+								{/if}
+								<button
+									onclick={() => removeResource(res)}
+									class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+								>
+									<Trash2 class="h-4 w-4" />
+								</button>
+							</div>
+						</div>
+					{/each}
+
+					{#if resources.length === 0 && !addingResource}
+						<p class="py-6 text-center text-sm text-slate-400">
+							Bài học này chưa có tài nguyên nào.
+						</p>
+					{/if}
+
+					{#if resources.length > 0}
+						<p class="pt-2 text-[11px] leading-relaxed text-slate-400">
+							Tài nguyên cần được nạp thì trợ lý học tập mới dùng được nội dung của nó. Tài nguyên
+							đang ở trạng thái Nạp lỗi thì bấm nạp lại là được.
+						</p>
+					{/if}
+				</div>
+			</div>
+
+			<div
+				class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
+			>
+				<h2 class="mb-4 text-sm font-semibold text-slate-800 font-heading">
+					Diễn đàn thảo luận
+				</h2>
+
+				<div class="space-y-5">
+					{#each topLevelComments as comment (comment.id)}
+						<div>
+							<div class="flex items-start justify-between gap-3">
+								<div class="flex items-start gap-3">
+									<Avatar
+										src={comment.created_by.avatar}
+										name={comment.created_by.full_name}
+										size="md"
+									/>
+									<div class="min-w-0 flex-1">
+										<p class="text-xs font-semibold text-slate-700">
+											{comment.created_by.full_name}
+										</p>
+										<p class="text-sm text-slate-600">{comment.content}</p>
+										<div class="mt-1 flex items-center gap-3">
+											<p class="text-[11px] text-slate-400">
+												{formatCommentDate(comment.created_at)}
+											</p>
+											<button
+												onclick={() => toggleReplyBox(comment.id)}
+												class="text-[11px] font-medium text-slate-500 hover:text-brand-600"
+											>
+												Trả lời
+											</button>
+										</div>
+									</div>
+								</div>
+								<MarkRightButton
+									isRight={comment.is_right}
+									canEdit={true}
+									isLoading={markingRightId === comment.id}
+									onToggle={() => toggleMarkRight(comment)}
+								/>
 							</div>
 
-							{#if expandedChapterId === chapter.id}
-								<div class="relative ml-5 mt-1 space-y-0.5 pl-4">
-									<div class="absolute left-0 top-0 bottom-2 w-px bg-white/10"></div>
-									{#each chapter.lessons as lesson (lesson.id)}
-										<div
-											class={`group flex items-center gap-1 rounded-lg px-2 py-1.5 ${
-												selectedLessonId === lesson.id ? 'bg-white/10' : 'hover:bg-white/5'
-											}`}
+							{#if replyingToId === comment.id}
+								<div class="ml-11 mt-3">
+									<div class="flex items-center gap-2">
+										<input
+											type="text"
+											bind:value={replyContent}
+											oninput={() => (replyError = '')}
+											onkeydown={(e) => e.key === 'Enter' && submitReply(comment.id)}
+											placeholder="Trả lời học sinh..."
+											disabled={isSubmittingReply}
+											class="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none focus:border-brand-300"
+										/>
+										<button
+											onclick={() => submitReply(comment.id)}
+											disabled={!replyContent.trim() || isSubmittingReply}
+											class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-blue-600 hover:bg-blue-50 disabled:opacity-40"
 										>
-											{#if editingLessonId === lesson.id}
-												<input
-													class="min-w-0 flex-1 rounded-lg bg-white/10 px-2 py-1 text-xs text-white outline-none"
-													bind:value={editLessonTitle}
-													onkeydown={(e) => e.key === 'Enter' && confirmEditLesson(lesson)}
+											<Send class="h-4 w-4" />
+										</button>
+									</div>
+									<FieldError message={replyError} />
+								</div>
+							{/if}
+
+							{#if getReplies(comment.id).length > 0}
+								<div class="ml-11 mt-3 space-y-3 border-l-2 border-slate-100 pl-4">
+									{#each getReplies(comment.id) as reply (reply.id)}
+										<div class="flex items-start justify-between gap-3">
+											<div class="flex items-start gap-3">
+												<Avatar
+													src={reply.created_by.avatar}
+													name={reply.created_by.full_name}
+													size="sm"
+													fromColor="from-brand-400"
+													toColor="to-sky-300"
 												/>
-												<button
-													onclick={() => confirmEditLesson(lesson)}
-													class="rounded-lg p-1 hover:bg-white/10"
-												>
-													<Check class="h-3.5 w-3.5 text-emerald-400" />
-												</button>
-												<button
-													onclick={() => (editingLessonId = null)}
-													class="rounded-lg p-1 hover:bg-white/10"
-												>
-													<X class="h-3.5 w-3.5 text-brand-100/50" />
-												</button>
-											{:else}
-												<button
-													onclick={() => selectLesson(lesson.id)}
-													class={`min-w-0 flex-1 truncate text-left text-[13px] ${
-														selectedLessonId === lesson.id
-															? 'font-semibold text-white'
-															: 'text-brand-100/60'
-													}`}
-												>
-													{lesson.title}
-												</button>
-												{#if lesson.is_published}
-													<span
-														class="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-300"
-													>
-														Công khai
-													</span>
-												{:else}
-													<button
-														onclick={() => confirmPublishLesson(lesson)}
-														title="Công khai bài học cho học sinh"
-														class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-emerald-500/20 group-hover:opacity-100"
-													>
-														<Globe class="h-3 w-3 text-emerald-300" />
-													</button>
-												{/if}
-												<button
-													onclick={() => startEditLesson(lesson)}
-													class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-white/10 group-hover:opacity-100"
-												>
-													<Pencil class="h-3 w-3 text-brand-100/60" />
-												</button>
-												<button
-													onclick={() => removeLesson(lesson)}
-													class="shrink-0 rounded-lg p-1 opacity-0 hover:bg-rose-500/20 group-hover:opacity-100"
-												>
-													<Trash2 class="h-3 w-3 text-rose-300" />
-												</button>
-											{/if}
+												<div class="min-w-0 flex-1">
+													<p class="text-xs font-semibold text-slate-700">
+														{reply.created_by.full_name}
+													</p>
+													<p class="text-sm text-slate-600">{reply.content}</p>
+													<p class="mt-1 text-[11px] text-slate-400">
+														{formatCommentDate(reply.created_at)}
+													</p>
+												</div>
+											</div>
+											<MarkRightButton
+												isRight={reply.is_right}
+												canEdit={true}
+												isLoading={markingRightId === reply.id}
+												onToggle={() => toggleMarkRight(reply)}
+											/>
 										</div>
 									{/each}
-
-									{#if addingLessonChapterId === chapter.id}
-										<div class="flex items-center gap-1.5 px-2 py-1">
-											<input
-												class="min-w-0 flex-1 rounded-lg bg-white/10 px-2 py-1 text-xs text-white placeholder-brand-100/40 outline-none"
-												placeholder="Tên bài học mới..."
-												bind:value={newLessonTitle}
-												onkeydown={(e) => e.key === 'Enter' && confirmAddLesson(chapter)}
-											/>
-											<button
-												onclick={() => confirmAddLesson(chapter)}
-												class="rounded-lg bg-emerald-500/80 p-1 hover:bg-emerald-500"
-											>
-												<Check class="h-3.5 w-3.5" />
-											</button>
-											<button
-												onclick={() => (addingLessonChapterId = null)}
-												class="rounded-lg bg-white/10 p-1 hover:bg-white/20"
-											>
-												<X class="h-3.5 w-3.5" />
-											</button>
-										</div>
-									{:else}
-										<button
-											onclick={() => startAddLesson(chapter.id)}
-											class="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-brand-100/40 hover:bg-white/5 hover:text-brand-100/70"
-										>
-											<Plus class="h-3 w-3" />
-											Thêm bài học
-										</button>
-									{/if}
 								</div>
 							{/if}
 						</div>
 					{/each}
-				</nav>
-			</div>
-		{/if}
 
-		<div class={`border-t border-white/10 py-4 ${sidebarCollapsed ? 'px-0' : 'px-3'}`}>
-			<div
-				class={`flex items-center rounded-xl py-2 hover:bg-white/5 ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-2'}`}
-			>
-				<Avatar src={avatarUrl} name={tutorName ?? ''} size="lg" />
-				{#if !sidebarCollapsed}
-					<div class="min-w-0 flex-1">
-						<p class="truncate text-sm font-medium text-white">{tutorName}</p>
-						<p class="truncate text-xs text-brand-100/50">Gia sư</p>
-					</div>
-				{/if}
+					{#if topLevelComments.length === 0}
+						<p class="text-center text-sm text-slate-400">Bài học này chưa có bình luận nào.</p>
+					{/if}
+				</div>
+
+				<div
+					class="mt-5 flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 py-2 pl-4 pr-4 transition-colors focus-within:border-brand-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-brand-50"
+				>
+					<input
+						type="text"
+						bind:value={newComment}
+						oninput={() => (commentError = '')}
+						onkeydown={(e) => e.key === 'Enter' && submitComment()}
+						placeholder="Nhập bình luận..."
+						disabled={isSubmittingComment}
+						class="min-w-0 flex-1 border-none bg-transparent text-sm text-slate-700 placeholder-slate-400 outline-none focus:ring-0"
+					/>
+					<button
+						onclick={submitComment}
+						disabled={!newComment.trim() || isSubmittingComment}
+						class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-blue-600 transition-colors hover:bg-blue-50 disabled:opacity-40 disabled:hover:bg-transparent"
+					>
+						<Send class="h-4 w-4" />
+					</button>
+				</div>
+				<FieldError message={commentError} />
 			</div>
 		</div>
-	</aside>
-
-	<div class="flex flex-1 flex-col min-w-0">
-		<header
-			class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
-		>
-			<div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
-				<span
-					class="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-brand-950 shadow-sm"
-				>
-					<Network class="h-3.5 w-3.5" />
-					Cây khóa học
-				</span>
-				<button
-					onclick={goStats}
-					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-800"
-				>
-					<BarChart3 class="h-3.5 w-3.5" />
-					Thống kê
-				</button>
-				<button
-					onclick={goGrading}
-					class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-800"
-				>
-					<ClipboardCheck class="h-3.5 w-3.5" />
-					Bài tập & chấm điểm
-				</button>
-			</div>
-
-			<div class="relative">
-				<button
-					onclick={() => (showUserMenu = !showUserMenu)}
-					class="flex items-center gap-2.5 rounded-full py-1 pl-3 pr-1 hover:bg-slate-100"
-				>
-					<span class="text-sm font-medium text-slate-700">{tutorName}</span>
-					<Avatar src={avatarUrl} name={tutorName ?? ''} size="lg" />
-				</button>
-				{#if showUserMenu}
-					<button
-						class="fixed inset-0 z-40 cursor-default"
-						onclick={() => (showUserMenu = false)}
-						aria-label="Đóng menu"
-					></button>
-					<div
-						class="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-2xl border border-slate-200/70 bg-white py-2 shadow-xl shadow-slate-200/70"
-					>
-						<button
-							class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50"
-							onclick={handleLogout}
-						>
-							<LogOut class="h-4 w-4" />
-							Đăng xuất
-						</button>
-					</div>
-				{/if}
-			</div>
-		</header>
-
-		<main class="flex-1 overflow-y-auto px-8 py-8">
-			{#if !selectedLesson}
-				<div class="flex h-full items-center justify-center text-center text-slate-400">
-					<p>Chọn một bài học ở cây bên trái để chỉnh sửa.</p>
-				</div>
-			{:else}
-				<div class="mx-auto max-w-4xl space-y-6">
-					<div
-						class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
-					>
-						<p class="text-xs text-slate-400">
-							{selectedChapter?.title} · {studentsCount} học sinh trong khóa
-						</p>
-						<div class="mt-1 flex items-center gap-2">
-							{#if editingLessonId === selectedLesson.id}
-								<input
-									class="flex-1 rounded-xl border border-slate-200 px-3 py-1.5 text-lg font-bold text-slate-900 outline-none focus:border-brand-300"
-									bind:value={editLessonTitle}
-								/>
-								<button
-									onclick={() => confirmEditLesson(selectedLesson!)}
-									class="rounded-xl bg-emerald-500 px-3 py-1.5 text-white hover:bg-emerald-600"
-								>
-									<Check class="h-4 w-4" />
-								</button>
-							{:else}
-								<h1
-									class="flex-1 text-xl font-bold text-slate-900"
-									style="font-family:'Sora',sans-serif;"
-								>
-									{selectedLesson.title}
-								</h1>
-								<button
-									onclick={() => startEditLesson(selectedLesson!)}
-									class="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-								>
-									<Pencil class="h-3.5 w-3.5" />
-									Đổi tên
-								</button>
-								<button
-									onclick={() => goChapterAssignment(selectedChapter!.id)}
-									class="flex items-center gap-1.5 rounded-xl bg-brand-950 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
-								>
-									<ClipboardEdit class="h-3.5 w-3.5" />
-									{selectedChapter?.assignment !== null
-										? 'Sửa bài tập chương'
-										: 'Tạo bài tập chương'}
-								</button>
-							{/if}
-						</div>
-					</div>
-
-					<div
-						class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
-					>
-						<div class="mb-4 flex items-center justify-between">
-							<h2
-								class="text-sm font-semibold text-slate-800"
-								style="font-family:'Sora',sans-serif;"
-							>
-								Tài nguyên bài học
-							</h2>
-							<button
-								onclick={startAddResource}
-								class="flex items-center gap-1.5 rounded-xl bg-brand-950 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
-							>
-								<Plus class="h-3.5 w-3.5" />
-								Thêm tài nguyên
-							</button>
-						</div>
-
-						{#if addingResource}
-							<div class="mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-								<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-									<input
-										class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
-										placeholder="Tên tài nguyên"
-										bind:value={newResource.title}
-									/>
-									<select
-										class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
-										bind:value={newResource.resource_type}
-									>
-										<option value="VIDEO_URL">Video</option>
-										<option value="PDF_FILE">Tệp PDF</option>
-										<option value="OTHERS">Khác</option>
-									</select>
-								</div>
-								{#if newResource.resource_type === 'VIDEO_URL'}
-									<input
-										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
-										placeholder="Đường dẫn video (YouTube...)"
-										bind:value={newResource.video_url}
-									/>
-								{:else if newResource.resource_type === 'PDF_FILE'}
-									<input
-										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
-										placeholder="Đường dẫn tệp PDF"
-										bind:value={newResource.file_url}
-									/>
-								{:else}
-									<textarea
-										rows="2"
-										class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
-										placeholder="Nội dung văn bản"
-										bind:value={newResource.content}></textarea>
-								{/if}
-								<div class="flex justify-end gap-2">
-									<button
-										onclick={() => (addingResource = false)}
-										class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white"
-									>
-										Huỷ
-									</button>
-									<button
-										onclick={confirmAddResource}
-										class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-									>
-										Lưu tài nguyên
-									</button>
-								</div>
-							</div>
-						{/if}
-
-						<div class="space-y-2">
-							{#each resources as res (res.id)}
-								<div
-									class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"
-								>
-									<div class="flex min-w-0 items-center gap-3">
-										<div
-											class={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-												res.resource_type === 'VIDEO_URL'
-													? 'bg-brand-50 text-brand-600'
-													: res.resource_type === 'PDF_FILE'
-														? 'bg-teal-50 text-teal-600'
-														: 'bg-amber-50 text-amber-600'
-											}`}
-										>
-											{#if res.resource_type === 'VIDEO_URL'}
-												<PlayCircle class="h-4 w-4" />
-											{:else if res.resource_type === 'PDF_FILE'}
-												<FileText class="h-4 w-4" />
-											{:else}
-												<Paperclip class="h-4 w-4" />
-											{/if}
-										</div>
-										<div class="min-w-0">
-											<p class="truncate text-sm font-medium text-slate-700">{res.title}</p>
-											<p class="truncate text-xs text-slate-400">
-												{resourceTypeLabel[res.resource_type]}
-												{#if res.video_url}
-													• {res.video_url}{/if}
-												{#if res.file_url}
-													• {res.file_url}{/if}
-											</p>
-										</div>
-									</div>
-									{#if res.is_published}
-										<span
-											class="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-600"
-										>
-											Đã công khai
-										</span>
-									{:else}
-										<button
-											onclick={() => confirmPublishResource(res)}
-											title="Công khai tài nguyên cho học sinh"
-											class="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
-										>
-											<Globe class="h-4 w-4" />
-										</button>
-									{/if}
-									<button
-										onclick={() => removeResource(res)}
-										class="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
-									>
-										<Trash2 class="h-4 w-4" />
-									</button>
-								</div>
-							{/each}
-
-							{#if resources.length === 0 && !addingResource}
-								<p class="py-6 text-center text-sm text-slate-400">
-									Bài học này chưa có tài nguyên nào.
-								</p>
-							{/if}
-						</div>
-					</div>
-
-					<div
-						class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
-					>
-						<h2
-							class="mb-4 text-sm font-semibold text-slate-800"
-							style="font-family:'Sora',sans-serif;"
-						>
-							Thảo luận của học sinh
-						</h2>
-
-						<div class="space-y-5">
-							{#each topLevelComments as comment (comment.id)}
-								<div>
-									<div class="flex items-start justify-between gap-3">
-										<div class="flex items-start gap-3">
-											<Avatar
-												src={comment.created_by.avatar}
-												name={comment.created_by.full_name}
-												size="md"
-											/>
-											<div class="min-w-0 flex-1">
-												<p class="text-xs font-semibold text-slate-700">
-													{comment.created_by.full_name}
-												</p>
-												<p class="text-sm text-slate-600">{comment.content}</p>
-												<div class="mt-1 flex items-center gap-3">
-													<p class="text-[11px] text-slate-400">
-														{formatCommentDate(comment.created_at)}
-													</p>
-													<button
-														onclick={() => toggleReplyBox(comment.id)}
-														class="text-[11px] font-medium text-slate-500 hover:text-brand-600"
-													>
-														Trả lời
-													</button>
-												</div>
-											</div>
-										</div>
-										<MarkRightButton
-											isRight={comment.is_right}
-											canEdit={true}
-											isLoading={markingRightId === comment.id}
-											onToggle={() => toggleMarkRight(comment)}
-										/>
-									</div>
-
-									{#if replyingToId === comment.id}
-										<div class="mt-3 ml-11 flex items-center gap-2">
-											<input
-												type="text"
-												bind:value={replyContent}
-												onkeydown={(e) => e.key === 'Enter' && submitReply(comment.id)}
-												placeholder="Trả lời học sinh..."
-												disabled={isSubmittingReply}
-												class="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none focus:border-brand-300"
-											/>
-											<button
-												onclick={() => submitReply(comment.id)}
-												disabled={!replyContent.trim() || isSubmittingReply}
-												class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-blue-600 hover:bg-blue-50 disabled:opacity-40"
-											>
-												<Send class="h-4 w-4" />
-											</button>
-										</div>
-									{/if}
-
-									{#if getReplies(comment.id).length > 0}
-										<div class="mt-3 ml-11 space-y-3 border-l-2 border-slate-100 pl-4">
-											{#each getReplies(comment.id) as reply (reply.id)}
-												<div class="flex items-start justify-between gap-3">
-													<div class="flex items-start gap-3">
-														<Avatar
-															src={reply.created_by.avatar}
-															name={reply.created_by.full_name}
-															size="sm"
-															fromColor="from-brand-400"
-															toColor="to-sky-300"
-														/>
-														<div class="min-w-0 flex-1">
-															<p class="text-xs font-semibold text-slate-700">
-																{reply.created_by.full_name}
-															</p>
-															<p class="text-sm text-slate-600">{reply.content}</p>
-															<p class="mt-1 text-[11px] text-slate-400">
-																{formatCommentDate(reply.created_at)}
-															</p>
-														</div>
-													</div>
-													<MarkRightButton
-														isRight={reply.is_right}
-														canEdit={true}
-														isLoading={markingRightId === reply.id}
-														onToggle={() => toggleMarkRight(reply)}
-													/>
-												</div>
-											{/each}
-										</div>
-									{/if}
-								</div>
-							{/each}
-
-							{#if topLevelComments.length === 0}
-								<p class="text-center text-sm text-slate-400">Bài học này chưa có bình luận nào.</p>
-							{/if}
-						</div>
-					</div>
-				</div>
-			{/if}
-		</main>
-	</div>
+	{/if}
 </div>

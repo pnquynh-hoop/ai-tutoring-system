@@ -105,18 +105,18 @@ class IsSubmissionOwnerOrCourseTutor(BasePermission):
         return is_course_tutor(request.user, resolve_course(obj))
 
 
-def resolve_parent(view, attr, source):
-    lookup = getattr(view, attr, None)
+def resolve_parent(view, lookup_attribute, request_values):
+    lookup = getattr(view, lookup_attribute, None)
     if not lookup:
         return None
 
-    field, model = lookup
-    raw_id = source.get(field)
-    if raw_id in (None, ""):
+    field_name, parent_model = lookup
+    parent_id = request_values.get(field_name)
+    if parent_id in (None, ""):
         return None
 
     try:
-        return model.objects.filter(pk=raw_id).first()
+        return parent_model.objects.filter(pk=parent_id).first()
     except (ValueError, TypeError, DjangoValidationError):
         return None
 

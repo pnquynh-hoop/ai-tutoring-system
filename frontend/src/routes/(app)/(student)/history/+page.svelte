@@ -4,11 +4,47 @@
 	import { getApiErrorMessage } from '$lib/api/errors';
 	import type { SubmissionDetail } from '$lib/api/entities';
 	import { showToast } from '$lib/stores/toast.svelte';
-	import { CheckCircle2, Clock, FileText, Home, XCircle } from 'lucide-svelte';
+	import {
+		Award,
+		CheckCircle2,
+		ClipboardList,
+		Clock,
+		FileText,
+		History,
+		Home,
+		XCircle
+	} from 'lucide-svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	let submissions = $derived(data.submissions);
+
+	let gradedSubmissions = $derived(submissions.filter((item) => item.score !== null));
+	let pendingCount = $derived(submissions.length - gradedSubmissions.length);
+	let averageScore = $derived(
+		gradedSubmissions.length
+			? (
+					gradedSubmissions.reduce((sum, item) => sum + Number(item.score), 0) /
+					gradedSubmissions.length
+				).toFixed(1)
+			: null
+	);
+
+	let quickStats = $derived([
+		{
+			label: 'Bài đã nộp',
+			value: String(submissions.length),
+			icon: ClipboardList,
+			tone: 'brand'
+		},
+		{
+			label: 'Điểm trung bình',
+			value: averageScore ?? '--',
+			icon: Award,
+			tone: 'emerald'
+		},
+		{ label: 'Đang chờ chấm', value: String(pendingCount), icon: Clock, tone: 'amber' }
+	]);
 
 	let selected = $state<SubmissionDetail | null>(null);
 	let isLoadingDetail = $state(false);
@@ -37,22 +73,30 @@
 </script>
 
 <svelte:head>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@600;700;800&display=swap"
-		rel="stylesheet"
-	/>
 	<title>Lịch sử làm bài</title>
 </svelte:head>
 
-<div class="min-h-screen w-full bg-slate-50" style="font-family:'Inter',sans-serif;">
+<div class="min-h-screen w-full bg-slate-50">
 	<header
-		class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
+		class="flex items-center justify-between gap-4 border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 	>
+		<div class="flex min-w-0 items-center gap-3">
+			<div
+				class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600"
+			>
+				<History class="h-4.5 w-4.5" />
+			</div>
+			<div class="min-w-0">
+				<h1 class="font-heading text-sm font-semibold text-slate-800">Lịch sử làm bài</h1>
+				<p class="truncate text-xs text-slate-500">
+					Toàn bộ bài tập bạn đã nộp, kèm điểm và nhận xét của gia sư
+				</p>
+			</div>
+		</div>
+
 		<button
 			onclick={() => goto('/stu-dashboard')}
-			class="flex items-center gap-2 rounded-full bg-brand-950 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900"
+			class="flex items-center gap-2 rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
 		>
 			<Home class="h-4 w-4" />
 			Trang chủ
@@ -60,30 +104,46 @@
 	</header>
 
 	<main class="px-8 py-8">
-		<div class="mb-6">
-			<h1
-				class="text-2xl font-bold tracking-tight text-slate-900"
-				style="font-family:'Sora',sans-serif;"
-			>
-				Lịch sử làm bài
-			</h1>
-			<p class="mt-1 text-sm text-slate-500">
-				Toàn bộ bài tập bạn đã nộp, kèm điểm và nhận xét của gia sư.
-			</p>
+		<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+			{#each quickStats as stat (stat.label)}
+				<div
+					class="flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm shadow-slate-200/50"
+				>
+					<div
+						class={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl
+							${stat.tone === 'brand' ? 'bg-brand-50 text-brand-600' : ''}
+							${stat.tone === 'emerald' ? 'bg-emerald-50 text-emerald-600' : ''}
+							${stat.tone === 'amber' ? 'bg-amber-50 text-amber-600' : ''}`}
+					>
+						<stat.icon class="h-5 w-5" />
+					</div>
+					<div>
+						<p class="text-lg font-bold text-slate-900">{stat.value}</p>
+						<p class="text-xs text-slate-500">{stat.label}</p>
+					</div>
+				</div>
+			{/each}
 		</div>
 
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-[380px_1fr]">
 			<div
 				class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm shadow-slate-200/50"
 			>
+				<div class="mb-4 flex items-center justify-between gap-2">
+					<h2 class="font-heading text-sm font-semibold text-slate-800">Bài đã nộp</h2>
+					<span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
+						{submissions.length}
+					</span>
+				</div>
+
 				<div class="space-y-2">
 					{#each submissions as submission (submission.id)}
 						<button
 							onclick={() => openSubmission(submission.id)}
 							class={`w-full rounded-xl border p-3 text-left transition-colors ${
 								selected?.id === submission.id
-									? 'border-brand-950 bg-slate-50'
-									: 'border-slate-100 hover:bg-slate-50'
+									? 'border-brand-600 bg-brand-50'
+									: 'border-slate-200 hover:border-brand-200 hover:bg-slate-50'
 							}`}
 						>
 							<div class="flex items-start justify-between gap-3">
@@ -134,7 +194,7 @@
 				{:else}
 					<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
 						<div>
-							<h2 class="text-base font-bold text-slate-900" style="font-family:'Sora',sans-serif;">
+							<h2 class="text-base font-bold text-slate-900 font-heading">
 								{selected.assignment_title}
 							</h2>
 							<p class="mt-0.5 text-xs text-slate-400">
@@ -149,7 +209,7 @@
 
 					<div class="space-y-4">
 						{#each selected.stu_answers as answer, index (answer.id)}
-							<div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+							<div class="rounded-xl border border-slate-200 bg-white p-4">
 								<div class="flex items-start gap-2">
 									{#if answer.is_correct === true}
 										<CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />

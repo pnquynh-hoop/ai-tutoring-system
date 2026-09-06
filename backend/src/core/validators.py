@@ -9,6 +9,8 @@ MAX_IMAGE_SIZE = 2 * MB
 MAX_DOCUMENT_SIZE = 10 * MB
 MAX_MATERIAL_SIZE = 100 * MB
 
+LOCAL_STORAGE_THRESHOLD = 10 * MB
+
 DOCUMENT_TYPES = {
     ".pdf": {"application/pdf"},
     ".doc": {"application/msword"},

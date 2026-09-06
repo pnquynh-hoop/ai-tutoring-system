@@ -1,12 +1,9 @@
-import { getCourseTree, getDetailAssignment, getTutorQuestions } from '$lib/api/calledAPI';
+import { getDetailAssignment, getTutorQuestions } from '$lib/api/calledAPI';
 import type { AssignmentDetail, TutorQuestion } from '$lib/api/entities';
 import type { PageLoad } from './$types';
 
-export const ssr = false;
-
-export const load: PageLoad = async ({ params, url }) => {
-	const courseId = Number(params.courseId);
-	const tree = await getCourseTree(courseId);
+export const load: PageLoad = async ({ url, parent }) => {
+	const { tree } = await parent();
 
 	const requestedChapterId = Number(url.searchParams.get('chapter'));
 	const chapter =
@@ -20,5 +17,5 @@ export const load: PageLoad = async ({ params, url }) => {
 		questions = await getTutorQuestions(chapter.assignment);
 	}
 
-	return { courseId, tree, chapter, assignment, questions };
+	return { chapter, assignment, questions };
 };

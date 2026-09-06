@@ -17,6 +17,7 @@ import type {
 	LessonDetail,
 	LessonPayload,
 	LessonResource,
+	TutorLessonResource,
 	Me,
 	PublishResult,
 	Question,
@@ -27,13 +28,13 @@ import type {
 	SubmissionDetail,
 	SubmitAnswerItem,
 	TutorCourse,
-	TutorCourseDetail,
 	TutorCourseStats,
 	TutorQuestion,
 	TutorQuestionPayload,
+	TutorQuestionUpdatePayload,
 	UpdateMePayload
 } from './entities';
-import type { ChapterStat, LoginRequest, MeResponse } from './types';
+import type { ChapterStat, CourseOverview, LoginRequest } from './types';
 
 interface Paginated<T> {
 	count: number;
@@ -55,8 +56,8 @@ export async function logoutApi() {
 	return await api.post(ENDPOINTS.LOGOUT);
 }
 
-export async function getMeApi(cookieHeader?: string): Promise<MeResponse> {
-	const res = await api.get<MeResponse>(ENDPOINTS.ME, {
+export async function getMeApi(cookieHeader?: string): Promise<Me> {
+	const res = await api.get<Me>(ENDPOINTS.ME, {
 		headers: cookieHeader ? { Cookie: cookieHeader } : undefined
 	});
 	return res.data;
@@ -78,16 +79,12 @@ export async function getDetailCourse(courseId: number): Promise<CourseDetail> {
 	return (await api.get<CourseDetail>(ENDPOINTS.COURSE_DETAIL(courseId))).data;
 }
 
-export async function getTutorDetailCourse(courseId: number): Promise<TutorCourseDetail> {
-	return (await api.get<TutorCourseDetail>(ENDPOINTS.COURSE_DETAIL(courseId))).data;
-}
-
 export async function getCourseTree(courseId: number): Promise<CourseTree> {
 	return (await api.get<CourseTree>(ENDPOINTS.COURSE_TREE(courseId))).data;
 }
 
-export async function getCourseOverview(courseId: number) {
-	return (await api.get(ENDPOINTS.COURSE_OVERVIEW(courseId))).data;
+export async function getCourseOverview(courseId: number): Promise<CourseOverview> {
+	return (await api.get<CourseOverview>(ENDPOINTS.COURSE_OVERVIEW(courseId))).data;
 }
 
 export async function getChapterStats(courseId: number): Promise<ChapterStat[]> {
@@ -134,16 +131,34 @@ export async function postCompleteLesson(lessonId: number) {
 	return (await api.post(ENDPOINTS.COMPLETE_LESSON(lessonId))).data;
 }
 
-export async function getLessonResources(lessonId: number): Promise<LessonResource[]> {
-	return (await api.get<LessonResource[]>(ENDPOINTS.RESOURCES_BY_LESSON(lessonId))).data;
+export async function getLessonResources(lessonId: number): Promise<TutorLessonResource[]> {
+	return (await api.get<TutorLessonResource[]>(ENDPOINTS.RESOURCES_BY_LESSON(lessonId))).data;
+}
+
+function resourceBody(payload: Partial<ResourcePayload>): FormData | Partial<ResourcePayload> {
+	if (!(payload.file_url instanceof File)) return payload;
+
+	const body = new FormData();
+	for (const [key, value] of Object.entries(payload)) {
+		if (value === null || value === undefined) continue;
+		body.append(key, value instanceof File ? value : String(value));
+	}
+	return body;
+}
+
+function multipartConfig(body: FormData | Partial<ResourcePayload>) {
+	if (!(body instanceof FormData)) return undefined;
+	return { headers: { 'Content-Type': 'multipart/form-data' } };
 }
 
 export async function createResource(payload: ResourcePayload): Promise<LessonResource> {
-	return (await api.post<LessonResource>(ENDPOINTS.RESOURCES, payload)).data;
+	const body = resourceBody(payload);
+	return (await api.post<LessonResource>(ENDPOINTS.RESOURCES, body, multipartConfig(body))).data;
 }
 
 export async function updateResource(resourceId: number, payload: Partial<ResourcePayload>) {
-	return (await api.patch(ENDPOINTS.RESOURCE_DETAIL(resourceId), payload)).data;
+	const body = resourceBody(payload);
+	return (await api.patch(ENDPOINTS.RESOURCE_DETAIL(resourceId), body, multipartConfig(body))).data;
 }
 
 export async function deleteResource(resourceId: number) {
@@ -152,6 +167,10 @@ export async function deleteResource(resourceId: number) {
 
 export async function publishResource(resourceId: number): Promise<PublishResult> {
 	return (await api.post<PublishResult>(ENDPOINTS.PUBLISH_RESOURCE(resourceId))).data;
+}
+
+export async function ingestResource(resourceId: number): Promise<TutorLessonResource> {
+	return (await api.post<TutorLessonResource>(ENDPOINTS.INGEST_RESOURCE(resourceId))).data;
 }
 
 export async function getListComments(lessonId: number): Promise<Comment[]> {
@@ -187,6 +206,14 @@ export async function startAssignment(assignmentId: number): Promise<Attempt> {
 	return (await api.post<Attempt>(ENDPOINTS.START_ASSIGNMENT(assignmentId))).data;
 }
 
+export async function saveDraft(
+	assignmentId: number,
+	answers: SubmitAnswerItem[]
+): Promise<Attempt> {
+	return (await api.post<Attempt>(ENDPOINTS.SAVE_ASSIGNMENT_DRAFT(assignmentId), { answers }))
+		.data;
+}
+
 export async function submitAssignment(
 	assignmentId: number,
 	answers: SubmitAnswerItem[]
@@ -220,7 +247,7 @@ export async function createQuestion(payload: TutorQuestionPayload): Promise<Tut
 
 export async function updateQuestion(
 	questionId: number,
-	payload: Partial<TutorQuestionPayload>
+	payload: Partial<TutorQuestionUpdatePayload>
 ): Promise<TutorQuestion> {
 	return (await api.patch<TutorQuestion>(ENDPOINTS.QUESTION_DETAIL(questionId), payload)).data;
 }
@@ -260,6 +287,12 @@ export async function getMyProfile(): Promise<Me> {
 
 export async function updateMyProfile(payload: UpdateMePayload): Promise<Me> {
 	return (await api.patch<Me>(ENDPOINTS.ME, payload)).data;
+}
+
+export async function updateMyAvatar(file: File): Promise<Me> {
+	const body = new FormData();
+	body.append('avatar', file);
+	return (await api.patch<Me>(ENDPOINTS.ME, body, multipartConfig(body))).data;
 }
 
 export async function changePassword(payload: ChangePasswordPayload) {

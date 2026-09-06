@@ -1,15 +1,15 @@
 from datetime import timedelta
-
 from django.db import models
-
 from core.models import BaseModel, PublishableModel
 
 
 
 class Assignment(BaseModel, PublishableModel):
-    chapter = models.OneToOneField("courses.Chapter", on_delete=models.CASCADE)
+    chapter = models.OneToOneField(
+        "courses.Chapter", on_delete=models.CASCADE, verbose_name="Chương"
+    )
     title = models.CharField("Tiêu đề bài tập", max_length=255)
-    due_date = models.DateTimeField()
+    due_date = models.DateTimeField("Hạn nộp")
     time_limit_minutes = models.PositiveIntegerField(
         "Thời gian làm bài (phút)", null=True, blank=True
     )
@@ -17,7 +17,12 @@ class Assignment(BaseModel, PublishableModel):
         "accounts.User",
         through="Submission",
         related_name="assignments",
+        verbose_name="Học sinh được giao",
     )
+
+    class Meta:
+        verbose_name = "Bài tập"
+        verbose_name_plural = "Bài tập"
 
     def __str__(self):
         return f"{self.chapter} - {self.title}"
@@ -30,7 +35,10 @@ class Question(models.Model):
         ESSAY = "ESSAY", "Tự luận"
 
     assignment = models.ForeignKey(
-        Assignment, on_delete=models.CASCADE, related_name="questions"
+        Assignment,
+        on_delete=models.CASCADE,
+        related_name="questions",
+        verbose_name="Bài tập",
     )
     content = models.TextField("Nội dung câu hỏi")
     question_type = models.CharField(
@@ -40,10 +48,15 @@ class Question(models.Model):
         default=QuestionType.MULTIPLE_CHOICE,
     )
     explanation = models.TextField("Lời giải chi tiết")
+    point = models.DecimalField(
+        "Điểm của câu hỏi", max_digits=4, decimal_places=2, null=True, blank=True
+    )
     order = models.PositiveIntegerField("Thứ tự câu hỏi", null=True, blank=True)
 
     class Meta:
         ordering = ["order"]
+        verbose_name = "Câu hỏi"
+        verbose_name_plural = "Câu hỏi"
         constraints = [
             models.UniqueConstraint(
                 fields=["assignment", "order"],
@@ -58,26 +71,41 @@ class Question(models.Model):
 
 class Answer(models.Model):
     question = models.ForeignKey(
-        Question, on_delete=models.CASCADE, related_name="answers"
+        Question,
+        on_delete=models.CASCADE,
+        related_name="answers",
+        verbose_name="Câu hỏi",
     )
     content = models.TextField("Nội dung phương án")
-    is_correct = models.BooleanField()
+    is_correct = models.BooleanField("Là phương án đúng", default=False)
+
+    class Meta:
+        verbose_name = "Phương án trả lời"
+        verbose_name_plural = "Phương án trả lời"
 
     def __str__(self):
         return f"{self.question} - {self.content}"
 
 
 class Submission(models.Model):
-    assignment = models.ForeignKey(Assignment, on_delete=models.PROTECT)
-    student = models.ForeignKey("accounts.User", on_delete=models.CASCADE)
-    score = models.DecimalField(max_digits=3, decimal_places=1, null=True)
+    assignment = models.ForeignKey(
+        Assignment, on_delete=models.PROTECT, verbose_name="Bài tập"
+    )
+    student = models.ForeignKey(
+        "accounts.User", on_delete=models.CASCADE, verbose_name="Học sinh"
+    )
+    score = models.DecimalField(
+        "Điểm bài làm", max_digits=4, decimal_places=2, null=True
+    )
     started_at = models.DateTimeField(
         "Thời điểm bắt đầu làm bài", null=True, blank=True
     )
     submitted_at = models.DateTimeField("Thời điểm nộp bài", null=True, blank=True)
 
     class Meta:
-        ordering = ["-id", "-started_at"]
+        ordering = ["-id"]
+        verbose_name = "Bài nộp"
+        verbose_name_plural = "Bài nộp"
         indexes = [models.Index(fields=["assignment", "student"])]
 
     def __str__(self):
@@ -92,14 +120,40 @@ class Submission(models.Model):
 
 
 class StudentAnswer(models.Model):
-    answer_text = models.TextField(null=True, blank=True)
-    tutor_comment = models.TextField(null=True, blank=True)
-    point = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
-    question = models.ForeignKey(Question, on_delete=models.PROTECT)
-    answer = models.ForeignKey(Answer, on_delete=models.SET_NULL, null=True, blank=True)
-    submission = models.ForeignKey(
-        Submission, on_delete=models.CASCADE, related_name="stu_answers"
+    answer_text = models.TextField(
+        "Câu trả lời tự luận", null=True, blank=True
     )
+    tutor_comment = models.TextField(
+        "Nhận xét của gia sư", null=True, blank=True
+    )
+    point = models.DecimalField(
+        "Điểm câu này", max_digits=4, decimal_places=2, null=True, blank=True
+    )
+    question = models.ForeignKey(
+        Question, on_delete=models.PROTECT, verbose_name="Câu hỏi"
+    )
+    answer = models.ForeignKey(
+        Answer,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="Phương án đã chọn",
+    )
+    submission = models.ForeignKey(
+        Submission,
+        on_delete=models.CASCADE,
+        related_name="stu_answers",
+        verbose_name="Bài nộp",
+    )
+
+    class Meta:
+        verbose_name = "Câu trả lời của học sinh"
+        verbose_name_plural = "Câu trả lời của học sinh"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["submission", "question"], name="unique_submission_question"
+            )
+        ]
 
     def __str__(self):
         return f"{self.submission} - {self.question}"

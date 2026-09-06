@@ -86,7 +86,7 @@ class UserView(viewsets.ViewSet, generics.GenericAPIView):
     @action(methods=["get", "patch"], detail=False, url_path="me")
     def get_me(self, request):
         if request.method == "PATCH":
-            serializer = self.get_serializer(
+            serializer = UpdateMeSerializer(
                 request.user, data=request.data, partial=True
             )
             serializer.is_valid(raise_exception=True)

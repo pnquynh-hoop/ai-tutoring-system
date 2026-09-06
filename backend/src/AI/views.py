@@ -24,7 +24,7 @@ class RAGAskQuestionView(GenericAPIView):
     permission_classes = [IsStudent, IsRelatedCourseMember]
 
     def post(self, request):
-        serializer = self.get_serializer(data=request.data)
+        serializer = RAGAskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
@@ -33,6 +33,7 @@ class RAGAskQuestionView(GenericAPIView):
                 query=data["question"],
                 course_id=data["course_id"],
                 lesson_id=data.get("lesson_id"),
+                student=request.user,
             )
         except Exception:
             logger.exception("Lỗi khi gọi RAG cho course_id=%s", data["course_id"])

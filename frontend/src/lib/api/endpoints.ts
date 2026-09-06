@@ -26,6 +26,7 @@ export const ENDPOINTS = {
 	RESOURCES_BY_LESSON: (lessonId: string | number) => `lessons/${lessonId}/resources/`,
 	RESOURCE_DETAIL: (resourceId: string | number) => `resources/${resourceId}/`,
 	PUBLISH_RESOURCE: (resourceId: string | number) => `resources/${resourceId}/publish/`,
+	INGEST_RESOURCE: (resourceId: string | number) => `resources/${resourceId}/ingest/`,
 
 	COURSE_STATS: (courseId: string | number) => `courses/${courseId}/stats/`,
 
@@ -34,6 +35,8 @@ export const ENDPOINTS = {
 	PUBLISH_ASSIGNMENT: (assignmentId: string | number) => `assignments/${assignmentId}/publish/`,
 	QUESTIONS: (assignmentId: string | number) => `assignments/${assignmentId}/questions/`,
 	START_ASSIGNMENT: (assignmentId: string | number) => `assignments/${assignmentId}/start/`,
+	SAVE_ASSIGNMENT_DRAFT: (assignmentId: string | number) =>
+		`assignments/${assignmentId}/save-draft/`,
 	SUBMIT_ASSIGNMENT: (assignmentId: string | number) => `assignments/${assignmentId}/submit/`,
 	SUBMISSIONS: 'submissions/',
 	SUBMISSION_DETAIL: (submissionId: string | number) => `submissions/${submissionId}/`,

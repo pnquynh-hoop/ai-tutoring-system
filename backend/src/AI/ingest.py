@@ -161,51 +161,104 @@ def pending_queryset(model):
     )
 
 
-def ingest_materials():
+def ingest_material(material):
     splitter = markdown_splitter()
+    material.mark_rag_processing()
+    local_path, is_temp = resolve_source_file(material)
+
+    if not local_path:
+        material.mark_rag_failed("Không lấy được tệp tài liệu.")
+        return 0
+
+    added = 0
+    try:
+        pages = load_pdf(Path(local_path))
+        documents, ids = [], []
+
+        for page in pages:
+            page_number = page.metadata.get("page", 0)
+
+            for index, chunk in enumerate(splitter.split_documents([page])):
+                if not chunk.page_content.strip():
+                    continue
+                chunk.metadata = material_metadata(material, page_number)
+                documents.append(chunk)
+                ids.append(
+                    document_id(SOURCE_MATERIAL, str(material.id), page_number, index)
+                )
+
+        if documents:
+            added = add_documents(documents, ids)
+
+        material.mark_rag_indexed(len(documents))
+
+    except Exception as exc:
+        material.mark_rag_failed(f"{type(exc).__name__}: {exc}")
+        logger.exception("Lỗi khi ingest Material ID %s", material.id)
+    finally:
+        if is_temp and os.path.exists(local_path):
+            os.remove(local_path)
+
+    return added
+
+
+def ingest_materials():
     total = 0
+    for material in pending_queryset(Material).select_related("subject", "grade"):
+        total += ingest_material(material)
+    return total
 
-    for mat in pending_queryset(Material).select_related("subject", "grade"):
-        mat.mark_rag_processing()
-        local_path, is_temp = resolve_source_file(mat)
 
+def ingest_resource(resource):
+    resource.mark_rag_processing()
+    chunks = []
+    metadata = {
+        "source_type": SOURCE_RESOURCE,
+        "resource_id": resource.id,
+        "course_id": resource.lesson.chapter.course_id,
+        "lesson_id": resource.lesson_id,
+        "title": resource.title,
+    }
+
+    if resource.content:
+        document = Document(page_content=resource.content, metadata=metadata)
+        chunks = text_splitter().split_documents([document])
+
+    elif resource.file_url:
+        local_path = download_cloudinary_file(resource.file_url)
         if not local_path:
-            mat.mark_rag_failed("Không lấy được tệp tài liệu.")
-            logger.warning("Material ID %s không có tệp để đọc", mat.id)
-            continue
-
+            resource.mark_rag_failed("Không tải được tệp từ Cloudinary.")
+            return 0
         try:
             pages = load_pdf(Path(local_path))
-            documents, ids = [], []
-
-            for page in pages:
-                page_number = page.metadata.get("page", 0)
-
-                for index, chunk in enumerate(splitter.split_documents([page])):
-                    if not chunk.page_content.strip():
-                        continue
-                    chunk.metadata = material_metadata(mat, page_number)
-                    documents.append(chunk)
-                    ids.append(
-                        document_id(
-                            SOURCE_MATERIAL, str(mat.id), page_number, index
-                        )
-                    )
-
-            if documents:
-                total += add_documents(documents, ids)
-
-            mat.mark_rag_indexed(len(documents))
-            logger.info("Đã ingest Material ID %s (%s chunk)", mat.id, len(documents))
-
+            chunks = markdown_splitter().split_documents(pages)
+            for chunk in chunks:
+                chunk.metadata.update(metadata)
         except Exception as exc:
-            mat.mark_rag_failed(f"{type(exc).__name__}: {exc}")
-            logger.exception("Lỗi khi ingest Material ID %s", mat.id)
+            resource.mark_rag_failed(f"{type(exc).__name__}: {exc}")
+            logger.exception("Lỗi xử lý file Resource ID %s", resource.id)
+            return 0
         finally:
-            if is_temp and os.path.exists(local_path):
+            if os.path.exists(local_path):
                 os.remove(local_path)
 
-    return total
+    if not chunks:
+        resource.mark_rag_failed("Tài nguyên không có nội dung để nạp.")
+        return 0
+
+    ids = []
+    for index in range(len(chunks)):
+        ids.append(document_id(SOURCE_RESOURCE, str(resource.id), 0, index))
+
+    try:
+        added = add_documents(chunks, ids)
+    except Exception as exc:
+        resource.mark_rag_failed(f"{type(exc).__name__}: {exc}")
+        logger.exception("Lỗi nạp vector Resource ID %s", resource.id)
+        return 0
+
+    resource.mark_rag_indexed(len(chunks))
+    return added
 
 
 def ingest_learning_resources():
@@ -213,65 +266,7 @@ def ingest_learning_resources():
         "lesson__chapter__course"
     )
 
-    splitter = text_splitter()
     total = 0
-
-    for res in resources:
-        res.mark_rag_processing()
-        chunks = []
-        metadata = {
-            "source_type": SOURCE_RESOURCE,
-            "resource_id": res.id,
-            "course_id": res.lesson.chapter.course_id,
-            "lesson_id": res.lesson_id,
-            "title": res.title,
-        }
-
-        if res.content:
-            doc = Document(page_content=res.content, metadata=metadata)
-            chunks = splitter.split_documents([doc])
-
-        elif res.file_url:
-            local_path = download_cloudinary_file(res.file_url)
-            if not local_path:
-                res.mark_rag_failed("Không tải được tệp từ Cloudinary.")
-                continue
-            try:
-                pages = load_pdf(Path(local_path))
-                chunks = markdown_splitter().split_documents(pages)
-                for chunk in chunks:
-                    chunk.metadata.update(metadata)
-            except Exception as exc:
-                res.mark_rag_failed(f"{type(exc).__name__}: {exc}")
-                logger.exception("Lỗi xử lý file Resource ID %s", res.id)
-                continue
-            finally:
-                if os.path.exists(local_path):
-                    os.remove(local_path)
-
-        if not chunks:
-            res.mark_rag_failed("Tài nguyên không có nội dung để nạp.")
-            logger.warning("Resource ID %s không có nội dung để ingest", res.id)
-            continue
-
-        ids = []
-        for i in range(len(chunks)):
-            chunk_id = document_id(
-                SOURCE_RESOURCE,
-                str(res.id),
-                0,
-                i,
-            )
-            ids.append(chunk_id)
-
-        try:
-            total += add_documents(chunks, ids)
-        except Exception as exc:
-            res.mark_rag_failed(f"{type(exc).__name__}: {exc}")
-            logger.exception("Lỗi nạp vector Resource ID %s", res.id)
-            continue
-
-        res.mark_rag_indexed(len(chunks))
-        logger.info("Đã ingest LearningResource ID %s (%s chunk)", res.id, len(chunks))
-
+    for resource in resources:
+        total += ingest_resource(resource)
     return total

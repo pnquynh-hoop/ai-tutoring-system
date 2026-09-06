@@ -1,22 +1,36 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import type { CourseTree, SessionUser } from '$lib/api/entities';
+	import type { CourseTree, CurrentUser } from '$lib/api/entities';
 	import { BookOpen, ChevronRight, Menu, PenLine, Star } from 'lucide-svelte';
 	import Avatar from './Avatar.svelte';
 
 	interface Props {
 		course: CourseTree;
-		student: SessionUser | null;
+		student: CurrentUser | null;
 		activeLessonId: number | null;
+		forceCollapsed?: boolean;
 	}
-	let { course, student, activeLessonId }: Props = $props();
+	let { course, student, activeLessonId, forceCollapsed = false }: Props = $props();
 
 	let sidebarCollapsed = $state(false);
+
+	$effect.pre(() => {
+		if (forceCollapsed) sidebarCollapsed = true;
+	});
 	let expandedChapterId = $state<number | null>(null);
+
+	$effect(() => {
+		if (activeLessonId === null) return;
+
+		const owningChapter = course.chapters.find((chapter) =>
+			chapter.lessons.some((lesson) => lesson.id === activeLessonId)
+		);
+		if (owningChapter) expandedChapterId = owningChapter.id;
+	});
 </script>
 
 <aside
-	class={`flex h-full shrink-0 flex-col overflow-hidden bg-brand-950 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-72'}`}
+	class={`flex h-full shrink-0 flex-col overflow-hidden bg-brand-800 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-72'}`}
 >
 	<div
 		class={`flex items-center border-b border-white/10 py-6 ${sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-5'}`}
@@ -24,8 +38,7 @@
 		{#if !sidebarCollapsed}
 			<a
 				href={`/course/${course.id}`}
-				class="truncate font-semibold tracking-tight text-white hover:text-brand-200"
-				style="font-family:'Sora',sans-serif;"
+				class="truncate font-semibold tracking-tight text-white hover:text-brand-200 font-heading"
 			>
 				{course.name}
 			</a>

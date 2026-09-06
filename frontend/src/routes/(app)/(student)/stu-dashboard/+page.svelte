@@ -3,7 +3,6 @@
 	import { logoutApi } from '$lib/api/calledAPI';
 	import type { Course } from '$lib/api/entities.js';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import Chatbot from '$lib/components/Chatbot.svelte';
 	import { auth } from '$lib/stores/auth.svelte';
 	import {
 		Bell,
@@ -25,7 +24,7 @@
 
 	let navItems = $state([
 		{ id: 'home', label: 'Trang chủ', icon: Home, href: '/stu-dashboard' },
-		{ id: 'history', label: 'Lịch sử làm bài với AI', icon: History, href: '/history' }
+		{ id: 'history', label: 'Lịch sử làm bài', icon: History, href: '/history' }
 	]);
 	let activeNav = $state('home');
 	let { data } = $props();
@@ -49,7 +48,7 @@
 			},
 			{
 				label: 'Bài tập chờ làm',
-				value: String(stats.pending_assignments_count),
+				value: String(stats.total_pending_assignments_count),
 				icon: Bell,
 				tone: 'amber'
 			},
@@ -113,18 +112,12 @@
 </script>
 
 <svelte:head>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap"
-		rel="stylesheet"
-	/>
 	<title>Trang chủ</title>
 </svelte:head>
 
-<div class="flex min-h-screen bg-slate-50" style="font-family:'Inter',sans-serif;">
+<div class="flex min-h-screen bg-slate-50">
 	<aside
-		class={`relative flex flex-col bg-brand-950 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}
+		class={`relative flex flex-col bg-brand-800 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}
 	>
 		<div class="flex items-center gap-3 px-5 py-6">
 			<div
@@ -133,8 +126,8 @@
 				<Sparkles class="h-5 w-5 text-white" />
 			</div>
 			{#if !sidebarCollapsed}
-				<span class="truncate font-semibold tracking-tight" style="font-family:'Sora',sans-serif;">
-					Gia sư AI CaSiu
+				<span class="truncate font-semibold tracking-tight font-heading">
+					Trung tâm gia sư Novi
 				</span>
 			{/if}
 		</div>
@@ -223,10 +216,7 @@
 		<main class="flex-1 overflow-y-auto px-8 py-8">
 			<div class="mb-8 flex flex-wrap items-end justify-between gap-4">
 				<div>
-					<h1
-						class="text-2xl font-bold tracking-tight text-slate-900"
-						style="font-family:'Sora',sans-serif;"
-					>
+					<h1 class="text-2xl font-bold tracking-tight text-slate-900 font-heading">
 						Chào mừng quay trở lại, {studentName} 👋
 					</h1>
 					<p class="mt-1 text-sm text-slate-500">
@@ -257,9 +247,7 @@
 			</div>
 
 			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-base font-semibold text-slate-800" style="font-family:'Sora',sans-serif;">
-					Khóa học của bạn
-				</h2>
+				<h2 class="text-base font-semibold text-slate-800 font-heading">Khóa học của bạn</h2>
 			</div>
 
 			{#if courses.length === 0}
@@ -279,10 +267,7 @@
 
 							<div class="mb-5 flex flex-1 items-start justify-between">
 								<div>
-									<h3
-										class="mt-1 text-lg font-bold text-slate-900"
-										style="font-family:'Sora',sans-serif;"
-									>
+									<h3 class="mt-1 text-lg font-bold text-slate-900 font-heading">
 										{course.name}
 									</h3>
 									<p class="mt-1 text-xs text-slate-500">
@@ -304,8 +289,8 @@
 								href={`/course/${course.id}`}
 								class={`mt-auto flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white transition-colors ${
 									course.progress >= 100
-										? 'bg-emerald-600 group-hover:bg-emerald-700'
-										: 'bg-slate-900 group-hover:bg-brand-600'
+										? 'bg-brand-800 group-hover:bg-brand-900'
+										: 'bg-brand-600 group-hover:bg-brand-700'
 								}`}
 							>
 								{course.progress >= 100 ? 'Xem khóa học' : 'Học tiếp'}
@@ -317,6 +302,4 @@
 			{/if}
 		</main>
 	</div>
-
-	<Chatbot userName={auth.user?.full_name} />
 </div>

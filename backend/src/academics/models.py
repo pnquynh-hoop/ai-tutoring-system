@@ -9,6 +9,10 @@ class Subject(BaseModel):
     name = models.CharField("Tên môn học", max_length=255, unique=True)
     description = models.TextField(verbose_name="Mô tả môn học")
 
+    class Meta:
+        verbose_name = "Môn học"
+        verbose_name_plural = "Môn học"
+
     def __str__(self):
         return self.name
 
@@ -18,6 +22,8 @@ class Grade(BaseModel):
 
     class Meta:
         ordering = ["number"]
+        verbose_name = "Khối lớp"
+        verbose_name_plural = "Khối lớp"
 
     @property
     def name(self):
@@ -44,7 +50,7 @@ def material_local_path(instance, filename):
 
 class Material(BaseModel, RAGIndexedModel):
 
-    name = models.CharField(max_length=255)
+    name = models.CharField("Tên tài liệu", max_length=255)
     file_url = CloudinaryField(
         "Tệp trên Cloudinary", folder=material_upload_path, null=True, blank=True
     )
@@ -56,9 +62,21 @@ class Material(BaseModel, RAGIndexedModel):
         blank=True,
     )
     subject = models.ForeignKey(
-        Subject, on_delete=models.CASCADE, related_name="materials"
+        Subject,
+        on_delete=models.CASCADE,
+        related_name="materials",
+        verbose_name="Môn học",
     )
-    grade = models.ForeignKey(Grade, on_delete=models.CASCADE, related_name="materials")
+    grade = models.ForeignKey(
+        Grade,
+        on_delete=models.CASCADE,
+        related_name="materials",
+        verbose_name="Khối lớp",
+    )
+
+    class Meta:
+        verbose_name = "Tài liệu"
+        verbose_name_plural = "Tài liệu"
 
     def __str__(self):
         return self.name

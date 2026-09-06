@@ -20,10 +20,7 @@ export function readSessionUser(token: string | undefined): SessionUser | null {
 
 		return {
 			id: Number(claims.user_id),
-			role: (claims.role as Role) ?? null,
-			full_name: (claims.full_name as string) ?? '',
-			avatar: (claims.avatar as string) ?? null,
-			grade: (claims.grade as string) ?? null
+			role: (claims.role as Role) ?? null
 		};
 	} catch {
 		return null;

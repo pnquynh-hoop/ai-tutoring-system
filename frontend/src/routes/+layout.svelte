@@ -3,6 +3,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { auth } from '$lib/stores/auth.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
 	let { data, children } = $props();
 
@@ -14,3 +15,4 @@
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 {@render children()}
 <ToastContainer />
+<ConfirmDialog />

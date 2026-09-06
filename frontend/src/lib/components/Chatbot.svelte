@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { askAI, getListCourses } from '$lib/api/calledAPI';
+	import { askAI } from '$lib/api/calledAPI';
 	import { getApiErrorMessage } from '$lib/api/errors';
-	import type { Course, RagSource } from '$lib/api/entities';
+	import type { RagSource } from '$lib/api/entities';
 	import { formatSourceLabel, resolveChatContext } from '$lib/utils/chat';
-	import { Bot, Send, Sparkles, X } from 'lucide-svelte';
+	import { Bot, FileText, Send, Sparkles, X } from 'lucide-svelte';
+	import AiMessage from './AiMessage.svelte';
+	import FieldError from './FieldError.svelte';
+	import { FIELD_LIMITS, textError } from '$lib/utils/validation';
 
 	interface ChatMessage {
 		id: number;
@@ -23,44 +26,26 @@
 	let isOpen = $state(false);
 	let draft = $state('');
 	let isThinking = $state(false);
+	let draftError = $state('');
 	let scrollEl = $state<HTMLDivElement | null>(null);
 
-	let routeCourseId = $derived(Number(page.params.courseId) || null);
-
-	let courses = $state<Course[]>([]);
-	let pickedCourseId = $state<number | null>(null);
-	let context = $derived(resolveChatContext(page.params, pickedCourseId));
+	let context = $derived(resolveChatContext(page.params));
 
 	let messages = $state<ChatMessage[]>([]);
 
-	const suggestions = [
-		'Tóm tắt nội dung bài học này',
-		'Giải thích lại phần lý thuyết cho dễ hiểu',
-		'Cho mình một ví dụ minh hoạ'
-	];
+	const MOTIVATION_QUOTE = 'Một ngày mới, một cơ hội mới để tiến bộ. Bắt đầu thôi nào!';
 
 	function greeting(): ChatMessage {
 		return {
 			id: Date.now(),
 			role: 'ai',
-			text: `Chào ${userName || 'bạn'} 👋 Mình trả lời dựa trên tài liệu bài học và sách giáo khoa của khóa học. Bạn muốn hỏi gì?`
+			text: `Chào ${userName || 'bạn'} 👋 Mình là trợ lý học tập của trung tâm, sẵn sàng hỗ trợ bạn với những nội dung đang học. Bạn muốn hỏi gì hôm nay?`
 		};
 	}
 
-	async function toggleOpen() {
+	function toggleOpen() {
 		isOpen = !isOpen;
-		if (!isOpen) return;
-
-		if (messages.length === 0) messages = [greeting()];
-
-		if (!routeCourseId && courses.length === 0) {
-			try {
-				courses = await getListCourses();
-				pickedCourseId = courses[0]?.id ?? null;
-			} catch (err) {
-				pushAi(getApiErrorMessage(err, 'Không tải được danh sách khóa học.'));
-			}
-		}
+		if (isOpen && messages.length === 0) messages = [greeting()];
 	}
 
 	function pushAi(text: string, sources?: RagSource[], grounded = true) {
@@ -81,7 +66,10 @@
 
 	async function send(text?: string) {
 		const content = (text ?? draft).trim();
-		if (!content || isThinking) return;
+		if (isThinking) return;
+
+		draftError = textError(content, FIELD_LIMITS.aiQuestion, 'Câu hỏi');
+		if (draftError) return;
 
 		if (!context.courseId) {
 			pushAi('Bạn chọn một khóa học trước để mình tìm đúng tài liệu nhé.');
@@ -116,13 +104,14 @@
 			<div
 				class="pointer-events-none absolute bottom-full right-0 mb-3 whitespace-nowrap rounded-2xl border border-brand-100 bg-white px-5 py-3 text-sm font-bold text-brand-600 opacity-0 shadow-xl shadow-brand-100/50 transition-opacity duration-200 group-hover:opacity-100"
 			>
-				Chào {userName || 'bạn'}! Mình giúp gì được bạn? 👋
+				Chào {userName || 'bạn'}! Mỗi câu hỏi bạn đặt ra là một bước tiến trên hành trình học tập
+				đấy.? 👋
 			</div>
 
 			<button
 				onclick={toggleOpen}
 				aria-label="Mở trợ lý AI"
-				class="flex h-16 w-16 items-center justify-center rounded-full bg-blue-700 text-white shadow-xl shadow-brand-900/40 transition-all hover:scale-110 hover:bg-blue-800"
+				class="flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-indigo-400 to-indigo-700 text-white shadow-xl shadow-indigo-500/45 ring-1 ring-white/15 transition-all duration-300 hover:scale-110 hover:shadow-2xl hover:shadow-indigo-500/60"
 			>
 				<Bot class="h-8 w-8 animate-bounce" />
 			</button>
@@ -133,19 +122,14 @@
 {#if isOpen}
 	<aside
 		class="fixed right-0 top-0 z-40 flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl shadow-slate-300/50"
-		style="font-family:'Inter',sans-serif;"
 	>
 		<header class="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
-			<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-950 text-white">
+			<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
 				<Sparkles class="h-5 w-5" />
 			</div>
 			<div class="min-w-0 flex-1">
-				<p class="text-sm font-bold text-slate-800" style="font-family:'Sora',sans-serif;">
-					Trợ lý AI
-				</p>
-				<p class="truncate text-xs text-slate-400">
-					{context.lessonId ? 'Đang hỏi theo bài học hiện tại' : 'Đang hỏi theo cả khóa học'}
-				</p>
+				<p class="text-sm font-bold text-slate-800 font-heading">Trợ lý AI</p>
+				<p class="truncate text-xs text-slate-400">Đi chậm vẫn tốt hơn đứng yên.</p>
 			</div>
 			<button
 				onclick={() => (isOpen = false)}
@@ -156,54 +140,40 @@
 			</button>
 		</header>
 
-		{#if !routeCourseId}
-			<div class="border-b border-slate-100 px-5 py-3">
-				<label class="block">
-					<span class="mb-1 block text-xs font-medium text-slate-500">Khóa học</span>
-					<select
-						bind:value={pickedCourseId}
-						class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm outline-none focus:border-brand-300"
-					>
-						{#each courses as course (course.id)}
-							<option value={course.id}>{course.name}</option>
-						{/each}
-					</select>
-				</label>
-				{#if courses.length === 0}
-					<p class="mt-2 text-xs text-amber-600">
-						Bạn chưa ghi danh khóa học nào nên trợ lý chưa có tài liệu để trả lời.
-					</p>
-				{/if}
-			</div>
-		{/if}
-
 		<div bind:this={scrollEl} class="flex-1 space-y-4 overflow-y-auto bg-slate-50 px-5 py-4">
 			{#each messages as message (message.id)}
 				<div class={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
 					<div
 						class={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
 							message.role === 'user'
-								? 'bg-brand-950 text-white'
+								? 'bg-brand-600 text-white'
 								: 'border border-slate-200/70 bg-white text-slate-700'
 						}`}
 					>
-						<p class="whitespace-pre-wrap">{message.text}</p>
+						{#if message.role === 'user'}
+							<p class="whitespace-pre-wrap">{message.text}</p>
+						{:else}
+							<AiMessage text={message.text} />
+						{/if}
 
 						{#if message.role === 'ai' && message.grounded === false}
 							<p
-								class="mt-2 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700"
+								class="mt-2.5 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700"
 							>
 								Kiến thức chung, không trích từ tài liệu khóa học
 							</p>
 						{/if}
 
 						{#if message.sources?.length}
-							<div class="mt-2 border-t border-slate-100 pt-2">
+							<div class="mt-2.5 space-y-1 border-t border-slate-100 pt-2">
 								<p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
 									Nguồn tham khảo
 								</p>
 								{#each message.sources as source (source.title + source.page)}
-									<p class="text-[11px] text-slate-500">{formatSourceLabel(source)}</p>
+									<p class="flex items-start gap-1.5 text-[11px] text-slate-500">
+										<FileText class="mt-px h-3 w-3 shrink-0 text-slate-400" />
+										<span class="min-w-0 flex-1">{formatSourceLabel(source)}</span>
+									</p>
 								{/each}
 							</div>
 						{/if}
@@ -223,15 +193,10 @@
 		</div>
 
 		{#if messages.length <= 1}
-			<div class="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
-				{#each suggestions as suggestion (suggestion)}
-					<button
-						onclick={() => send(suggestion)}
-						class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
-					>
-						{suggestion}
-					</button>
-				{/each}
+			<div class="border-t border-slate-100 px-5 py-3">
+				<p class="text-center text-xs italic text-slate-500">
+					“{MOTIVATION_QUOTE}”
+				</p>
 			</div>
 		{/if}
 
@@ -239,18 +204,20 @@
 			<textarea
 				rows="1"
 				bind:value={draft}
+				oninput={() => (draftError = '')}
 				onkeydown={handleKeydown}
 				placeholder="Nhập câu hỏi của bạn..."
-				class="max-h-28 min-h-[38px] flex-1 resize-none rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-brand-300"
+				class="max-h-28 min-h-9.5 flex-1 resize-none rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-brand-300"
 			></textarea>
 			<button
 				onclick={() => send()}
 				disabled={!draft.trim() || isThinking}
 				aria-label="Gửi câu hỏi"
-				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-950 text-white transition-colors hover:bg-brand-800 disabled:opacity-40"
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:opacity-40"
 			>
 				<Send class="h-4 w-4" />
 			</button>
 		</div>
+		<div class="px-5 pb-3"><FieldError message={draftError} /></div>
 	</aside>
 {/if}

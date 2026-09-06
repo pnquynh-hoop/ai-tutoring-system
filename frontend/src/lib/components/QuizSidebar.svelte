@@ -82,7 +82,7 @@
 </script>
 
 <aside
-	class={`flex shrink-0 flex-col overflow-hidden bg-brand-950 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-72'}`}
+	class={`flex shrink-0 flex-col overflow-hidden bg-brand-800 text-white transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-72'}`}
 >
 	<div
 		class={`flex items-center border-b border-white/10 py-6 ${sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-5'}`}
@@ -156,7 +156,7 @@
 			<div class="px-5 pb-5">
 				<button
 					onclick={onFinish}
-					class="w-full rounded-full bg-white py-2.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-brand-50"
+					class="w-full rounded-full bg-white py-2.5 text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-50"
 				>
 					Hoàn thành ({answeredCount}/{questions.length})
 				</button>

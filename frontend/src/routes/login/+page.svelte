@@ -1,4 +1,6 @@
 <script lang="ts">
+	import FieldError from '$lib/components/FieldError.svelte';
+	import { hasError, requiredError } from '$lib/utils/validation';
 	import { ArrowRight, Bot, Eye, EyeOff, Loader2, XCircle } from 'lucide-svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import axios from 'axios';
@@ -9,12 +11,24 @@
 
 	let username = $state('');
 	let password = $state('');
+	let loginErrors = $state<Record<string, string>>({});
 	let errorMessage = $state('');
 	let isLoading = $state(false);
 	let showPassword = $state(false);
 
+	function validateLogin(): boolean {
+		loginErrors = {
+			username: requiredError(username, 'Tên đăng nhập'),
+			password: requiredError(password, 'Mật khẩu')
+		};
+		return !hasError(loginErrors);
+	}
+
 	async function handleLogin(event: SubmitEvent) {
 		event.preventDefault();
+		if (isLoading) return;
+		if (!validateLogin()) return;
+
 		isLoading = true;
 		errorMessage = '';
 
@@ -57,7 +71,7 @@
 			</div>
 
 			<div class="relative z-10 flex flex-col items-center text-center space-y-4">
-				<h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">TRUNG TÂM GIA SƯ</h2>
+				<h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">TRUNG TÂM GIA SƯ NOVI</h2>
 				<p class="text-slate-600 text-base leading-relaxed max-w-sm">
 					Kết nối tri thức, ươm mầm tương lai. Đăng nhập để tham gia học tập các khóa học thú vị của
 					bạn.
@@ -68,7 +82,7 @@
 				>
 					<img
 						src="https://res.cloudinary.com/desvczltb/image/upload/v1784110310/Education-rafiki_ffhps3.svg"
-						alt="Hệ thống trung tâm gia sư"
+						alt="Hệ thống Trung tâm gia sư Novi"
 						class="w-full h-full object-contain drop-shadow-xl transition-transform duration-500 hover:scale-105"
 					/>
 				</div>
@@ -111,6 +125,7 @@
 						Tên đăng nhập
 					</label>
 					<input
+						oninput={() => (loginErrors = { ...loginErrors, username: '' })}
 						type="text"
 						id="username"
 						bind:value={username}
@@ -119,22 +134,17 @@
 						disabled={isLoading}
 						class="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 sm:text-sm disabled:opacity-60"
 					/>
+					<FieldError message={loginErrors.username} />
 				</div>
 
 				<div>
-					<div class="flex justify-between items-center mb-1.5">
-						<label for="password" class="block text-sm font-semibold text-slate-700">
-							Mật khẩu
-						</label>
-						<a
-							href={resolve('/login')}
-							class="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline transition-all"
-							>Quên mật khẩu?</a
-						>
-					</div>
+					<label for="password" class="mb-1.5 block text-sm font-semibold text-slate-700">
+						Mật khẩu
+					</label>
 
 					<div class="relative">
 						<input
+							oninput={() => (loginErrors = { ...loginErrors, password: '' })}
 							type={showPassword ? 'text' : 'password'}
 							id="password"
 							bind:value={password}
@@ -143,6 +153,7 @@
 							disabled={isLoading}
 							class="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 pr-12 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 sm:text-sm disabled:opacity-60"
 						/>
+						<FieldError message={loginErrors.password} />
 
 						<button
 							type="button"

@@ -1,0 +1,159 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .filter-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        padding: 0 12px 12px;
+    }
+
+    .ingest-note {
+        padding: 0 12px 12px;
+        color: var(--body-quiet-color);  
+    }
+
+    .ingest-table {
+        width: 100%;
+    }
+
+    .ingest-table td {
+        vertical-align: middle;
+    }
+
+    .material-error {
+        color: var(--body-quiet-color);
+        font-size: 12px;
+        margin-top: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Trang chủ</a>
+    &rsaquo; Nạp tài liệu vào kho RAG
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+
+    <div class="module">
+        <h2>Lọc tài liệu</h2>
+        <ul class="filter-chips">
+            <li>
+                <a class="button {% if not status_filter %}default{% endif %}"
+                   href="{% url 'admin:academics_material_ingest' %}">Tất cả ({{ total_materials }})</a>
+            </li>
+            {% for item in status_summary %}
+            <li>
+                <a class="button {% if status_filter == item.value %}default{% endif %}"
+                   href="{% url 'admin:academics_material_ingest' %}?status={{ item.value }}">
+                    {{ item.label }} ({{ item.total }})
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <form method="get" class="filter-form">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <select name="subject">
+                <option value="">Mọi môn học</option>
+                {% for subject in subjects %}
+                <option value="{{ subject.pk }}"
+                    {% if subject_filter == subject.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ subject.name }}
+                </option>
+                {% endfor %}
+            </select>
+            <select name="grade">
+                <option value="">Mọi khối lớp</option>
+                {% for grade in grades %}
+                <option value="{{ grade.pk }}"
+                    {% if grade_filter == grade.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ grade.name }}
+                </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="button">Lọc</button>
+        </form>
+    </div>
+
+    <div class="module">
+        <h2>Chọn tài liệu cần nạp</h2>
+        <p class="ingest-note">
+            Tài liệu nhiều trang cần khá nhiều thời gian để xử lý nên việc nạp được chạy ở nền.
+        </p>
+
+        {% if page.object_list %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="current_query" value="{{ current_query }}">
+
+            <table class="ingest-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="select-all"></th>
+                        <th>Tài liệu</th>
+                        <th>Môn học</th>
+                        <th>Khối lớp</th>
+                        <th>Trạng thái</th>
+                        <th>Số chunk đã nạp</th>
+                        <th>Lần nạp gần nhất</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material in page.object_list %}
+                    <tr>
+                        <td><input type="checkbox" name="material_id" value="{{ material.pk }}"></td>
+                        <td>
+                            <a href="{% url 'admin:academics_material_change' material.pk %}">
+                                {{ material.name }}
+                            </a>
+                            {% if material.rag_error %}
+                            <div class="material-error">{{ material.rag_error|truncatechars:160 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>{{ material.subject }}</td>
+                        <td>{{ material.grade }}</td>
+                        <td>{{ material.get_rag_status_display }}</td>
+                        <td>{{ material.rag_progress }}</td>
+                        <td>{{ material.rag_indexed_at|date:"d/m/Y H:i"|default:"Chưa nạp lần nào" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="submit-row">
+                <input type="submit" class="default" value="Nạp vào kho RAG">
+            </div>
+        </form>
+
+        <p class="paginator">
+            {% if page.has_previous %}
+            <a href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Trang trước</a>
+            {% endif %}
+            Trang {{ page.number }}/{{ page.paginator.num_pages }}
+            {% if page.has_next %}
+            <a href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Trang sau</a>
+            {% endif %}
+        </p>
+
+        <script>
+            document.getElementById("select-all").addEventListener("change", function (event) {
+                document.querySelectorAll("input[name='material_id']").forEach(function (box) {
+                    box.checked = event.target.checked;
+                });
+            });
+        </script>
+        {% else %}
+        <p class="empty-note">Không có tài liệu nào khớp bộ lọc.</p>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

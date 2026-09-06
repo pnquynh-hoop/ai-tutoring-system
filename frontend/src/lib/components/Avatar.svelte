@@ -2,7 +2,7 @@
 	interface Props {
 		src?: string | null;
 		name: string;
-		size?: 'sm' | 'md' | 'lg';
+		size?: 'sm' | 'md' | 'lg' | 'xl';
 		fromColor?: string;
 		toColor?: string;
 	}
@@ -20,7 +20,8 @@
 	const sizeClasses: Record<NonNullable<Props['size']>, string> = {
 		sm: 'h-7 w-7 text-[11px]',
 		md: 'h-8 w-8 text-xs',
-		lg: 'h-9 w-9 text-sm'
+		lg: 'h-9 w-9 text-sm',
+		xl: 'h-20 w-20 text-2xl'
 	};
 
 	const initial = $derived(name?.[0]?.toUpperCase() ?? '?');

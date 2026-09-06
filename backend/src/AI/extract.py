@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import html
 import json
 import logging
 import re
@@ -47,10 +48,10 @@ def file_fingerprint(path):
 
 
 def cache_path(path):
-    dir = Path(settings.RAG_CACHE_DIR)
-    dir.mkdir(parents=True, exist_ok=True)
+    cache_dir = Path(settings.RAG_CACHE_DIR)
+    cache_dir.mkdir(parents=True, exist_ok=True)
     fingerprint = file_fingerprint(path)
-    return Path(dir, f"{fingerprint}.json")
+    return Path(cache_dir, f"{fingerprint}.json")
 
 
 def load_cache(path):
@@ -204,10 +205,12 @@ WRAP_EDGE_RATIO = 0.005
 
 
 def block_text(block):
-    left, right = block["bbox"][0], block["bbox"][2]
-    limit = right - max(WRAP_EDGE_TOLERANCE, (right - left) * WRAP_EDGE_RATIO)
+    left_edge, right_edge = block["bbox"][0], block["bbox"][2]
+    wrap_threshold = right_edge - max(
+        WRAP_EDGE_TOLERANCE, (right_edge - left_edge) * WRAP_EDGE_RATIO
+    )
 
-    result, wrapped = "", False
+    paragraph, previous_line_wrapped = "", False
     for line in block["lines"]:
         line_text = ""
         for span in line["spans"]:
@@ -217,17 +220,17 @@ def block_text(block):
         if not line_text:
             continue
 
-        if not result:
-            result = line_text
-        elif not wrapped:
-            result += "\n" + line_text
-        elif HYPHEN_BREAK.search(result):
-            result = result[:-1] + line_text
+        if not paragraph:
+            paragraph = line_text
+        elif not previous_line_wrapped:
+            paragraph += "\n" + line_text
+        elif HYPHEN_BREAK.search(paragraph):
+            paragraph = paragraph[:-1] + line_text
         else:
-            result += " " + line_text
+            paragraph += " " + line_text
 
-        wrapped = line["bbox"][2] >= limit
-    return result
+        previous_line_wrapped = line["bbox"][2] >= wrap_threshold
+    return paragraph
 
 
 HEADING_SIZE_RATIO = 1.25
@@ -315,26 +318,18 @@ def extract_native_pages(path, page_indexes):
 
 
 PAGE_NUMBER_LINE = re.compile(
-    r"""
-    ^                          # Bắt đầu dòng
-    [\s|*_\-–—]*               # Ký tự trang trí ở đầu
-    (?:trang|page)?            # "trang" hoặc "page", không bắt buộc
-    [\s.]*                     # Khoảng trắng hoặc dấu chấm
-    \d{1,4}                    # Số trang: 1–4 chữ số
-    \s*                        # Khoảng trắng
-    (?:/\s*\d{1,4})?           # / tổng số trang, không bắt buộc
-    [\s|*_\-–—]*               # Ký tự trang trí ở cuối
-    $                           # Kết thúc dòng
-    """,
-    re.IGNORECASE | re.VERBOSE,
+    r"^[\s|*_\-–—]*(?:trang|page)?[\s.]*\d{1,4}\s*(?:/\s*\d{1,4})?[\s|*_\-–—]*$",
+    re.IGNORECASE,
 )
 
 
 def drop_page_number(lines):
-    for position in (0, -1):
-        if lines and PAGE_NUMBER_LINE.match(lines[position]):
-            lines.pop(position)
-    return lines
+    kept_lines = list(lines)
+    if kept_lines and PAGE_NUMBER_LINE.match(kept_lines[0]):
+        kept_lines.pop(0)
+    if kept_lines and PAGE_NUMBER_LINE.match(kept_lines[-1]):
+        kept_lines.pop()
+    return kept_lines
 
 
 MOJIBAKE = {
@@ -358,6 +353,7 @@ def normalize_characters(page_text):
     for wrong, right in MOJIBAKE.items():
         page_text = page_text.replace(wrong, right)
 
+    page_text = html.unescape(page_text)
     page_text = STRAY_A_CIRCUMFLEX.sub("", page_text)
     page_text = unicodedata.normalize("NFKC", page_text)
     page_text = page_text.replace("\r\n", "\n").replace("\r", "\n")
@@ -393,34 +389,35 @@ def repeatable_word(word):
 MAX_REPEAT_WORDS = 8
 
 
+def repeated_group_size(words, position):
+    longest_group = min(MAX_REPEAT_WORDS, (len(words) - position) // 2)
+
+    for size in range(longest_group, 0, -1):
+        group = words[position : position + size]
+        next_group = words[position + size : position + 2 * size]
+
+        if group != next_group:
+            continue
+        if size == 1 and not repeatable_word(group[0]):
+            continue
+        return size
+    return 0
+
+
 def collapse_repeats(line):
     words = line.split(" ")
-    result, index = [], 0
+    kept_words, position = [], 0
 
-    while index < len(words):
-        repeated_size = 0
-        max_size = min(MAX_REPEAT_WORDS, (len(words) - index) // 2)
-        for size in range(max_size, 0, -1):
-            first_part = words[index : index + size]
-            second_part = words[index + size : index + 2 * size]
+    while position < len(words):
+        group_size = repeated_group_size(words, position)
 
-            if first_part != second_part:
-                continue
-
-            if size == 1 and not repeatable_word(first_part[0]):
-                continue
-
-            repeated_size = size
-            break
-
-        if repeated_size > 0:
-            repeated_part = words[index : index + repeated_size]
-            result.extend(repeated_part)
-            index += repeated_size * 2
+        if group_size:
+            kept_words.extend(words[position : position + group_size])
+            position += group_size * 2
         else:
-            result.append(words[index])
-            index += 1
-    return " ".join(result)
+            kept_words.append(words[position])
+            position += 1
+    return " ".join(kept_words)
 
 
 def dedupe_lines(page_text):
@@ -461,7 +458,8 @@ def clean_markdown(page_text):
     page_text = normalize_characters(page_text)
     page_text = strip_html(page_text)
     page_text = tidy_whitespace(page_text)
-    page_text = dedupe_lines("\n".join(drop_page_number(page_text.strip().split("\n"))))
+    lines = drop_page_number(page_text.strip().split("\n"))
+    page_text = dedupe_lines("\n".join(lines))
     return page_text.strip()
 
 
@@ -472,60 +470,56 @@ HEADER_MIN_RATIO = 0.4
 WATERMARK_MIN_RATIO = 0.6   
 
 
+def page_lines(page_text):
+    lines = []
+    for line in page_text.split("\n"):
+        if line.strip():
+            lines.append(line.strip())
+    return lines
+
+
+def count_line_occurrences(page_texts):
+    edge_counts, anywhere_counts = {}, {}
+
+    for page_text in page_texts.values():
+        lines = page_lines(page_text)
+        edge_lines = set(lines[:REPEAT_EDGE_LINES] + lines[-REPEAT_EDGE_LINES:])
+
+        for line in edge_lines:
+            edge_counts[line] = edge_counts.get(line, 0) + 1
+        for line in set(lines):
+            anywhere_counts[line] = anywhere_counts.get(line, 0) + 1
+    return edge_counts, anywhere_counts
+
+
+def lines_over_threshold(counts, page_count, min_ratio):
+    threshold = max(REPEAT_MIN_PAGES, round(page_count * min_ratio))
+    found = set()
+
+    for line, count in counts.items():
+        if count < threshold:
+            continue
+        if len(line) > REPEAT_MAX_LENGTH:
+            continue
+        if line.startswith("|"):
+            continue
+        found.add(line)
+    return found
+
+
 def repeated_lines(page_texts):
     if len(page_texts) < REPEAT_MIN_PAGES:
         return set()
 
-    edge_count, anywhere_count = {}, {}
-    for page_text in page_texts.values():
-        lines = page_text.split("\n")
-        clean_lines = []
-
-        for line in lines:
-            if line.strip():
-                clean_lines.append(line.strip())
-
-        first_lines = clean_lines[:REPEAT_EDGE_LINES]
-        last_lines = clean_lines[-REPEAT_EDGE_LINES:]
-
-        edge_lines = set(first_lines + last_lines)
-        for line in edge_lines:
-            edge_count[line] = edge_count.get(line, 0) + 1
-
-        anywhere_lines = set(clean_lines)
-        for line in anywhere_lines:
-            anywhere_count[line] = anywhere_count.get(line, 0) + 1
-
-    repeated = set()
-
-    threshold = max(
-        REPEAT_MIN_PAGES,
-        round(len(page_texts) * HEADER_MIN_RATIO),
+    page_count = len(page_texts)
+    edge_counts, anywhere_counts = count_line_occurrences(page_texts)
+    headers_and_footers = lines_over_threshold(
+        edge_counts, page_count, HEADER_MIN_RATIO
     )
-
-    for line, count in edge_count.items():
-        if count < threshold:
-            continue
-        if len(line) > REPEAT_MAX_LENGTH:
-            continue
-        if line.startswith("|"):
-            continue
-        repeated.add(line)
-
-    threshold = max(
-        REPEAT_MIN_PAGES,
-        round(len(page_texts) * WATERMARK_MIN_RATIO),
+    watermarks = lines_over_threshold(
+        anywhere_counts, page_count, WATERMARK_MIN_RATIO
     )
-
-    for line, count in anywhere_count.items():
-        if count < threshold:
-            continue
-        if len(line) > REPEAT_MAX_LENGTH:
-            continue
-        if line.startswith("|"):
-            continue
-        repeated.add(line)
-    return repeated
+    return headers_and_footers | watermarks
 
 
 def clean_pages(page_texts):

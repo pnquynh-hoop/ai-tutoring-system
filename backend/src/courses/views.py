@@ -1,5 +1,9 @@
+import logging
+
 from django.db.models import Prefetch
 from rest_framework import generics, status, viewsets
+
+from AI.tasks import ingest_resource_task
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -8,6 +12,7 @@ from core.permissions import (
     IsCourseMember,
     IsCourseTutor,
     IsRelatedCourseTutor,
+    IsStudent,
     IsStudentOrTutor,
     IsTutor,
 )
@@ -17,19 +22,20 @@ from .serializers import (
     ChapterSerializer,
     ChapterStatSerializer,
     CommentSerializer,
-    CourseDetailSerializer,
+    StudentDetailCourseSerializer,
     CourseOverviewSerializer,
     CourseTreeSerializer,
+    IngestResourceSerializer,
     LearningResourceSerializer,
+    TutorLearningResourceSerializer,
     LessonDetailSerializer,
     LessonSerializer,
     PublishChapterSerializer,
     PublishLessonSerializer,
     PublishResourceSerializer,
     ResourceSerializer,
-    StudentCourseSerializer,
+    StudentListCourseSerializer,
     StudentQuickStatsSerializer,
-    TutorCourseDetailSerializer,
     TutorCourseSerializer,
     TutorCourseStatsSerializer,
     TutorQuickStatsSerializer,
@@ -48,6 +54,11 @@ from .services import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+QUEUE_UNAVAILABLE = "Hàng đợi nạp tài liệu đang không hoạt động, vui lòng thử lại sau."
+
+
 class CourseView(
     viewsets.ViewSet,
     generics.ListAPIView,
@@ -59,6 +70,8 @@ class CourseView(
     def get_permissions(self):
         if self.action == "tutor_stats":
             return [IsTutor(), IsCourseTutor()]
+        if self.action == "retrieve":
+            return [IsStudent(), IsCourseMember()]
         return [IsStudentOrTutor(), IsCourseMember()]
 
     def get_queryset(self):
@@ -78,9 +91,12 @@ class CourseView(
         user = self.request.user
         is_tutor = user.is_authenticated and user.is_tutor
 
+        if is_tutor:
+            return TutorCourseSerializer
+
         if self.action == "retrieve":
-            return TutorCourseDetailSerializer if is_tutor else CourseDetailSerializer
-        return TutorCourseSerializer if is_tutor else StudentCourseSerializer
+            return StudentDetailCourseSerializer
+        return StudentListCourseSerializer
 
     @action(methods=["get"], url_path="tree", detail=True)
     def get_tree(self, request, pk):
@@ -191,6 +207,8 @@ class LessonView(
         if self.action == "get_comments":
             return CommentSerializer
         if self.action == "get_resources":
+            if self.request.user.is_tutor:
+                return TutorLearningResourceSerializer
             return LearningResourceSerializer
         return LessonDetailSerializer
 
@@ -233,7 +251,6 @@ class LessonView(
                     "content": request.data.get("content"),
                     "parent": request.data.get("parent"),
                     "lesson": lesson.id,
-                    "created_by": request.user.pk,
                 }
             )
             serializer.is_valid(raise_exception=True)
@@ -315,3 +332,26 @@ class ResourceView(
         serializer.save()
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(methods=["post"], url_path="ingest", detail=True)
+    def ingest(self, request, pk):
+        resource = self.get_object()
+
+        serializer = IngestResourceSerializer(resource, data={})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        try:
+            ingest_resource_task.delay(resource.id)
+        except Exception:
+            logger.exception("Không đẩy được Resource ID %s vào hàng đợi", resource.id)
+            resource.mark_rag_failed("Hàng đợi nạp đang không hoạt động.")
+            return Response(
+                {"error": QUEUE_UNAVAILABLE},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            TutorLearningResourceSerializer(resource).data,
+            status=status.HTTP_202_ACCEPTED,
+        )

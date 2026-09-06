@@ -3,7 +3,9 @@
 @plugin '@tailwindcss/typography';
 
 @theme {
-	/* Màu thương hiệu: xanh dương, mốc chính là brand-600 */
+	--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+	--font-heading: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
 	--color-brand-50: #eff4ff;
 	--color-brand-100: #dbe6fe;
 	--color-brand-200: #bfd3fe;
@@ -11,13 +13,16 @@
 	--color-brand-400: #6090fa;
 	--color-brand-500: #3b70f6;
 	--color-brand-600: #175ddc;
-	--color-brand-700: #1449b0;
-	--color-brand-800: #163e8c;
-	--color-brand-900: #17376f;
-	--color-brand-950: #0f2350;
+	--color-brand-700: #1450c4;
+	--color-brand-800: #1546ab;
+	--color-brand-900: #143f97;
+	--color-brand-950: #123a8a;
 
-	/* Đầu nhạt của thang slate kéo ngả xanh cho khớp màu thương hiệu */
-	--color-slate-50: #f5f8fd;
-	--color-slate-100: #ebf1fa;
-	--color-slate-200: #e3eaf5;
+	--color-slate-50: #eef4fd;
+	--color-slate-100: #e6eefb;
+	--color-slate-200: #dbe6f6;
+}
+
+body {
+	font-family: var(--font-sans);
 }

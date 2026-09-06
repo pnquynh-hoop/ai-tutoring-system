@@ -29,11 +29,17 @@ class User(AbstractUser):
 
 
 class TutorProfile(BaseModel):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, verbose_name="Tài khoản"
+    )
     bio = models.CharField("Giới thiệu ngắn gọn", max_length=255)
     qualification = models.CharField("Trình độ", max_length=255)
-    experience_years = models.IntegerField("Số năm kinh nghiệm", default=0)
+    experience_years = models.PositiveIntegerField("Số năm kinh nghiệm", default=0)
     is_verified = models.BooleanField("Trạng thái xác minh", default=False)
+
+    class Meta:
+        verbose_name = "Hồ sơ gia sư"
+        verbose_name_plural = "Hồ sơ gia sư"
 
     def __str__(self):
         return str(self.user)
@@ -46,14 +52,26 @@ class StudentProfile(BaseModel):
         GOOD = "GOOD", "Khá"
         EXCELLENT = "EXCELLENT", "Giỏi"
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, verbose_name="Tài khoản"
+    )
     grade_level = models.ForeignKey(
-        "academics.Grade", on_delete=models.SET_NULL, null=True
+        "academics.Grade",
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="Khối lớp",
     )
     learning_goals = models.TextField("Mục tiêu học tập")
     academic_level = models.CharField(
-        max_length=20, choices=AcademicLevel.choices, default=AcademicLevel.AVERAGE
+        "Học lực",
+        max_length=20,
+        choices=AcademicLevel.choices,
+        default=AcademicLevel.AVERAGE,
     )
+
+    class Meta:
+        verbose_name = "Hồ sơ học sinh"
+        verbose_name_plural = "Hồ sơ học sinh"
 
     def __str__(self):
         return str(self.user)

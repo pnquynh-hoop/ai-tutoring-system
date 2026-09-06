@@ -6,6 +6,7 @@ import pytest
 
 from AI import extract
 from AI.extract import (
+    clean_markdown,
     file_fingerprint,
     load_cache,
     save_cache,
@@ -15,6 +16,18 @@ from AI.extract import (
     ocr_page,
     page_has_text,
 )
+
+
+class TestHtmlEntities:
+    def test_nbsp_becomes_a_plain_space(self):
+        cleaned = clean_markdown("| cloud nine/ &nbsp;&nbsp;over the moon")
+
+        assert "&nbsp;" not in cleaned
+        assert "\xa0" not in cleaned
+        assert "over the moon" in cleaned
+
+    def test_other_entities_are_decoded_too(self):
+        assert clean_markdown("Tom &amp; Jerry &lt;3") == "Tom & Jerry <3"
 
 
 
@@ -114,6 +127,7 @@ class TestLoadPdf:
 
     def test_drops_blank_pages(self, tmp_path, settings):
         settings.RAG_CACHE_DIR = tmp_path / "cache"
+        settings.RAG_OCR_ENABLED = False
         path = make_pdf(tmp_path / "a.pdf", ["Co chu", "   "])
 
         assert len(load_pdf(path)) == 1

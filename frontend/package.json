@@ -43,7 +43,9 @@
 		"vitest-browser-svelte": "^2.1.1"
 	},
 	"dependencies": {
+		"@types/katex": "^0.16.8",
 		"axios": "^1.18.1",
+		"katex": "^0.18.4",
 		"lucide-svelte": "^1.0.1"
 	}
 }

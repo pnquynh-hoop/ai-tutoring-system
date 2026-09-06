@@ -1,6 +1,5 @@
 from django import forms
 from django.contrib import admin
-
 from core.admin import admin_site
 from core.validators import validate_document_upload
 from courses.models import (

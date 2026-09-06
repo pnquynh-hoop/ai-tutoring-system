@@ -8,6 +8,7 @@ from django.db.models import (
     ExpressionWrapper,
     F,
     FloatField,
+    IntegerField,
     OuterRef,
     Prefetch,
     Q,
@@ -128,7 +129,7 @@ def get_quick_stats(student):
 
     ongoing_courses_count = enrolled_courses(student).filter(is_active=True).count()
 
-    pending_assignments_count = (
+    total_pending_assignments_count = (
         Assignment.objects.filter(
             chapter__course__enrollment__student=student,
             chapter__course__enrollment__is_active=True,
@@ -148,7 +149,7 @@ def get_quick_stats(student):
 
     return {
         "ongoing_courses_count": ongoing_courses_count,
-        "pending_assignments_count": pending_assignments_count,
+        "total_pending_assignments_count": total_pending_assignments_count,
         "streak": streak_data["streak"],
         "studied_today": streak_data["studied_today"],
     }
@@ -158,7 +159,7 @@ def get_tutor_quick_stats(tutor):
 
     teaching_course_count = Course.objects.filter(tutor=tutor, is_active=True).count()
 
-    students_count = (
+    total_students_count = (
         Enrollment.objects.filter(
             course__tutor=tutor, course__is_active=True, is_active=True
         )
@@ -167,7 +168,7 @@ def get_tutor_quick_stats(tutor):
         .count()
     )
 
-    pending_submission_count = Submission.objects.filter(
+    total_pending_submission_count = Submission.objects.filter(
         assignment__chapter__course__tutor=tutor,
         assignment__chapter__course__is_active=True,
         assignment__chapter__is_active=True,
@@ -177,8 +178,8 @@ def get_tutor_quick_stats(tutor):
 
     return {
         "teaching_course_count": teaching_course_count,
-        "students_count": students_count,
-        "pending_submission_count": pending_submission_count,
+        "total_students_count": total_students_count,
+        "total_pending_submission_count": total_pending_submission_count,
     }
 
 
@@ -293,7 +294,7 @@ def get_chapter_stats(course, student, include_drafts=False):
     chapters = course.chapters.filter(is_active=True)
 
     if not include_drafts:
-        visible_lesson &= Q(lessons__published_at__isnull=False)
+        visible_lesson = visible_lesson & Q(lessons__published_at__isnull=False)
         chapter_assignments = chapter_assignments.filter(published_at__isnull=False)
         chapters = chapters.filter(published_at__isnull=False)
 
@@ -317,25 +318,14 @@ def get_chapter_stats(course, student, include_drafts=False):
 
     result = []
     for chapter in chapters:
-        first_incomplete = next(
+        chapter.first_incomplete_lesson_id = next(
             (lesson.id for lesson in chapter.lessons.all() if not lesson.is_completed),
             None,
         )
+        has_pending_assignment = chapter.has_assignment and not chapter.has_submission
+        chapter.pending_assignments = 1 if has_pending_assignment else 0
 
-        result.append(
-            {
-                "id": chapter.id,
-                "title": chapter.title,
-                "order": chapter.order,
-                "total_lessons": chapter.total_lessons,
-                "completed_lessons": chapter.completed_lessons,
-                "score": chapter.score,
-                "pending_assignments": int(
-                    chapter.has_assignment and not chapter.has_submission
-                ),
-                "first_incomplete_lesson_id": first_incomplete,
-            }
-        )
+        result.append(chapter)
 
     return result
 
@@ -369,26 +359,13 @@ def get_course_tutor_stats(course):
                 distinct=True,
             ),
             average_score=Subquery(average_score_subquery),
+            total_lessons=Value(total_lessons, output_field=IntegerField()),
         )
+        .annotate(progress=progress_expression())
         .order_by("last_name", "first_name")
     )
 
-    student_stats = [
-        {
-            "id": student.id,
-            "full_name": student.full_name,
-            "avatar": student.avatar.url if student.avatar else None,
-            "completed_lessons": student.completed_lessons,
-            "total_lessons": total_lessons,
-            "progress": (
-                round(student.completed_lessons * 100 / total_lessons, 1)
-                if total_lessons
-                else 0
-            ),
-            "average_score": student.average_score,
-        }
-        for student in students
-    ]
+    student_stats = list(students)
 
     assignments = (
         Assignment.objects.filter(chapter__course=course, is_active=True)
@@ -425,7 +402,6 @@ def get_course_tutor_stats(course):
             "chapter_title": assignment.chapter.title,
             "due_date": assignment.due_date,
             "submitted_count": assignment.submitted_count,
-            "graded_count": assignment.graded_count,
             "pending_count": assignment.submitted_count - assignment.graded_count,
             "average_score": assignment.average_score,
         }

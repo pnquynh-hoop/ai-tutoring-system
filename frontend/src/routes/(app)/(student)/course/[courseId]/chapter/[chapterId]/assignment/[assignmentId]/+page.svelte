@@ -10,6 +10,7 @@
 		ArrowRight,
 		RotateCcw
 	} from 'lucide-svelte';
+	import { confirmAction } from '$lib/stores/confirm.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -29,27 +30,35 @@
 		})
 	);
 
-	function handleStart() {
+	let timeNote = $derived(
+		assignment.timeLimitMinutes
+			? `Thời gian làm bài là ${assignment.timeLimitMinutes} phút và đồng hồ chạy ngay khi bạn vào.`
+			: 'Bài tập này không giới hạn thời gian làm.'
+	);
+
+	async function handleStart() {
+		const agreed = await confirmAction({
+			title: assignment.attemptsUsed > 0 ? 'Làm lại bài tập này?' : 'Bắt đầu làm bài?',
+			message:
+				`Bài có ${assignment.totalQuestions} câu. ${timeNote} ` +
+				`Vào làm là tính mất một lượt, sau đó bạn còn ${attemptsLeft - 1} lượt.`,
+			confirmLabel: 'Bắt đầu làm bài',
+			cancelLabel: 'Để sau',
+			tone: 'info'
+		});
+		if (!agreed) return;
+
 		goto(`${page.url.pathname}/taking`);
 	}
 </script>
 
-<svelte:head>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap"
-		rel="stylesheet"
-	/>
-</svelte:head>
-
 <div class="flex-1 overflow-y-auto">
 	<header
-		class="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
+		class="flex items-center justify-end border-b border-slate-200/70 bg-white/80 px-8 py-4 backdrop-blur"
 	>
 		<a
-			href="/"
-			class="flex items-center gap-2 rounded-full bg-brand-950 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900"
+			href="/stu-dashboard"
+			class="flex items-center gap-2 rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
 		>
 			<Home class="h-4 w-4" />
 			Trang chủ
@@ -58,8 +67,7 @@
 
 	<main class="flex flex-1 flex-col items-center px-8 py-10">
 		<h1
-			class="mb-8 max-w-2xl text-center text-xl font-bold uppercase tracking-tight text-slate-900"
-			style="font-family:'Sora',sans-serif;"
+			class="mb-8 max-w-2xl text-center text-xl font-bold uppercase tracking-tight text-slate-900 font-heading"
 		>
 			{assignment.title}
 		</h1>
@@ -68,7 +76,9 @@
 			class="w-full max-w-2xl rounded-2xl border border-slate-200/70 bg-white p-8 shadow-sm shadow-slate-200/50"
 		>
 			<div class="grid grid-cols-2 gap-4">
-				<div class="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3.5">
+				<div
+					class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5"
+				>
 					<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100">
 						<Clock class="h-4.5 w-4.5 text-brand-600" />
 					</div>
@@ -82,7 +92,9 @@
 					</div>
 				</div>
 
-				<div class="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3.5">
+				<div
+					class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5"
+				>
 					<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-100">
 						<CalendarDays class="h-4.5 w-4.5 text-rose-600" />
 					</div>
@@ -92,7 +104,9 @@
 					</div>
 				</div>
 
-				<div class="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3.5">
+				<div
+					class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5"
+				>
 					<div
 						class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100"
 					>
@@ -106,7 +120,9 @@
 					</div>
 				</div>
 
-				<div class="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3.5">
+				<div
+					class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5"
+				>
 					<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100">
 						<ListChecks class="h-4.5 w-4.5 text-amber-600" />
 					</div>
@@ -118,7 +134,9 @@
 					</div>
 				</div>
 
-				<div class="col-span-2 flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3.5">
+				<div
+					class="col-span-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5"
+				>
 					<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-100">
 						<RotateCcw class="h-4.5 w-4.5 text-sky-600" />
 					</div>
@@ -137,7 +155,9 @@
 				</p>
 				<div class="space-y-2">
 					{#each assignment.questionTypes as qt (qt.label)}
-						<div class="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-2.5">
+						<div
+							class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5"
+						>
 							<span class="text-sm font-medium text-slate-700">{qt.label}</span>
 							<span class="text-sm font-semibold text-slate-500">{qt.count} câu</span>
 						</div>
@@ -149,7 +169,7 @@
 		<button
 			onclick={handleStart}
 			disabled={!canStart}
-			class="mt-8 flex items-center gap-2 rounded-full bg-brand-950 px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-900 disabled:cursor-not-allowed disabled:opacity-40"
+			class="mt-8 flex items-center gap-2 rounded-full bg-brand-600 px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
 		>
 			{assignment.attemptsUsed > 0 ? 'Làm lại bài tập' : 'Bắt đầu làm bài'}
 			<ArrowRight class="h-4 w-4" />

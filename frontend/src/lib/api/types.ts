@@ -13,13 +13,24 @@ export type Toast = {
 	type: 'success' | 'error' | 'info';
 };
 
+export type ConfirmTone = 'danger' | 'warning' | 'info';
+
+export interface ConfirmRequest {
+	title: string;
+	message: string;
+	confirmLabel?: string;
+	cancelLabel?: string;
+	tone?: ConfirmTone;
+	acknowledgeOnly?: boolean;
+}
+
 export interface ChapterStat {
 	id: number;
 	title: string;
 	order: number;
 	total_lessons: number;
 	completed_lessons: number;
-	score: number | null;
+	score: string | null;
 	pending_assignments: number;
 	first_incomplete_lesson_id: number | null;
 }
@@ -36,13 +47,13 @@ export interface CourseOverview {
 
 export interface StudentQuickStats {
 	ongoing_courses_count: number;
-	pending_assignments_count: number;
+	total_pending_assignments_count: number;
 	streak: number;
 	studied_today: boolean;
 }
 
 export interface TutorQuickStats {
 	teaching_course_count: number;
-	students_count: number;
-	pending_submission_count: number;
+	total_students_count: number;
+	total_pending_submission_count: number;
 }
