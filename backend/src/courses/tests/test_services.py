@@ -3,6 +3,7 @@ from django.utils import timezone
 from model_bakery import baker
 
 from courses.models import Chapter, Course, Lesson, LessonProgress
+from courses.serializers import StudentListCourseSerializer
 from courses.services import get_courses_with_progress
 
 
@@ -24,6 +25,9 @@ class TestCourseServices:
             published_at=timezone.now(),
         )
 
+    def progress_of(self, course_row):
+        return StudentListCourseSerializer(course_row).data["progress"]
+
     def test_course_without_lessons_returns_zero_progress(
         self, student, course, course_query
     ):
@@ -32,7 +36,7 @@ class TestCourseServices:
         result = list(get_courses_with_progress(student, course_query))
 
         assert len(result) == 1
-        assert result[0].progress == 0
+        assert self.progress_of(result[0]) == 0
 
     def test_course_with_lessons_without_progress(
         self, student, course, course_query, chapter
@@ -43,7 +47,7 @@ class TestCourseServices:
 
         result = list(get_courses_with_progress(student, course_query))
 
-        assert result[0].progress == 0
+        assert self.progress_of(result[0]) == 0
 
     def test_partial_completion_progress(self, student, course, course_query, chapter):
         self.enroll(course, student)
@@ -56,7 +60,7 @@ class TestCourseServices:
 
         result = list(get_courses_with_progress(student, course_query))
 
-        assert result[0].progress == 50.0
+        assert self.progress_of(result[0]) == 50.0
 
     def test_full_completion_progress(self, student, course, course_query, chapter):
         self.enroll(course, student)
@@ -67,7 +71,7 @@ class TestCourseServices:
 
         result = list(get_courses_with_progress(student, course_query))
 
-        assert result[0].progress == 100.0
+        assert self.progress_of(result[0]) == 100.0
 
     def test_incomplete_lesson_not_counted(
         self, student, course, course_query, chapter
@@ -79,7 +83,7 @@ class TestCourseServices:
 
         result = list(get_courses_with_progress(student, course_query))
 
-        assert result[0].progress == 0
+        assert self.progress_of(result[0]) == 0
 
     def test_only_returns_enrolled_courses(self, student, course, tutor, course_query):
         baker.make("courses.Course", tutor=tutor)
@@ -104,7 +108,7 @@ class TestCourseServices:
 
         result = list(get_courses_with_progress(student, course_query))
 
-        assert result[0].progress == 0
+        assert self.progress_of(result[0]) == 0
 
     def test_respects_prefiltered_query(self, student, tutor):
         subject_a = baker.make("academics.Subject")
@@ -174,7 +178,7 @@ class TestCourseServices:
         baker.make(LessonProgress, student=student, lesson=lesson_b2, is_completed=True)
 
         result = get_courses_with_progress(student, course_query)
-        progress_map = {c.id: c.progress for c in result}
+        progress_map = {c.id: self.progress_of(c) for c in result}
 
         assert progress_map[course_a.id] == 50.0
         assert progress_map[course_b.id] == 100.0

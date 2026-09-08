@@ -1,6 +1,6 @@
 from django.utils import timezone
 from rest_framework import serializers
-from accounts.serializers import SimpleUserSerializer, TutorSerializer
+from accounts.serializers import SimpleUserSerializer, TutorProfileSerializer
 from core.validators import validate_document_upload, validate_video_url
 from .models import Chapter, Comment, Course, LearningResource, Lesson
 
@@ -14,7 +14,15 @@ class StudentListCourseSerializer(serializers.ModelSerializer):
     tutor_name = serializers.CharField(
         source="tutor.full_name", read_only=True, default=None
     )
-    progress = serializers.FloatField(read_only=True, allow_null=True)
+    progress = serializers.SerializerMethodField()
+
+    def get_progress(self, instance):
+        if not instance.total_lessons:
+            return 0.0
+        completed = (
+            instance.completed_lessons if instance.completed_lessons is not None else 0
+        )
+        return round(completed * 100 / instance.total_lessons, 1)
 
     class Meta:
         fields = ["id", "name", "tutor_name", "progress"]
@@ -24,7 +32,9 @@ class StudentListCourseSerializer(serializers.ModelSerializer):
 class StudentDetailCourseSerializer(StudentListCourseSerializer):
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     grade = serializers.CharField(source="grade.name", read_only=True)
-    tutor = TutorSerializer(read_only=True)
+    tutor = TutorProfileSerializer(
+        source="tutor.tutorprofile", read_only=True, default=None
+    )
 
     class Meta:
         model = StudentListCourseSerializer.Meta.model
@@ -55,7 +65,7 @@ class TutorCourseSerializer(serializers.ModelSerializer):
 
 
 class LessonTreeSerializer(serializers.ModelSerializer):
-    is_completed = serializers.BooleanField(read_only=True)
+    is_completed = serializers.BooleanField(read_only=True, default=False)
     is_published = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -169,10 +179,17 @@ class CommentSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         parent = attrs.get("parent")
         lesson = attrs.get("lesson")
+
         if parent and lesson and parent.lesson_id != lesson.id:
             raise serializers.ValidationError(
                 {"parent": "Bình luận gốc phải thuộc cùng một bài học."}
             )
+
+        if parent and parent.parent_id is not None:
+            raise serializers.ValidationError(
+                {"parent": "Chỉ được trả lời bình luận gốc, không trả lời một bình luận trả lời."}
+            )
+
         return attrs
 
 
@@ -188,22 +205,14 @@ class CourseOverviewSerializer(serializers.Serializer):
     pending_assignments_count = serializers.IntegerField()
 
 
-class TutorStudentStatSerializer(SimpleUserSerializer):
+class TutorStudentStatSerializer(serializers.Serializer):
+    student = SimpleUserSerializer()
     completed_lessons = serializers.IntegerField()
     total_lessons = serializers.IntegerField()
     progress = serializers.FloatField()
     average_score = serializers.DecimalField(
         max_digits=5, decimal_places=2, allow_null=True
     )
-
-    class Meta:
-        model = SimpleUserSerializer.Meta.model
-        fields = SimpleUserSerializer.Meta.fields + [
-            "completed_lessons",
-            "total_lessons",
-            "progress",
-            "average_score",
-        ]
 
 
 class TutorAssignmentStatSerializer(serializers.Serializer):
@@ -234,7 +243,7 @@ class ChapterStatSerializer(serializers.ModelSerializer):
         allow_null=True,
         read_only=True,
     )
-    pending_assignments = serializers.IntegerField(read_only=True)
+    has_pending_assignment = serializers.BooleanField(read_only=True)
     first_incomplete_lesson_id = serializers.IntegerField(
         allow_null=True, read_only=True
     )
@@ -244,11 +253,10 @@ class ChapterStatSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
-            "order",
             "total_lessons",
             "completed_lessons",
             "score",
-            "pending_assignments",
+            "has_pending_assignment",
             "first_incomplete_lesson_id",
         ]
 
@@ -257,6 +265,11 @@ class ChapterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chapter
         fields = ["id", "course", "title", "order"]
+
+    def validate_course(self, course):
+        if course.tutor_id != self.context["request"].user.id:
+            raise serializers.ValidationError("Bạn không phụ trách khóa học này.")
+        return course
 
     def validate(self, attrs):
         is_new_chapter = self.instance is None
@@ -288,30 +301,29 @@ class LessonSerializer(serializers.ModelSerializer):
         model = Lesson
         fields = ["id", "chapter", "title", "order"]
 
-    def validate(self, attrs):
-        is_new_lesson = self.instance is None
-        target_chapter = (
-            attrs.get("chapter") if is_new_lesson else self.instance.chapter
-        )
-
-        if (
-            not is_new_lesson
-            and "chapter" in attrs
-            and attrs["chapter"] != target_chapter
-        ):
+    def validate_chapter(self, chapter):
+        if chapter.course.tutor_id != self.context["request"].user.id:
             raise serializers.ValidationError(
-                {"chapter": "Không được chuyển bài học sang chương khác."}
+                "Bạn không phụ trách khóa học của chương này."
             )
+        return chapter
 
-        if is_new_lesson and target_chapter:
-            current_count = target_chapter.lessons.count()
-            if current_count >= MAX_LESSONS_PER_CHAPTER:
+    def validate(self, attrs):
+        if self.instance is None:
+            chapter = attrs.get("chapter")
+
+            if chapter and chapter.lessons.count() >= MAX_LESSONS_PER_CHAPTER:
                 raise serializers.ValidationError(
                     {
                         "chapter": f"Mỗi chương chỉ có tối đa {MAX_LESSONS_PER_CHAPTER} bài học."
                     }
                 )
+            return attrs
 
+        if "chapter" in attrs and attrs["chapter"] != self.instance.chapter:
+            raise serializers.ValidationError(
+                {"chapter": "Không được chuyển bài học sang chương khác."}
+            )
         return attrs
 
 
@@ -337,8 +349,30 @@ class ResourceSerializer(serializers.ModelSerializer):
     def validate_video_url(self, url):
         return validate_video_url(url)
 
+    def validate_lesson(self, lesson):
+        if lesson.chapter.course.tutor_id != self.context["request"].user.id:
+            raise serializers.ValidationError(
+                "Bạn không phụ trách khóa học của bài học này."
+            )
+        return lesson
+
     def validate(self, attrs):
         current = self.instance
+
+        if current is not None:
+            if current.is_published:
+                raise serializers.ValidationError(
+                    "Tài nguyên đã công khai cho học sinh thì không sửa được nữa."
+                )
+
+            if (
+                "resource_type" in attrs
+                and attrs["resource_type"] != current.resource_type
+            ):
+                raise serializers.ValidationError(
+                    {"resource_type": "Không được đổi loại tài nguyên."}
+                )
+
         resource_type = attrs.get(
             "resource_type", getattr(current, "resource_type", None)
         )
@@ -368,7 +402,6 @@ class ResourceSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Tài nguyên phải có nội dung văn bản hoặc tệp tài liệu."
             )
-
         return attrs
 
     def to_representation(self, instance):

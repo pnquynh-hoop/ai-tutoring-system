@@ -11,17 +11,17 @@
 	> = {
 		danger: {
 			icon: ShieldAlert,
-			iconBox: 'bg-rose-50 text-rose-600',
+			iconBox: 'bg-rose-600 text-white',
 			confirmButton: 'bg-rose-600 hover:bg-rose-700'
 		},
 		warning: {
 			icon: TriangleAlert,
-			iconBox: 'bg-amber-50 text-amber-600',
-			confirmButton: 'bg-amber-600 hover:bg-amber-700'
+			iconBox: 'bg-yellow-500 text-white',
+			confirmButton: 'bg-yellow-500 hover:bg-yellow-600'
 		},
 		info: {
 			icon: Info,
-			iconBox: 'bg-brand-50 text-brand-600',
+			iconBox: 'bg-brand-600 text-white',
 			confirmButton: 'bg-brand-600 hover:bg-brand-700'
 		}
 	};

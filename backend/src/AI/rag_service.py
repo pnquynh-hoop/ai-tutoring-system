@@ -5,7 +5,6 @@ from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from accounts.models import StudentProfile
 from courses.models import Course, Lesson
-from courses.services import enrolled_courses
 from .ingest import SOURCE_MATERIAL
 from .vector_store import get_llm, get_vector_store
 
@@ -44,7 +43,12 @@ TEACHING_STYLES = {
 def enrolled_course_ids(student):
     if student is None:
         return []
-    return list(enrolled_courses(student).values_list("id", flat=True))
+    return list(
+        Course.objects.filter(
+            enrollment__student=student,
+            enrollment__is_active=True,
+        ).values_list("id", flat=True)
+    )
 
 
 def course_subjects_and_grades(course_ids):
@@ -308,8 +312,6 @@ def query_rag_answer(query, course_id=None, lesson_id=None, student=None):
         "sources": format_sources(documents) if grounded else [],
         "grounded": grounded,
     }
-
-
 
 
 class GeneratedAnswerSchema(BaseModel):

@@ -217,14 +217,15 @@
 	}
 
 	function describeDistribution(points: number[]): string {
-		const groups = new Map<number, number>();
+		const countByPoint: Record<string, number> = {};
 		for (const point of points) {
-			groups.set(point, (groups.get(point) ?? 0) + 1);
+			countByPoint[point] = (countByPoint[point] ?? 0) + 1;
 		}
 
-		return [...groups.entries()]
-			.sort((a, b) => b[0] - a[0])
-			.map(([point, count]) => `${count} câu ${point} điểm`)
+		return Object.keys(countByPoint)
+			.map(Number)
+			.sort((a, b) => b - a)
+			.map((point) => `${countByPoint[point]} câu ${point} điểm`)
 			.join(', ');
 	}
 
@@ -238,8 +239,8 @@
 			message:
 				`${questions.length} câu sẽ được chia thành: ${describeDistribution(points)}. ` +
 				`Tổng ${sumPoints(points)} điểm. Điểm gia sư đã đặt tay cho từng câu sẽ bị ghi đè.`,
-			confirmLabel: 'Lưu phân bổ này',
-			cancelLabel: 'Để tôi tự đặt',
+			confirmLabel: 'Lưu',
+			cancelLabel: 'Hủy',
 			tone: 'info'
 		});
 		if (!agreed) return;
@@ -489,7 +490,7 @@
 							disabled={isLocked}
 							aria-invalid={assignmentErrors.title ? 'true' : undefined}
 							oninput={() => clearAssignmentError('title')}
-							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 disabled:bg-slate-50 disabled:text-slate-400 aria-[invalid=true]:border-rose-400"
+							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 disabled:bg-slate-50 disabled:text-slate-400 aria-invalid:border-rose-400"
 							placeholder="Tiêu đề bài tập"
 							bind:value={form.title}
 						/>
@@ -503,7 +504,7 @@
 								disabled={isLocked}
 								aria-invalid={assignmentErrors.due_date ? 'true' : undefined}
 								oninput={() => clearAssignmentError('due_date')}
-								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 disabled:bg-slate-50 disabled:text-slate-400 aria-[invalid=true]:border-rose-400"
+								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 disabled:bg-slate-50 disabled:text-slate-400 aria-invalid:border-rose-400"
 								bind:value={form.due_date}
 							/>
 							<FieldError message={assignmentErrors.due_date} />
@@ -518,7 +519,7 @@
 								disabled={isLocked}
 								aria-invalid={assignmentErrors.time_limit_minutes ? 'true' : undefined}
 								oninput={() => clearAssignmentError('time_limit_minutes')}
-								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 disabled:bg-slate-50 disabled:text-slate-400 aria-[invalid=true]:border-rose-400"
+								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 disabled:bg-slate-50 disabled:text-slate-400 aria-invalid:border-rose-400"
 								bind:value={form.time_limit_minutes}
 							/>
 							<FieldError message={assignmentErrors.time_limit_minutes} />
@@ -600,7 +601,7 @@
 									rows="2"
 									aria-invalid={questionErrors.content ? 'true' : undefined}
 									oninput={() => clearQuestionError('content')}
-									class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 aria-[invalid=true]:border-rose-400"
+									class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 aria-invalid:border-rose-400"
 									placeholder="Nội dung câu hỏi"
 									bind:value={questionForm.content}></textarea>
 								<FieldError message={questionErrors.content} />
@@ -620,7 +621,7 @@
 									<input
 										aria-invalid={questionErrors.explanation ? 'true' : undefined}
 										oninput={() => clearQuestionError('explanation')}
-										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 aria-[invalid=true]:border-rose-400"
+										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 aria-invalid:border-rose-400"
 										placeholder="Lời giải chi tiết"
 										bind:value={questionForm.explanation}
 									/>
@@ -637,7 +638,7 @@
 										max={TOTAL_SCORE}
 										aria-invalid={questionErrors.point ? 'true' : undefined}
 										oninput={() => clearQuestionError('point')}
-										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 aria-[invalid=true]:border-rose-400"
+										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 aria-invalid:border-rose-400"
 										placeholder="Điểm của câu hỏi (để trống nếu chưa quyết)"
 										bind:value={questionForm.point}
 									/>

@@ -27,11 +27,10 @@ export interface ConfirmRequest {
 export interface ChapterStat {
 	id: number;
 	title: string;
-	order: number;
 	total_lessons: number;
 	completed_lessons: number;
 	score: string | null;
-	pending_assignments: number;
+	has_pending_assignment: boolean;
 	first_incomplete_lesson_id: number | null;
 }
 

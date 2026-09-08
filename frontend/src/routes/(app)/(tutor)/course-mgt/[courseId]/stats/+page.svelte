@@ -61,26 +61,23 @@
 		<h2 class="mb-4 text-sm font-semibold text-slate-800 font-heading">Tiến độ học sinh</h2>
 
 		<div class="space-y-3">
-			{#each stats.students as student (student.id)}
+			{#each stats.students as row (row.student.id)}
 				<div class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-3">
-					<Avatar src={student.avatar} name={student.full_name} size="md" />
+					<Avatar src={row.student.avatar} name={row.student.full_name} size="md" />
 					<div class="min-w-0 flex-1">
-						<p class="truncate text-sm font-medium text-slate-700">{student.full_name}</p>
+						<p class="truncate text-sm font-medium text-slate-700">{row.student.full_name}</p>
 						<div class="mt-1.5 flex items-center gap-3">
 							<div class="h-1.5 w-40 overflow-hidden rounded-full bg-slate-200">
-								<div
-									class="h-full rounded-full bg-brand-600"
-									style={`width:${student.progress}%`}
-								></div>
+								<div class="h-full rounded-full bg-brand-600" style={`width:${row.progress}%`}></div>
 							</div>
 							<span class="text-xs text-slate-500">
-								{student.completed_lessons}/{student.total_lessons} bài · {student.progress}%
+								{row.completed_lessons}/{row.total_lessons} bài · {row.progress}%
 							</span>
 						</div>
 					</div>
 					<div class="shrink-0 text-right">
 						<p class="text-sm font-bold text-slate-800">
-							{student.average_score ?? '--'}
+							{row.average_score ?? '--'}
 						</p>
 						<p class="text-[11px] text-slate-400">Điểm TB</p>
 					</div>

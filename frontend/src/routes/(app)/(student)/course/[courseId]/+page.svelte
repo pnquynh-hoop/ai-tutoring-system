@@ -10,7 +10,6 @@
 		Lock,
 		CheckCircle2
 	} from 'lucide-svelte';
-	import Avatar from '$lib/components/Avatar.svelte';
 	import Chatbot from '$lib/components/Chatbot.svelte';
 	import type { PageData } from './$types';
 	import type { ChapterStat } from '$lib/api/types';
@@ -99,38 +98,34 @@
 						{course.description}
 					</p>
 
-					{#if course.tutor}
+					{#if course.tutor_name}
 						<div
-							class="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/60"
+							class="mt-4 min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/60"
 						>
-							<Avatar src={course.tutor.avatar} name={course.tutor.full_name} size="lg" />
-
-							<div class="min-w-0">
-								<div class="flex flex-wrap items-center gap-2">
-									<p class="text-sm font-semibold text-slate-900">{course.tutor.full_name}</p>
-									{#if course.tutor.tutor_profile?.is_verified}
-										<span
-											class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600"
-										>
-											<BadgeCheck class="h-3 w-3" />
-											Đã xác minh
-										</span>
-									{/if}
-								</div>
-
-								<p class="mt-0.5 text-xs text-slate-500">
-									{course.tutor.tutor_profile?.qualification ?? 'Gia sư phụ trách'}
-									{#if course.tutor.tutor_profile?.experience_years}
-										· {course.tutor.tutor_profile.experience_years} năm kinh nghiệm
-									{/if}
-								</p>
-
-								{#if course.tutor.tutor_profile?.bio}
-									<p class="mt-1.5 text-xs leading-relaxed text-slate-500">
-										{course.tutor.tutor_profile.bio}
-									</p>
+							<div class="flex flex-wrap items-center gap-2">
+								<p class="text-sm font-semibold text-slate-900">{course.tutor_name}</p>
+								{#if course.tutor?.is_verified}
+									<span
+										class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600"
+									>
+										<BadgeCheck class="h-3 w-3" />
+										Đã xác minh
+									</span>
 								{/if}
 							</div>
+
+							<p class="mt-0.5 text-xs text-slate-500">
+								{course.tutor?.qualification ?? 'Gia sư phụ trách'}
+								{#if course.tutor?.experience_years}
+									· {course.tutor.experience_years} năm kinh nghiệm
+								{/if}
+							</p>
+
+							{#if course.tutor?.bio}
+								<p class="mt-1.5 text-xs leading-relaxed text-slate-500">
+									{course.tutor.bio}
+								</p>
+							{/if}
 						</div>
 					{:else}
 						<p class="mt-4 text-xs text-slate-400">Chưa phân công gia sư phụ trách</p>
@@ -216,11 +211,11 @@
 							<div class="flex items-center justify-between gap-3">
 								<p class="truncate text-sm font-semibold text-slate-800">{chapter.title}</p>
 								<div class="flex shrink-0 items-center gap-2">
-									{#if chapter.pending_assignments > 0}
+									{#if chapter.has_pending_assignment}
 										<span
 											class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-600"
 										>
-											{chapter.pending_assignments} bài tập chưa làm
+											Có bài tập chưa làm
 										</span>
 									{/if}
 									{#if chapter.score !== null}

@@ -3,53 +3,47 @@ export const ENDPOINTS = {
 	REFRESH: 'users/refresh/',
 	LOGOUT: 'users/logout/',
 	ME: 'users/me/',
-
+	CHANGE_PASSWORD: 'users/change-password/',
 	COURSES: 'courses/',
 	STATS: 'courses/statistic/',
-	COURSE_DETAIL: (courseId: string | number) => `courses/${courseId}/`,
-	COURSE_TREE: (courseId: string | number) => `courses/${courseId}/tree/`,
-	COURSE_OVERVIEW: (courseId: string | number) => `courses/${courseId}/overview/`,
-	CHAPTER_STATS: (courseId: string | number) => `courses/${courseId}/chapter-stats/`,
+	TREE_OF_COURSE: (courseId: string | number) => `courses/${courseId}/tree/`,
+	DETAIL_LESSON: (lessonId: string | number) => `lessons/${lessonId}/`,
+	COMMENTS_OF_LESSON: (lessonId: string | number) => `lessons/${lessonId}/comments/`,
+	DETAIL_ASSIGNMENT: (assignmentId: string | number) => `assignments/${assignmentId}/`,
+	QUESTIONS_OF_ASSIGNMENT: (assignmentId: string | number) =>
+		`assignments/${assignmentId}/questions/`,
+	SUBMISSIONS: 'submissions/',
+	DETAIL_SUBMISSION: (submissionId: string | number) => `submissions/${submissionId}/`,
 
-	CHAPTERS: 'chapters/',
-	CHAPTER_DETAIL: (chapterId: string | number) => `chapters/${chapterId}/`,
-	PUBLISH_CHAPTER: (chapterId: string | number) => `chapters/${chapterId}/publish/`,
-
-	LESSONS: 'lessons/',
-	LESSONS_DETAIL: (lessonId: string | number) => `lessons/${lessonId}/`,
-	PUBLISH_LESSON: (lessonId: string | number) => `lessons/${lessonId}/publish/`,
+	DETAIL_COURSE: (courseId: string | number) => `courses/${courseId}/`,
+	OVERVIEW_OF_COURSE: (courseId: string | number) => `courses/${courseId}/overview/`,
+	CHAPTER_STATS_OF_COURSE: (courseId: string | number) => `courses/${courseId}/chapter-stats/`,
 	COMPLETE_LESSON: (lessonId: string | number) => `lessons/${lessonId}/complete/`,
-	COMMENTS: (lessonId: string | number) => `lessons/${lessonId}/comments/`,
-	TOGGLE_RIGHT: (commentId: string | number) => `comments/${commentId}/toggle-mark-right/`,
-
-	RESOURCES: 'resources/',
-	RESOURCES_BY_LESSON: (lessonId: string | number) => `lessons/${lessonId}/resources/`,
-	RESOURCE_DETAIL: (resourceId: string | number) => `resources/${resourceId}/`,
-	PUBLISH_RESOURCE: (resourceId: string | number) => `resources/${resourceId}/publish/`,
-	INGEST_RESOURCE: (resourceId: string | number) => `resources/${resourceId}/ingest/`,
-
-	COURSE_STATS: (courseId: string | number) => `courses/${courseId}/stats/`,
-
-	ASSIGNMENTS: 'assignments/',
-	ASSIGNMENT_DETAIL: (assignmentId: string | number) => `assignments/${assignmentId}/`,
-	PUBLISH_ASSIGNMENT: (assignmentId: string | number) => `assignments/${assignmentId}/publish/`,
-	QUESTIONS: (assignmentId: string | number) => `assignments/${assignmentId}/questions/`,
 	START_ASSIGNMENT: (assignmentId: string | number) => `assignments/${assignmentId}/start/`,
-	SAVE_ASSIGNMENT_DRAFT: (assignmentId: string | number) =>
+	SAVE_DRAFT_ASSIGNMENT: (assignmentId: string | number) =>
 		`assignments/${assignmentId}/save-draft/`,
 	SUBMIT_ASSIGNMENT: (assignmentId: string | number) => `assignments/${assignmentId}/submit/`,
-	SUBMISSIONS: 'submissions/',
-	SUBMISSION_DETAIL: (submissionId: string | number) => `submissions/${submissionId}/`,
-	GRADE_SUBMISSION: (submissionId: string | number) => `submissions/${submissionId}/grade/`,
-
-	QUESTIONS_ADMIN: 'questions/',
-	QUESTION_DETAIL: (questionId: string | number) => `questions/${questionId}/`,
-
-	CHANGE_PASSWORD: 'users/change-password/',
-	ACADEMIC_LEVELS: 'users/academic-levels/',
-
 	GRADES: 'grades/',
-
+	ACADEMIC_LEVELS: 'users/academic-levels/',
 	RAG_ASK: 'rag/ask/',
-	RAG_GENERATE_EXERCISES: 'rag/generate-exercises/'
+	RAG_GENERATE_EXERCISES: 'rag/generate-exercises/',
+
+	STATS_OF_COURSE: (courseId: string | number) => `courses/${courseId}/stats/`,
+	CHAPTERS: 'chapters/',
+	DETAIL_CHAPTER: (chapterId: string | number) => `chapters/${chapterId}/`,
+	PUBLISH_CHAPTER: (chapterId: string | number) => `chapters/${chapterId}/publish/`,
+	LESSONS: 'lessons/',
+	PUBLISH_LESSON: (lessonId: string | number) => `lessons/${lessonId}/publish/`,
+	TOGGLE_RIGHT_COMMENT: (commentId: string | number) => `comments/${commentId}/toggle-mark-right/`,
+	DETAIL_COMMENT: (commentId: string | number) => `comments/${commentId}/`,
+	RESOURCES: 'resources/',
+	RESOURCES_OF_LESSON: (lessonId: string | number) => `lessons/${lessonId}/resources/`,
+	DETAIL_RESOURCE: (resourceId: string | number) => `resources/${resourceId}/`,
+	PUBLISH_RESOURCE: (resourceId: string | number) => `resources/${resourceId}/publish/`,
+	INGEST_RESOURCE: (resourceId: string | number) => `resources/${resourceId}/ingest/`,
+	ASSIGNMENTS: 'assignments/',
+	PUBLISH_ASSIGNMENT: (assignmentId: string | number) => `assignments/${assignmentId}/publish/`,
+	GRADE_SUBMISSION: (submissionId: string | number) => `submissions/${submissionId}/grade/`,
+	QUESTIONS: 'questions/',
+	DETAIL_QUESTION: (questionId: string | number) => `questions/${questionId}/`
 };

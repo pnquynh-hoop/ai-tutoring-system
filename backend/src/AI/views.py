@@ -2,8 +2,7 @@ import logging
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
-from core.permissions import IsRelatedCourseMember, IsStudent
-from courses.models import Course
+from core.permissions import IsStudent
 from .rag_service import generate_exercises_rag, query_rag_answer
 from .serializers import (
     GenerateExercisesSerializer,
@@ -20,11 +19,10 @@ class RAGAskQuestionView(GenericAPIView):
 
     serializer_class = RAGAskSerializer
     throttle_scope = "ai"
-    write_parent_lookup = ("course_id", Course)
-    permission_classes = [IsStudent, IsRelatedCourseMember]
+    permission_classes = [IsStudent]
 
     def post(self, request):
-        serializer = RAGAskSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
@@ -52,8 +50,7 @@ class RAGGenerateExercisesView(GenericAPIView):
 
     serializer_class = GenerateExercisesSerializer
     throttle_scope = "ai"
-    write_parent_lookup = ("course_id", Course)
-    permission_classes = [IsStudent, IsRelatedCourseMember]
+    permission_classes = [IsStudent]
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)

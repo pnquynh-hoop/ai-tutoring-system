@@ -5,7 +5,6 @@ from cloudinary.models import CloudinaryField
 from django.utils.text import slugify
 
 
-
 class Course(BaseModel):
     subject = models.ForeignKey(
         "academics.Subject",
@@ -224,7 +223,7 @@ class Comment(BaseModel):
         null=True,
         blank=True,
         related_name="replies",
-        verbose_name="Bình luận cha",
+        verbose_name="Bình luận gốc",
     )
     marked_right_by = models.ForeignKey(
         "accounts.User",
@@ -241,6 +240,7 @@ class Comment(BaseModel):
     )
 
     class Meta:
+        ordering = ["id"]
         verbose_name = "Bình luận"
         verbose_name_plural = "Bình luận"
 

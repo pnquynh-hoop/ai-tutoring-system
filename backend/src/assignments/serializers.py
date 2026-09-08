@@ -85,6 +85,13 @@ class AssignmentWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Hạn nộp phải sau thời điểm hiện tại.")
         return due_date
 
+    def validate_chapter(self, chapter):
+        if chapter.course.tutor_id != self.context["request"].user.id:
+            raise serializers.ValidationError(
+                "Bạn không phụ trách khóa học của chương này."
+            )
+        return chapter
+
     def validate(self, attrs):
         if self.instance and self.instance.is_published:
             raise serializers.ValidationError(
@@ -178,6 +185,13 @@ class QuestionWriteSerializer(serializers.ModelSerializer):
                 f"Điểm mỗi câu phải là bội của {POINT_STEP}, ví dụ 0.25, 0.5, 1.75."
             )
         return point
+
+    def validate_assignment(self, assignment):
+        if assignment.chapter.course.tutor_id != self.context["request"].user.id:
+            raise serializers.ValidationError(
+                "Bạn không phụ trách khóa học của bài tập này."
+            )
+        return assignment
 
     def validate(self, attrs):
         is_new_question = self.instance is None

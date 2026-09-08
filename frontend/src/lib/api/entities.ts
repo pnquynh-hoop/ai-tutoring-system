@@ -18,18 +18,11 @@ export interface TutorCourse {
 	pending_submission_count: number;
 }
 
-export interface CourseTutor {
-	id: number;
-	full_name: string;
-	avatar: string | null;
-	tutor_profile: TutorProfile | null;
-}
-
 export interface CourseDetail extends Course {
 	description: string;
 	subject_name: string;
 	grade: string;
-	tutor: CourseTutor | null;
+	tutor: TutorProfile | null;
 }
 
 export interface Lesson {
@@ -102,7 +95,7 @@ export interface LessonDetail {
 	resources: LessonResource[];
 }
 
-export interface CommentUser {
+export interface SimpleUser {
 	id: number;
 	full_name: string;
 	avatar: string | null;
@@ -112,7 +105,7 @@ export interface Comment {
 	id: number;
 	content: string;
 	is_right: boolean;
-	created_by: CommentUser;
+	created_by: SimpleUser;
 	parent: number | null;
 	created_at: string;
 }
@@ -161,7 +154,7 @@ export interface Submission {
 	assignment_title: string;
 	chapter_title: string;
 	course_name: string;
-	student: CommentUser;
+	student: SimpleUser;
 	score: string | null;
 	started_at: string | null;
 	submitted_at: string | null;
@@ -230,9 +223,7 @@ export interface TutorQuestionPayload {
 export type TutorQuestionUpdatePayload = Omit<TutorQuestionPayload, 'assignment'>;
 
 export interface TutorStudentStat {
-	id: number;
-	full_name: string;
-	avatar: string | null;
+	student: SimpleUser;
 	completed_lessons: number;
 	total_lessons: number;
 	progress: number;

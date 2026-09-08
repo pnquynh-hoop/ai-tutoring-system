@@ -2,7 +2,6 @@ from django.db.models import Count, Prefetch
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-
 from assignments.models import Assignment, Question, StudentAnswer, Submission
 from assignments.serializers import (
     AssignmentDetailSerializer,
@@ -31,13 +30,11 @@ from core.paginators import ItemPaginator
 from core.permissions import (
     IsCourseMember,
     IsCourseTutor,
-    IsRelatedCourseTutor,
     IsStudent,
     IsStudentOrTutor,
     IsSubmissionOwnerOrCourseTutor,
     IsTutor,
 )
-from courses.models import Chapter
 
 class AssignmentView(
     viewsets.ViewSet,
@@ -49,11 +46,10 @@ class AssignmentView(
     queryset = Assignment.objects.filter(is_active=True).select_related(
         "chapter__course"
     )
-    write_parent_lookup = ("chapter", Chapter)
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy", "publish"]:
-            return [IsTutor(), IsRelatedCourseTutor(), IsCourseTutor()]
+            return [IsTutor(), IsCourseTutor()]
         if self.action in ("start", "submit", "save_draft"):
             return [IsStudent(), IsCourseMember()]
         return [IsStudentOrTutor(), IsCourseMember()]
@@ -165,8 +161,7 @@ class QuestionView(
 ):
     queryset = Question.objects.prefetch_related("answers")
     serializer_class = QuestionWriteSerializer
-    permission_classes = [IsTutor, IsRelatedCourseTutor, IsCourseTutor]
-    write_parent_lookup = ("assignment", Assignment)
+    permission_classes = [IsTutor, IsCourseTutor]
 
     def perform_destroy(self, instance):
         serializer = DeleteQuestionSerializer(

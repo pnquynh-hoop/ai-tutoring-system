@@ -3,8 +3,6 @@ import pytest
 from django.contrib.auth.models import Group
 from django.utils import timezone
 from model_bakery import baker
-from assignments.models import Assignment
-from courses.models import Chapter, Lesson
 
 
 @pytest.fixture

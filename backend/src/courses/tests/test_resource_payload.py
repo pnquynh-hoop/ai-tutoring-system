@@ -36,12 +36,29 @@ class TestResourcePayload:
 
         assert TUTOR_ONLY_FIELDS.issubset(data)
 
-    def test_student_reading_lesson_resources_gets_no_tutor_only_fields(
+    def test_student_cannot_call_lesson_resources_endpoint(
         self, enrolled_student, lesson, resource
     ):
         response = auth_client(enrolled_student).get(
             f"/api/v1/lessons/{lesson.id}/resources/"
         )
 
+        assert response.status_code == 403
+
+    def test_student_reads_resources_through_lesson_detail(
+        self, enrolled_student, lesson, resource
+    ):
+        response = auth_client(enrolled_student).get(f"/api/v1/lessons/{lesson.id}/")
+
         assert response.status_code == 200
-        assert TUTOR_ONLY_FIELDS.isdisjoint(response.data[0])
+        assert TUTOR_ONLY_FIELDS.isdisjoint(response.data["resources"][0])
+
+    def test_tutor_reading_lesson_resources_gets_tutor_only_fields(
+        self, lesson, resource
+    ):
+        response = auth_client(lesson.chapter.course.tutor).get(
+            f"/api/v1/lessons/{lesson.id}/resources/"
+        )
+
+        assert response.status_code == 200
+        assert TUTOR_ONLY_FIELDS.issubset(response.data[0])

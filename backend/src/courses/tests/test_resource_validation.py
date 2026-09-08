@@ -1,8 +1,14 @@
+from types import SimpleNamespace
+
 import pytest
 from model_bakery import baker
 
 from courses.models import LearningResource
 from courses.serializers import ResourceSerializer
+
+
+def tutor_context(lesson):
+    return {"request": SimpleNamespace(user=lesson.chapter.course.tutor)}
 
 
 @pytest.fixture
@@ -25,7 +31,8 @@ class TestResourceValidation:
                 "lesson": lesson.id,
                 "title": "Đề cương",
                 "resource_type": LearningResource.ResourceType.PDF_FILE,
-            }
+            },
+            context=tutor_context(lesson),
         )
 
         assert not serializer.is_valid()

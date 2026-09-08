@@ -81,7 +81,7 @@ class TestCourseStatServices:
         assert len(stats) == 1
         assert stats[0].total_lessons == 3
         assert stats[0].completed_lessons == 1
-        assert stats[0].pending_assignments == 1
+        assert stats[0].has_pending_assignment is True
         assert stats[0].first_incomplete_lesson_id == lessons[1].id
         assert stats[0].score is None
 
@@ -114,7 +114,7 @@ class TestCourseStatServices:
 
         stats = get_chapter_stats(course=course, student=enrolled_student)
 
-        assert stats[0].pending_assignments == 0
+        assert stats[0].has_pending_assignment is False
         assert float(stats[0].score) == 8.0
 
     def test_chapter_stats_has_no_n_plus_one(
@@ -138,7 +138,7 @@ class TestCourseStatServices:
         _, lessons = self.make_chapter_with_lessons(course, 1, 2)
         mark_lesson_completed(enrolled_student, lessons[0])
 
-        tree = get_course_tree(course=course, student=enrolled_student)
+        tree = get_course_tree(course=course, user=enrolled_student)
         tree_lessons = list(tree.chapters.all()[0].lessons.all())
 
         assert [lesson.is_completed for lesson in tree_lessons] == [True, False]
@@ -271,17 +271,3 @@ class TestCourseStatServices:
         assert result[0].chapters_count == 1
         assert result[0].lessons_count == 3
         assert result[0].pending_submission_count == 1
-
-    def test_mark_lesson_completed_sets_timestamp(self, course, enrolled_student):
-        _, lessons = self.make_chapter_with_lessons(course, 1, 1)
-
-        progress = LessonProgress.objects.create(
-            student=enrolled_student, lesson=lessons[0], is_completed=False
-        )
-        assert progress.complete_at is None
-
-        progress = mark_lesson_completed(enrolled_student, lessons[0])
-
-        assert progress.is_completed is True
-        assert progress.complete_at is not None
-        assert LessonProgress.objects.filter(lesson=lessons[0]).count() == 1

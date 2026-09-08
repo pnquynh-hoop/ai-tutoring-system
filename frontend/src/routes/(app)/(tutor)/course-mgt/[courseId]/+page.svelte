@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import {
 		createResource,
+		deleteComment,
 		deleteResource,
 		getLessonResources,
 		getListComments,
@@ -9,7 +10,8 @@
 		ingestResource,
 		publishResource,
 		toggleCommentRight,
-		updateLesson
+		updateLesson,
+		updateResource
 	} from '$lib/api/calledAPI';
 	import { getApiErrorMessage } from '$lib/api/errors';
 	import type { Comment, RagStatus, ResourceType, TutorLessonResource } from '$lib/api/entities';
@@ -91,6 +93,12 @@
 	let addingResource = $state(false);
 	let isSavingResource = $state(false);
 	let resourceErrors = $state<Record<string, string>>({});
+	let editingResource = $state<TutorLessonResource | null>(null);
+	let expandedResourceId = $state<number | null>(null);
+
+	function toggleResourceContent(resourceId: number) {
+		expandedResourceId = expandedResourceId === resourceId ? null : resourceId;
+	}
 
 	function clearResourceError(field: string) {
 		resourceErrors = { ...resourceErrors, [field]: '' };
@@ -107,7 +115,11 @@
 		if (newResource.resource_type === 'VIDEO_URL') {
 			errors.video_url = textError(newResource.video_url, FIELD_LIMITS.url, 'Đường dẫn video');
 		} else if (newResource.resource_type === 'PDF_FILE') {
-			errors.file_url = documentFileError(newResource.file_url, 'Tệp tài liệu');
+			const keepsStoredFile =
+				editingResource?.resource_type === 'PDF_FILE' && newResource.file_url === null;
+			errors.file_url = keepsStoredFile
+				? ''
+				: documentFileError(newResource.file_url, 'Tệp tài liệu');
 		} else {
 			errors.content = textError(newResource.content, FIELD_LIMITS.resourceContent, 'Nội dung');
 		}
@@ -136,6 +148,7 @@
 	};
 
 	function startAddResource() {
+		editingResource = null;
 		addingResource = true;
 		resourceErrors = {};
 		newResource = {
@@ -147,25 +160,53 @@
 		};
 	}
 
+	function startEditResource(resource: TutorLessonResource) {
+		editingResource = resource;
+		addingResource = true;
+		resourceErrors = {};
+		newResource = {
+			title: resource.title,
+			resource_type: resource.resource_type,
+			content: resource.content ?? '',
+			video_url: resource.video_url ?? '',
+			file_url: null
+		};
+	}
+
 	async function confirmAddResource() {
 		if (!selectedLessonId || isSavingResource) return;
 		if (!validateResource()) return;
 
+		const target = editingResource;
+		const payload = {
+			title: newResource.title.trim(),
+			resource_type: newResource.resource_type,
+			content: newResource.resource_type === 'OTHERS' ? newResource.content || null : null,
+			video_url: newResource.resource_type === 'VIDEO_URL' ? newResource.video_url || null : null
+		};
+
 		isSavingResource = true;
 		try {
-			await createResource({
-				lesson: selectedLessonId,
-				title: newResource.title.trim(),
-				resource_type: newResource.resource_type,
-				content: newResource.resource_type === 'OTHERS' ? newResource.content || null : null,
-				video_url: newResource.resource_type === 'VIDEO_URL' ? newResource.video_url || null : null,
-				file_url: newResource.resource_type === 'PDF_FILE' ? newResource.file_url : null
-			});
+			if (target) {
+				const pickedNewFile = newResource.resource_type === 'PDF_FILE' && newResource.file_url;
+				await updateResource(target.id, {
+					...payload,
+					...(pickedNewFile ? { file_url: newResource.file_url } : {})
+				});
+			} else {
+				await createResource({
+					...payload,
+					lesson: selectedLessonId,
+					file_url: newResource.resource_type === 'PDF_FILE' ? newResource.file_url : null
+				});
+			}
+
 			resources = await getLessonResources(selectedLessonId);
 			addingResource = false;
-			showToast('Đã thêm tài nguyên', 'success');
+			editingResource = null;
+			showToast(target ? 'Đã lưu thay đổi' : 'Đã thêm tài nguyên', 'success');
 		} catch (err) {
-			showToast(getApiErrorMessage(err, 'Thêm tài nguyên không thành công.'), 'error');
+			showToast(getApiErrorMessage(err, 'Lưu tài nguyên không thành công.'), 'error');
 		} finally {
 			isSavingResource = false;
 		}
@@ -370,6 +411,33 @@
 			markingRightId = null;
 		}
 	}
+
+	let deletingCommentId = $state<number | null>(null);
+	async function removeComment(comment: Comment) {
+		if (deletingCommentId !== null) return;
+
+		const replyCount = getReplies(comment.id).length;
+		const agreed = await confirmAction({
+			title: 'Xóa bình luận này?',
+			message: replyCount
+				? `Bình luận và ${replyCount} trả lời bên trong sẽ không còn hiển thị với học sinh.`
+				: 'Bình luận sẽ không còn hiển thị với học sinh.',
+			confirmLabel: 'Xóa',
+			tone: 'danger'
+		});
+		if (!agreed) return;
+
+		deletingCommentId = comment.id;
+		try {
+			await deleteComment(comment.id);
+			comments = comments.filter((item) => item.id !== comment.id && item.parent !== comment.id);
+			showToast('Đã xóa bình luận.', 'success');
+		} catch (err) {
+			showToast(getApiErrorMessage(err, 'Xóa bình luận không thành công.'), 'error');
+		} finally {
+			deletingCommentId = null;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -432,8 +500,8 @@
 					</button>
 				</div>
 
-				{#if addingResource}
-					<div class="mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+				{#snippet resourceForm()}
+					<div class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
 						<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 							<input
 								oninput={() => clearResourceError('title')}
@@ -443,7 +511,9 @@
 							/>
 							<FieldError message={resourceErrors.title} />
 							<select
-								class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
+								disabled={editingResource !== null}
+								title={editingResource ? 'Không đổi được loại tài nguyên khi sửa' : undefined}
+								class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
 								bind:value={newResource.resource_type}
 							>
 								<option value="VIDEO_URL">Video</option>
@@ -467,8 +537,7 @@
 								class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-brand-700 focus:border-brand-300"
 							/>
 							<p class="mt-1 text-xs text-slate-400">
-								Chọn tệp từ máy ({DOCUMENT_EXTENSIONS.join(', ')}), tối đa {MAX_DOCUMENT_MB} MB. Hệ thống
-								tự tải lên Cloudinary khi lưu.
+								Chọn tệp từ máy ({DOCUMENT_EXTENSIONS.join(', ')}), tối đa {MAX_DOCUMENT_MB} MB.
 							</p>
 							<FieldError message={resourceErrors.file_url} />
 						{:else}
@@ -482,7 +551,10 @@
 						{/if}
 						<div class="flex justify-end gap-2">
 							<button
-								onclick={() => (addingResource = false)}
+								onclick={() => {
+									addingResource = false;
+									editingResource = null;
+								}}
 								class="rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
 							>
 								Huỷ
@@ -491,14 +563,21 @@
 								onclick={confirmAddResource}
 								class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
 							>
-								Lưu tài nguyên
+								{editingResource ? 'Lưu thay đổi' : 'Lưu tài nguyên'}
 							</button>
 						</div>
+					</div>
+				{/snippet}
+
+				{#if addingResource && !editingResource}
+					<div class="mb-4">
+						{@render resourceForm()}
 					</div>
 				{/if}
 
 				<div class="space-y-2">
 					{#each resources as res (res.id)}
+						{@const openUrl = res.file_url ?? res.video_url}
 						<div
 							class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3"
 						>
@@ -521,13 +600,34 @@
 									{/if}
 								</div>
 								<div class="min-w-0">
-									<p class="truncate text-sm font-medium text-slate-700">{res.title}</p>
+									{#if openUrl}
+										<a
+											href={openUrl}
+											target="_blank"
+											rel="noreferrer"
+											title="Mở tài nguyên trong tab mới"
+											class="block truncate text-sm font-medium text-brand-700 hover:underline"
+										>
+											{res.title}
+										</a>
+									{:else}
+										<p class="truncate text-sm font-medium text-slate-700">{res.title}</p>
+									{/if}
 									<p class="truncate text-xs text-slate-400">
 										{resourceTypeLabel[res.resource_type]}
 										{#if res.video_url}
 											• {res.video_url}{/if}
-										{#if fileNameFromUrl(res.file_url)}
+										{#if res.file_url && fileNameFromUrl(res.file_url)}
 											• {fileNameFromUrl(res.file_url)}{/if}
+										{#if res.content}
+											•
+											<button
+												onclick={() => toggleResourceContent(res.id)}
+												class="font-medium text-brand-600 hover:underline"
+											>
+												{expandedResourceId === res.id ? 'Thu gọn' : 'Xem nội dung'}
+											</button>
+										{/if}
 									</p>
 								</div>
 							</div>
@@ -568,6 +668,15 @@
 										<Globe class="h-4 w-4" />
 									</button>
 								{/if}
+								{#if !res.is_published}
+									<button
+										onclick={() => startEditResource(res)}
+										title="Sửa tài nguyên"
+										class="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600"
+									>
+										<Pencil class="h-4 w-4" />
+									</button>
+								{/if}
 								<button
 									onclick={() => removeResource(res)}
 									class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
@@ -576,6 +685,18 @@
 								</button>
 							</div>
 						</div>
+
+						{#if expandedResourceId === res.id && res.content}
+							<div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+								<p class="whitespace-pre-wrap text-xs leading-relaxed text-slate-600">
+									{res.content}
+								</p>
+							</div>
+						{/if}
+
+						{#if editingResource?.id === res.id}
+							{@render resourceForm()}
+						{/if}
 					{/each}
 
 					{#if resources.length === 0 && !addingResource}
@@ -586,8 +707,7 @@
 
 					{#if resources.length > 0}
 						<p class="pt-2 text-[11px] leading-relaxed text-slate-400">
-							Tài nguyên cần được nạp thì trợ lý học tập mới dùng được nội dung của nó. Tài nguyên
-							đang ở trạng thái Nạp lỗi thì bấm nạp lại là được.
+							Gợi ý: Hãy nạp tài nguyên để trợ lý học tập có thể sử dụng được nội dung.
 						</p>
 					{/if}
 				</div>
@@ -596,9 +716,7 @@
 			<div
 				class="rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm shadow-slate-200/50"
 			>
-				<h2 class="mb-4 text-sm font-semibold text-slate-800 font-heading">
-					Diễn đàn thảo luận
-				</h2>
+				<h2 class="mb-4 text-sm font-semibold text-slate-800 font-heading">Diễn đàn thảo luận</h2>
 
 				<div class="space-y-5">
 					{#each topLevelComments as comment (comment.id)}
@@ -628,12 +746,22 @@
 										</div>
 									</div>
 								</div>
-								<MarkRightButton
-									isRight={comment.is_right}
-									canEdit={true}
-									isLoading={markingRightId === comment.id}
-									onToggle={() => toggleMarkRight(comment)}
-								/>
+								<div class="flex shrink-0 items-center gap-1">
+									<MarkRightButton
+										isRight={comment.is_right}
+										canEdit={true}
+										isLoading={markingRightId === comment.id}
+										onToggle={() => toggleMarkRight(comment)}
+									/>
+									<button
+										onclick={() => removeComment(comment)}
+										disabled={deletingCommentId === comment.id}
+										title="Xóa bình luận"
+										class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+									>
+										<Trash2 class="h-4 w-4" />
+									</button>
+								</div>
 							</div>
 
 							{#if replyingToId === comment.id}
@@ -682,12 +810,22 @@
 													</p>
 												</div>
 											</div>
-											<MarkRightButton
-												isRight={reply.is_right}
-												canEdit={true}
-												isLoading={markingRightId === reply.id}
-												onToggle={() => toggleMarkRight(reply)}
-											/>
+											<div class="flex shrink-0 items-center gap-1">
+												<MarkRightButton
+													isRight={reply.is_right}
+													canEdit={true}
+													isLoading={markingRightId === reply.id}
+													onToggle={() => toggleMarkRight(reply)}
+												/>
+												<button
+													onclick={() => removeComment(reply)}
+													disabled={deletingCommentId === reply.id}
+													title="Xóa trả lời"
+													class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+												>
+													<Trash2 class="h-4 w-4" />
+												</button>
+											</div>
 										</div>
 									{/each}
 								</div>
