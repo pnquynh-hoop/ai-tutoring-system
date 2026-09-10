@@ -4,11 +4,9 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 
 MB = 1024 * 1024
-
 MAX_IMAGE_SIZE = 2 * MB
 MAX_DOCUMENT_SIZE = 10 * MB
 MAX_MATERIAL_SIZE = 100 * MB
-
 LOCAL_STORAGE_THRESHOLD = 10 * MB
 
 DOCUMENT_TYPES = {

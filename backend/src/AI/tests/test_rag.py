@@ -12,22 +12,20 @@ from AI.ingest import (
 )
 from accounts.models import StudentProfile
 from AI.rag_service import (
-    CENTER_TOP_K,
-    COURSE_TOP_K,
     HYBRID_PROMPT,
-    LESSON_TOP_K,
     NO_ENROLLED_SUBJECT,
     NO_LESSON_CONTEXT,
     NO_STUDENT_PROFILE,
     OUTSIDE_MATERIAL_PREFIX,
     STRICT_PROMPT,
     TEACHING_STYLES,
-    build_scope_layers,
+    TOP_K,
+    build_scope_filter,
     course_subjects_and_grades,
     describe_lesson,
     describe_subjects,
     material_scope,
-    retrieve_layered,
+    retrieve_documents,
     describe_student,
     document_key,
     format_sources,
@@ -38,52 +36,54 @@ from AI.rag_service import (
 
 
 
-class TestScopeLayers:
-    def test_lesson_scope_comes_first_then_course_then_center(self):
-        assert build_scope_layers(course_ids=[1], lesson_id=2) == [
-            ({"lesson_id": 2}, LESSON_TOP_K),
-            ({"course_id": {"$in": [1]}}, COURSE_TOP_K),
-            ({"source_type": SOURCE_MATERIAL}, CENTER_TOP_K),
-        ]
+class TestScopeFilter:
+    def test_lesson_and_course_scopes_join_the_center_scope(self):
+        assert build_scope_filter(course_ids=[1], lesson_id=2) == {
+            "$or": [
+                {"lesson_id": 2},
+                {"course_id": {"$in": [1]}},
+                {"source_type": SOURCE_MATERIAL},
+            ]
+        }
 
     def test_course_scope_covers_every_enrolled_course(self):
-        assert build_scope_layers(course_ids=[5, 7, 9]) == [
-            ({"course_id": {"$in": [5, 7, 9]}}, COURSE_TOP_K),
-            ({"source_type": SOURCE_MATERIAL}, CENTER_TOP_K),
-        ]
+        assert build_scope_filter(course_ids=[5, 7, 9]) == {
+            "$or": [
+                {"course_id": {"$in": [5, 7, 9]}},
+                {"source_type": SOURCE_MATERIAL},
+            ]
+        }
 
-    def test_center_only_when_no_course(self):
-        assert build_scope_layers() == [({"source_type": SOURCE_MATERIAL}, CENTER_TOP_K)]
+    def test_center_scope_stands_alone_when_there_is_nothing_to_join(self):
+        assert build_scope_filter() == {"source_type": SOURCE_MATERIAL}
 
-    def test_center_layer_uses_the_source_type_that_ingest_writes(self):
-        material_layer = build_scope_layers()[0][0]
-        assert material_layer["source_type"] == material_metadata(
+    def test_center_scope_uses_the_source_type_that_ingest_writes(self):
+        assert build_scope_filter()["source_type"] == material_metadata(
             SimpleNamespace(id=1, subject_id=1, grade_id=1, name="SGK"), 0
         )["source_type"]
 
-    def test_center_layer_narrows_to_subject_and_grade(self):
-        layers = build_scope_layers(course_ids=[5], subject_ids=[2], grade_ids=[3])
+    def test_center_scope_narrows_to_subject_and_grade(self):
+        scope = build_scope_filter(course_ids=[5], subject_ids=[2], grade_ids=[3])
 
-        assert layers[-1] == (
-            {
-                "$and": [
-                    {"source_type": SOURCE_MATERIAL},
-                    {"subject_id": {"$in": [2]}},
-                    {"grade_id": {"$in": [3]}},
-                ]
-            },
-            CENTER_TOP_K,
-        )
+        assert scope["$or"][-1] == {
+            "$and": [
+                {"source_type": SOURCE_MATERIAL},
+                {"subject_id": {"$in": [2]}},
+                {"grade_id": {"$in": [3]}},
+            ]
+        }
 
-    def test_center_layer_keeps_source_type_alone_when_nothing_to_narrow(self):
+    def test_center_scope_keeps_source_type_alone_when_nothing_to_narrow(self):
         assert material_scope([], []) == {"source_type": SOURCE_MATERIAL}
 
 
 class FakeStore:
     def __init__(self, hits):
         self.hits = hits
+        self.searches = []
 
     def similarity_search_with_score(self, query, k, filter):
+        self.searches.append({"query": query, "k": k, "filter": filter})
         return self.hits[:k]
 
 
@@ -97,7 +97,7 @@ class TestDistanceThreshold:
             lambda: FakeStore([(near, 0.50), (far, 0.71)]),
         )
 
-        documents = retrieve_layered("câu hỏi lạc đề")
+        documents = retrieve_documents("câu hỏi lạc đề")
 
         assert [document.page_content for document in documents] == ["gan"]
 
@@ -108,7 +108,33 @@ class TestDistanceThreshold:
             "AI.rag_service.get_vector_store", lambda: FakeStore([(far, 0.72)])
         )
 
-        assert retrieve_layered("kể một chuyện cười") == []
+        assert retrieve_documents("kể một chuyện cười") == []
+
+
+class TestSingleSearch:
+    def test_only_one_search_asking_for_top_k(self, db, monkeypatch, settings):
+        settings.RAG_MAX_DISTANCE = 0.62
+        near = Document(page_content="gan", metadata={"material_id": 1, "page": 1})
+        store = FakeStore([(near, 0.10)])
+        monkeypatch.setattr("AI.rag_service.get_vector_store", lambda: store)
+
+        retrieve_documents("đảo ngữ no sooner", course_ids=[], lesson_id=None)
+
+        assert len(store.searches) == 1
+        assert store.searches[0]["k"] == TOP_K
+
+    def test_results_come_back_sorted_by_distance(self, db, monkeypatch, settings):
+        settings.RAG_MAX_DISTANCE = 0.62
+        far = Document(page_content="xa hon", metadata={"material_id": 1, "page": 1})
+        near = Document(page_content="gan hon", metadata={"material_id": 1, "page": 2})
+        monkeypatch.setattr(
+            "AI.rag_service.get_vector_store",
+            lambda: FakeStore([(far, 0.55), (near, 0.20)]),
+        )
+
+        documents = retrieve_documents("câu hỏi bất kỳ")
+
+        assert [document.page_content for document in documents] == ["gan hon", "xa hon"]
 
 
 class TestDescribeSubjects:

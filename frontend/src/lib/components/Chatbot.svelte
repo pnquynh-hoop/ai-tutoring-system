@@ -33,6 +33,60 @@
 
 	let messages = $state<ChatMessage[]>([]);
 
+	const MIN_PANEL_WIDTH = 448;
+	const PANEL_WIDTH_KEY = 'chat-panel-width';
+
+	let panelWidth = $state(MIN_PANEL_WIDTH);
+	let isResizing = $state(false);
+
+	function clampPanelWidth(width: number) {
+		const halfScreen = Math.round(window.innerWidth / 2);
+		const maxWidth = Math.max(MIN_PANEL_WIDTH, halfScreen);
+		return Math.min(Math.max(width, MIN_PANEL_WIDTH), maxWidth);
+	}
+
+	function resizePanel(event: PointerEvent) {
+		panelWidth = clampPanelWidth(window.innerWidth - event.clientX);
+	}
+
+	function stopResizing() {
+		isResizing = false;
+		window.removeEventListener('pointermove', resizePanel);
+		window.removeEventListener('pointerup', stopResizing);
+
+		try {
+			localStorage.setItem(PANEL_WIDTH_KEY, String(panelWidth));
+		} catch {
+			return;
+		}
+	}
+
+	function startResizing(event: PointerEvent) {
+		event.preventDefault();
+		isResizing = true;
+		window.addEventListener('pointermove', resizePanel);
+		window.addEventListener('pointerup', stopResizing);
+	}
+
+	function storedPanelWidth() {
+		try {
+			return Number(localStorage.getItem(PANEL_WIDTH_KEY)) || MIN_PANEL_WIDTH;
+		} catch {
+			return MIN_PANEL_WIDTH;
+		}
+	}
+
+	$effect(() => {
+		panelWidth = clampPanelWidth(storedPanelWidth());
+
+		const keepInsideScreen = () => {
+			panelWidth = clampPanelWidth(panelWidth);
+		};
+
+		window.addEventListener('resize', keepInsideScreen);
+		return () => window.removeEventListener('resize', keepInsideScreen);
+	});
+
 	const MOTIVATION_QUOTE = 'Một ngày mới, một cơ hội mới để tiến bộ. Bắt đầu thôi nào!';
 
 	function greeting(): ChatMessage {
@@ -121,8 +175,21 @@
 
 {#if isOpen}
 	<aside
-		class="fixed right-0 top-0 z-40 flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl shadow-slate-300/50"
+		style={`width: ${panelWidth}px`}
+		class={`fixed right-0 top-0 z-40 flex h-full max-w-full flex-col border-l border-slate-200 bg-white shadow-2xl shadow-slate-300/50 ${
+			isResizing ? 'select-none' : ''
+		}`}
 	>
+		<div
+			role="separator"
+			aria-orientation="vertical"
+			aria-label="Kéo để đổi bề rộng khung chat"
+			onpointerdown={startResizing}
+			class={`absolute left-0 top-0 h-full w-1.5 cursor-col-resize transition-colors hover:bg-brand-300 ${
+				isResizing ? 'bg-brand-400' : 'bg-transparent'
+			}`}
+		></div>
+
 		<header class="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
 			<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
 				<Sparkles class="h-5 w-5" />

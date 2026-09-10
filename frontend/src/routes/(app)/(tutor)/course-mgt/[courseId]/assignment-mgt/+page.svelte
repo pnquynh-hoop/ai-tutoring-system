@@ -31,7 +31,8 @@
 		hasError,
 		rangeError,
 		textError,
-		tooLongError
+		tooLongError,
+		blockNonNumericKey
 	} from '$lib/utils/validation';
 	import { Check, ClipboardEdit, Globe, Lock, Pencil, Plus, Trash2, X } from 'lucide-svelte';
 	import type { PageProps } from './$types';
@@ -214,6 +215,13 @@
 		if (!isValidPointStep(point))
 			return `Điểm phải là bội của ${POINT_STEP}, ví dụ 0.25, 0.5, 1.75.`;
 		return '';
+	}
+
+	function checkPointOnBlur(event: FocusEvent & { currentTarget: HTMLInputElement }) {
+		const message = event.currentTarget.validity.badInput
+			? 'Điểm phải là số.'
+			: pointError(questionForm.point);
+		questionErrors = { ...questionErrors, point: message };
 	}
 
 	function describeDistribution(points: number[]): string {
@@ -638,6 +646,8 @@
 										max={TOTAL_SCORE}
 										aria-invalid={questionErrors.point ? 'true' : undefined}
 										oninput={() => clearQuestionError('point')}
+										onkeydown={blockNonNumericKey}
+										onblur={checkPointOnBlur}
 										class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300 aria-invalid:border-rose-400"
 										placeholder="Điểm của câu hỏi (để trống nếu chưa quyết)"
 										bind:value={questionForm.point}

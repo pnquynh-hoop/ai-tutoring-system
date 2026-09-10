@@ -20,3 +20,26 @@ export function getApiErrorMessage(err: unknown, fallback = 'Đã xảy ra lỗi
 
 	return fallback;
 }
+
+export function getApiFieldErrors(err: unknown): Record<string, string> {
+	if (!axios.isAxiosError(err)) return {};
+
+	const data = err.response?.data;
+	if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+
+	const fieldErrors: Record<string, string> = {};
+
+	for (const [field, value] of Object.entries(data)) {
+		if (typeof value === 'string') {
+			fieldErrors[field] = value;
+			continue;
+		}
+
+		if (Array.isArray(value)) {
+			const messages = value.filter((item) => typeof item === 'string');
+			if (messages.length) fieldErrors[field] = messages.join(' ');
+		}
+	}
+
+	return fieldErrors;
+}

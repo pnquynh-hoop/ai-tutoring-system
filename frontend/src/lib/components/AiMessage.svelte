@@ -1,108 +1,192 @@
 <script lang="ts">
-	import katex from 'katex';
-	import 'katex/dist/katex.min.css';
-	import { parseMarkdown, type InlineToken } from '$lib/utils/markdown';
+	import { renderMarkdown } from '$lib/utils/markdown';
 
 	interface Props {
 		text: string;
 	}
 
 	let { text }: Props = $props();
-	let blocks = $derived(parseMarkdown(text));
-
-	const HTML_ESCAPES: Record<string, string> = {
-		'&': '&amp;',
-		'<': '&lt;',
-		'>': '&gt;',
-		'"': '&quot;',
-		"'": '&#39;'
-	};
-
-	function renderMath(formula: string, display: boolean): string {
-		try {
-			return katex.renderToString(formula, { displayMode: display, throwOnError: false });
-		} catch {
-			return formula.replace(/[&<>"']/g, (character) => HTML_ESCAPES[character]);
-		}
-	}
-
-	const headingSize: Record<number, string> = {
-		1: 'text-base',
-		2: 'text-[15px]',
-		3: 'text-sm',
-		4: 'text-sm',
-		5: 'text-sm',
-		6: 'text-sm'
-	};
+	let html = $derived(renderMarkdown(text));
 </script>
 
-{#snippet inline(tokens: InlineToken[])}
-	{#each tokens as token, index (index)}
-		{#if token.kind === 'bold'}
-			<strong class="font-semibold text-slate-900">{token.text}</strong>
-		{:else if token.kind === 'italic'}
-			<em class="italic">{token.text}</em>
-		{:else if token.kind === 'code'}
-			<code
-				class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] text-brand-700 wrap-break-word"
-			>
-				{token.text}
-			</code>
-		{:else if token.kind === 'math'}
-			{@html renderMath(token.text, token.display)}
-		{:else}
-			{token.text}
-		{/if}
-	{/each}
-{/snippet}
-
-<div class="space-y-2.5 text-sm leading-relaxed text-slate-700">
-	{#each blocks as block, index (index)}
-		{#if block.kind === 'heading'}
-			<p class={`font-heading font-bold text-slate-900 ${headingSize[block.level] ?? 'text-sm'}`}>
-				{@render inline(block.content)}
-			</p>
-		{:else if block.kind === 'bullets'}
-			<ul class="ml-1 space-y-1.5">
-				{#each block.items as item, itemIndex (itemIndex)}
-					<li class="flex gap-2">
-						<span class="mt-[0.45rem] h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400"></span>
-						<span class="min-w-0 flex-1">{@render inline(item)}</span>
-					</li>
-				{/each}
-			</ul>
-		{:else if block.kind === 'numbers'}
-			<ol class="ml-1 space-y-1.5">
-				{#each block.items as item, itemIndex (itemIndex)}
-					<li class="flex gap-2">
-						<span
-							class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-semibold text-brand-700"
-						>
-							{itemIndex + 1}
-						</span>
-						<span class="min-w-0 flex-1">{@render inline(item)}</span>
-					</li>
-				{/each}
-			</ol>
-		{:else if block.kind === 'quote'}
-			<blockquote class="border-l-2 border-brand-200 pl-3 text-slate-600 italic">
-				{@render inline(block.content)}
-			</blockquote>
-		{:else if block.kind === 'code'}
-			<pre
-				class="overflow-x-auto rounded-lg bg-slate-900 px-3 py-2.5 font-mono text-xs leading-relaxed text-slate-100">{block.text}</pre>
-		{:else if block.kind === 'rule'}
-			<hr class="border-slate-200" />
-		{:else}
-			<p>{@render inline(block.content)}</p>
-		{/if}
-	{/each}
+<div class="ai-markdown overflow-x-auto text-sm leading-relaxed text-slate-700">
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html html}
 </div>
 
 <style>
-	:global(.katex-display) {
-		margin: 0.35rem 0;
+	.ai-markdown :global(p),
+	.ai-markdown :global(ul),
+	.ai-markdown :global(ol),
+	.ai-markdown :global(blockquote),
+	.ai-markdown :global(pre),
+	.ai-markdown :global(table) {
+		margin: 0.625rem 0;
+	}
+
+	.ai-markdown :global(> :first-child) {
+		margin-top: 0;
+	}
+
+	.ai-markdown :global(> :last-child) {
+		margin-bottom: 0;
+	}
+
+	.ai-markdown :global(h1),
+	.ai-markdown :global(h2),
+	.ai-markdown :global(h3),
+	.ai-markdown :global(h4),
+	.ai-markdown :global(h5),
+	.ai-markdown :global(h6) {
+		margin: 0.875rem 0 0.35rem;
+		font-family: var(--font-heading);
+		font-weight: 700;
+		color: var(--color-slate-900);
+		font-size: 0.875rem;
+	}
+
+	.ai-markdown :global(h1) {
+		font-size: 1rem;
+	}
+
+	.ai-markdown :global(h2) {
+		font-size: 0.9375rem;
+	}
+
+	.ai-markdown :global(strong) {
+		font-weight: 600;
+		color: var(--color-slate-900);
+	}
+
+	.ai-markdown :global(em) {
+		font-style: italic;
+	}
+
+	.ai-markdown :global(a) {
+		color: var(--color-brand-600);
+		font-weight: 500;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.ai-markdown :global(a:hover) {
+		color: var(--color-brand-700);
+	}
+
+	.ai-markdown :global(ul),
+	.ai-markdown :global(ol) {
+		list-style: none;
+		padding: 0;
+	}
+
+	.ai-markdown :global(li) {
+		margin: 0.375rem 0;
+	}
+
+	.ai-markdown :global(ul > li) {
+		position: relative;
+		padding-left: 1rem;
+	}
+
+	.ai-markdown :global(ul > li)::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: 0.55rem;
+		height: 0.375rem;
+		width: 0.375rem;
+		border-radius: 9999px;
+		background: var(--color-brand-400);
+	}
+
+	.ai-markdown :global(ol) {
+		counter-reset: item;
+	}
+
+	.ai-markdown :global(ol > li) {
+		counter-increment: item;
+		position: relative;
+		padding-left: 1.75rem;
+	}
+
+	.ai-markdown :global(ol > li)::before {
+		content: counter(item);
+		position: absolute;
+		left: 0;
+		top: 0.1rem;
+		display: flex;
+		height: 1.25rem;
+		width: 1.25rem;
+		align-items: center;
+		justify-content: center;
+		border-radius: 9999px;
+		background: var(--color-brand-50);
+		color: var(--color-brand-700);
+		font-size: 11px;
+		font-weight: 600;
+	}
+
+	.ai-markdown :global(li > ul),
+	.ai-markdown :global(li > ol) {
+		margin: 0.375rem 0 0;
+		padding-left: 0.5rem;
+	}
+
+	.ai-markdown :global(blockquote) {
+		border-left: 2px solid var(--color-brand-200);
+		padding-left: 0.75rem;
+		color: var(--color-slate-600);
+		font-style: italic;
+	}
+
+	.ai-markdown :global(code) {
+		border-radius: 0.25rem;
+		background: var(--color-slate-100);
+		padding: 0.1rem 0.25rem;
+		font-family: ui-monospace, monospace;
+		font-size: 0.85em;
+		color: var(--color-brand-700);
+		overflow-wrap: break-word;
+	}
+
+	.ai-markdown :global(pre) {
 		overflow-x: auto;
-		overflow-y: hidden;
+		border-radius: 0.5rem;
+		background: var(--color-slate-900);
+		padding: 0.625rem 0.75rem;
+	}
+
+	.ai-markdown :global(pre code) {
+		background: transparent;
+		padding: 0;
+		font-size: 12px;
+		color: var(--color-slate-100);
+	}
+
+	.ai-markdown :global(table) {
+		width: 100%;
+		table-layout: auto;
+		border-collapse: collapse;
+		font-size: 12px;
+	}
+
+	.ai-markdown :global(th),
+	.ai-markdown :global(td) {
+		border: 1px solid var(--color-slate-200);
+		padding: 0.35rem 0.5rem;
+		text-align: left;
+		overflow-wrap: break-word;
+	}
+
+	.ai-markdown :global(th) {
+		background: var(--color-slate-50);
+		font-weight: 600;
+		color: var(--color-slate-700);
+	}
+
+	.ai-markdown :global(hr) {
+		margin: 0.75rem 0;
+		border: 0;
+		border-top: 1px solid var(--color-slate-200);
 	}
 </style>

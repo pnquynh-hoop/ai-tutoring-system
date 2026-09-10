@@ -16,7 +16,7 @@ export const ENTITY_CAPS = {
 	chaptersPerCourse: 20,
 	lessonsPerChapter: 50,
 	questionsPerAssignment: 100,
-	answersPerQuestion: 5,
+	answersPerQuestion: 4,
 	itemsPerRequest: 200
 } as const;
 
@@ -44,11 +44,23 @@ export function futureDateError(value: string, label: string): string {
 	return picked.getTime() <= Date.now() ? `${label} phải sau thời điểm hiện tại.` : '';
 }
 
-export function rangeError(value: string, min: number, max: number, label: string): string {
-	if (!value.trim()) return '';
+export function rangeError(
+	value: string | number | null,
+	min: number,
+	max: number,
+	label: string
+): string {
+	if (value === null || (typeof value === 'string' && !value.trim())) return '';
 	const parsed = Number(value);
 	if (!Number.isInteger(parsed)) return `${label} phải là số nguyên.`;
 	return parsed < min || parsed > max ? `${label} phải nằm trong khoảng ${min}-${max}.` : '';
+}
+
+export function blockNonNumericKey(event: KeyboardEvent) {
+	if (event.ctrlKey || event.metaKey || event.altKey) return;
+	if (event.key.length > 1) return;
+	if (/[0-9.]/.test(event.key)) return;
+	event.preventDefault();
 }
 
 export function hasError(errors: Record<string, string>): boolean {

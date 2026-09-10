@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Question } from '$lib/api/entities';
+	import { remainingSeconds } from '$lib/utils/assignment';
 	import { Menu, Clock, Check, X } from 'lucide-svelte';
 
 	interface Props {
@@ -7,7 +8,8 @@
 		currentIndex: number;
 		onSelectQuestion: (index: number) => void;
 		mode?: 'taking' | 'review';
-		durationSeconds?: number;
+		deadline?: string | null;
+		serverOffsetMs?: number;
 		onFinish?: () => void;
 		onTimeUp?: () => void;
 		answeredIds?: number[];
@@ -19,7 +21,8 @@
 		currentIndex,
 		onSelectQuestion,
 		mode = 'taking',
-		durationSeconds = 0,
+		deadline = null,
+		serverOffsetMs = 0,
 		onFinish,
 		onTimeUp,
 		answeredIds = [],
@@ -28,20 +31,26 @@
 
 	let sidebarCollapsed = $state(false);
 
-	let totalSeconds = $derived(durationSeconds);
+	let hasTimeLimit = $derived(Boolean(deadline));
+
+	function secondsLeftNow() {
+		return remainingSeconds(deadline, Date.now() + serverOffsetMs);
+	}
+
+	let totalSeconds = $state(0);
 	let hasNotifiedTimeUp = false;
-	let hasTimeLimit = $derived(durationSeconds > 0);
 
 	$effect(() => {
 		if (mode !== 'taking' || !hasTimeLimit) return;
 
+		totalSeconds = secondsLeftNow();
+
 		const timer = setInterval(() => {
-			if (totalSeconds > 0) {
-				totalSeconds -= 1;
-				if (totalSeconds === 0 && !hasNotifiedTimeUp) {
-					hasNotifiedTimeUp = true;
-					onTimeUp?.();
-				}
+			totalSeconds = secondsLeftNow();
+
+			if (totalSeconds === 0 && !hasNotifiedTimeUp) {
+				hasNotifiedTimeUp = true;
+				onTimeUp?.();
 			}
 		}, 1000);
 

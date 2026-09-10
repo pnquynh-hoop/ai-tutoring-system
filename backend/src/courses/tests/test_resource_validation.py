@@ -45,11 +45,24 @@ class TestResourceValidation:
 
         assert serializer.is_valid(), serializer.errors
 
-    def test_switching_a_pdf_to_video_without_link_is_rejected(self, pdf_resource):
+    def test_switching_resource_type_is_rejected(self, pdf_resource):
         serializer = ResourceSerializer(
             pdf_resource,
             data={"resource_type": LearningResource.ResourceType.VIDEO_URL},
             partial=True,
+        )
+
+        assert not serializer.is_valid()
+        assert "Không được đổi loại tài nguyên" in str(serializer.errors)
+
+    def test_video_without_link_is_rejected(self, lesson):
+        serializer = ResourceSerializer(
+            data={
+                "lesson": lesson.id,
+                "title": "Video bài giảng",
+                "resource_type": LearningResource.ResourceType.VIDEO_URL,
+            },
+            context=tutor_context(lesson),
         )
 
         assert not serializer.is_valid()

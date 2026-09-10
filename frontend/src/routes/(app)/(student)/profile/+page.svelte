@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { changePassword, updateMyAvatar, updateMyProfile } from '$lib/api/calledAPI';
-	import { getApiErrorMessage } from '$lib/api/errors';
+	import { getApiErrorMessage, getApiFieldErrors } from '$lib/api/errors';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import FieldError from '$lib/components/FieldError.svelte';
 	import {
@@ -139,6 +139,10 @@
 			errors.new_password = 'Mật khẩu mới phải có ít nhất 8 ký tự.';
 		}
 
+		if (!errors.new_password && /^\d+$/.test(passwordForm.new_password)) {
+			errors.new_password = 'Mật khẩu mới không được chỉ gồm chữ số.';
+		}
+
 		if (!errors.confirm_password && passwordForm.confirm_password !== passwordForm.new_password) {
 			errors.confirm_password = 'Xác nhận mật khẩu không khớp với mật khẩu mới.';
 		}
@@ -167,7 +171,22 @@
 			passwordErrors = {};
 			showToast('Đổi mật khẩu thành công', 'success');
 		} catch (err) {
-			showToast(getApiErrorMessage(err, 'Đổi mật khẩu không thành công.'), 'error');
+			const fieldErrors = getApiFieldErrors(err);
+			const serverErrors: Record<string, string> = {};
+
+			for (const field of ['old_password', 'new_password', 'confirm_password']) {
+				if (fieldErrors[field]) serverErrors[field] = fieldErrors[field];
+			}
+
+			const hasFieldError = Object.keys(serverErrors).length > 0;
+			passwordErrors = { ...passwordErrors, ...serverErrors };
+
+			showToast(
+				hasFieldError
+					? 'Đổi mật khẩu không thành công.'
+					: getApiErrorMessage(err, 'Đổi mật khẩu không thành công.'),
+				'error'
+			);
 		} finally {
 			isChangingPassword = false;
 		}
@@ -373,31 +392,37 @@
 					Đổi mật khẩu
 				</h2>
 
-				<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-					<input
-						oninput={() => clearPasswordError('old_password')}
-						type="password"
-						placeholder="Mật khẩu hiện tại"
-						class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
-						bind:value={passwordForm.old_password}
-					/>
-					<FieldError message={passwordErrors.old_password} />
-					<input
-						oninput={() => clearPasswordError('new_password')}
-						type="password"
-						placeholder="Mật khẩu mới"
-						class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
-						bind:value={passwordForm.new_password}
-					/>
-					<FieldError message={passwordErrors.new_password} />
-					<input
-						oninput={() => clearPasswordError('confirm_password')}
-						type="password"
-						placeholder="Xác nhận mật khẩu mới"
-						class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
-						bind:value={passwordForm.confirm_password}
-					/>
-					<FieldError message={passwordErrors.confirm_password} />
+				<div class="max-w-md space-y-3">
+					<div>
+						<input
+							oninput={() => clearPasswordError('old_password')}
+							type="password"
+							placeholder="Mật khẩu hiện tại"
+							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
+							bind:value={passwordForm.old_password}
+						/>
+						<FieldError message={passwordErrors.old_password} />
+					</div>
+					<div>
+						<input
+							oninput={() => clearPasswordError('new_password')}
+							type="password"
+							placeholder="Mật khẩu mới"
+							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
+							bind:value={passwordForm.new_password}
+						/>
+						<FieldError message={passwordErrors.new_password} />
+					</div>
+					<div>
+						<input
+							oninput={() => clearPasswordError('confirm_password')}
+							type="password"
+							placeholder="Xác nhận mật khẩu mới"
+							class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-300"
+							bind:value={passwordForm.confirm_password}
+						/>
+						<FieldError message={passwordErrors.confirm_password} />
+					</div>
 				</div>
 
 				<div class="mt-3 flex justify-end">

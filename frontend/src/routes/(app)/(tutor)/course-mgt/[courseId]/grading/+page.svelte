@@ -7,7 +7,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { showToast } from '$lib/stores/toast.svelte';
 	import FieldError from '$lib/components/FieldError.svelte';
-	import { FIELD_LIMITS, tooLongError } from '$lib/utils/validation';
+	import { FIELD_LIMITS, tooLongError, blockNonNumericKey } from '$lib/utils/validation';
 	import { confirmAction } from '$lib/stores/confirm.svelte';
 	import { CheckCircle2, ChevronRight, ClipboardCheck, Clock } from 'lucide-svelte';
 	import type { PageProps } from './$types';
@@ -31,27 +31,39 @@
 		return Number(answer?.question_point ?? 0);
 	}
 
+	function gradeErrorFor(answerId: number): string {
+		const draft = drafts[answerId];
+		if (!draft) return '';
+
+		const point = draft.point;
+		const maxPoint = maxPointOf(answerId);
+
+		if (point !== null && !Number.isNaN(point)) {
+			if (point < 0 || point > maxPoint) {
+				return `Điểm phải nằm trong khoảng 0 - ${maxPoint}.`;
+			}
+
+			if (!isValidPointStep(point)) {
+				return `Điểm phải là bội của ${POINT_STEP}, ví dụ 0.25, 0.5, 1.75.`;
+			}
+		}
+
+		return tooLongError(draft.tutor_comment, FIELD_LIMITS.tutorComment, 'Nhận xét');
+	}
+
+	function checkGradeOnBlur(answerId: number, input: HTMLInputElement) {
+		const message = input.validity.badInput ? 'Điểm phải là số.' : gradeErrorFor(answerId);
+		gradeErrors = { ...gradeErrors, [answerId]: message };
+	}
+
 	function validateGrade(): boolean {
 		if (!selected) return false;
 
 		const errors: Record<number, string> = {};
 
-		for (const [id, draft] of Object.entries(drafts)) {
+		for (const id of Object.keys(drafts)) {
 			const answerId = Number(id);
-			const point = draft.point;
-			const maxPoint = maxPointOf(answerId);
-
-			if (point !== null && !Number.isNaN(point) && (point < 0 || point > maxPoint)) {
-				errors[answerId] = `Điểm phải nằm trong khoảng 0 - ${maxPoint}.`;
-				continue;
-			}
-
-			if (point !== null && !Number.isNaN(point) && !isValidPointStep(point)) {
-				errors[answerId] = `Điểm phải là bội của ${POINT_STEP}, ví dụ 0.25, 0.5, 1.75.`;
-				continue;
-			}
-
-			errors[answerId] = tooLongError(draft.tutor_comment, FIELD_LIMITS.tutorComment, 'Nhận xét');
+			errors[answerId] = gradeErrorFor(answerId);
 		}
 
 		gradeErrors = errors;
@@ -338,6 +350,8 @@
 										class="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-300"
 										bind:value={drafts[answer.id].point}
 										oninput={() => clearGradeError(answer.id)}
+										onkeydown={blockNonNumericKey}
+										onblur={(event) => checkGradeOnBlur(answer.id, event.currentTarget)}
 									/>
 									<span class="shrink-0 text-xs text-slate-400">
 										/ {answer.question_point}

@@ -11,7 +11,7 @@ from assignments.models import Question, Submission
 from assignments.serializers import StartAttemptSerializer, SubmitAssignmentSerializer
 from assignments.services import (
     MAX_ATTEMPTS,
-    count_submitted_attempts,
+    count_used_attempts,
     finalize_attempt,
     save_answer_draft,
     start_attempt,
@@ -28,7 +28,11 @@ def run_start(student, assignment):
         assignment, data={}, context=make_context(student)
     )
     serializer.is_valid(raise_exception=True)
-    return start_attempt(student=student, assignment=assignment)
+    return start_attempt(
+        student=student,
+        assignment=assignment,
+        open_attempt=serializer.validated_data["open_attempt"],
+    )
 
 
 def run_submit_only(student, assignment, answers):
@@ -184,10 +188,6 @@ class TestSubmitAssignment:
                 assignment,
             )
 
-    def test_assignment_without_questions_raises(self, student, assignment):
-        with pytest.raises(ValidationError):
-            run_submit(student, [], assignment)
-
     def test_unknown_question_id_raises(self, student, assignment):
         self.make_choice_question(assignment, 1)
         other_assignment = baker.make(
@@ -304,7 +304,7 @@ class TestSubmitAssignment:
         with pytest.raises(ValidationError):
             run_submit(student, answers, assignment)
 
-        assert count_submitted_attempts(student, assignment) == MAX_ATTEMPTS
+        assert count_used_attempts(student, assignment) == MAX_ATTEMPTS
 
     def test_cannot_start_more_than_max_attempts(self, student, assignment):
         question, right, _ = self.make_choice_question(assignment, 1)
@@ -329,7 +329,7 @@ class TestSubmitAssignment:
         submission = run_submit(other_student, answers, assignment)
 
         assert submission.score == Decimal("10.0")
-        assert count_submitted_attempts(other_student, assignment) == 1
+        assert count_used_attempts(other_student, assignment) == 1
 
     def test_submit_without_start_raises(self, student, assignment):
         question, right, _ = self.make_choice_question(assignment, 1)
@@ -365,7 +365,7 @@ class TestSubmitAssignment:
         assert attempt.submitted_at is None
         assert expired.submitted_at == expired.deadline
         assert expired.score == Decimal("0.0")
-        assert count_submitted_attempts(student, assignment) == 1
+        assert count_used_attempts(student, assignment) == 2
 
 
 @pytest.mark.django_db

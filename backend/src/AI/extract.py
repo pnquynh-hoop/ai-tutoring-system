@@ -8,7 +8,6 @@ import statistics
 import time
 import unicodedata
 from pathlib import Path
-
 import pymupdf
 import pymupdf4llm
 from django.conf import settings
@@ -465,7 +464,7 @@ def clean_markdown(page_text):
 
 REPEAT_EDGE_LINES = 3
 REPEAT_MIN_PAGES = 3
-REPEAT_MAX_LENGTH = 80
+REPEAT_MAX_LENGTH = 150
 HEADER_MIN_RATIO = 0.4
 WATERMARK_MIN_RATIO = 0.6   
 

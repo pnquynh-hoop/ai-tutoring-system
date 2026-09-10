@@ -130,8 +130,12 @@ class UpdateMeSerializer(serializers.ModelSerializer):
             "student_profile",
         ]
 
-    def validate_avatar(self, avatar):
-        return validate_image_upload(avatar)
+    def validate_avatar(self, file):
+        if file is not None and getattr(file, "size", None) is None:
+            raise serializers.ValidationError(
+                "Chỉ chấp nhận tệp hình ảnh tải lên trực tiếp."
+            )
+        return validate_image_upload(file)
 
     def validate_phone(self, phone):
         if not re.fullmatch(r"0\d{9}", phone or ""):

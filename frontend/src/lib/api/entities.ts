@@ -146,6 +146,7 @@ export interface Attempt {
 	started_at: string;
 	deadline: string | null;
 	time_limit_minutes: number | null;
+	server_time: string;
 }
 
 export interface Submission {

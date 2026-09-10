@@ -45,7 +45,9 @@
 	"dependencies": {
 		"@types/katex": "^0.16.8",
 		"axios": "^1.18.1",
+		"dompurify": "^3.4.15",
 		"katex": "^0.18.4",
-		"lucide-svelte": "^1.0.1"
+		"lucide-svelte": "^1.0.1",
+		"marked": "^18.0.12"
 	}
 }

@@ -1,3 +1,4 @@
+from multiprocessing import context
 from django.db.models import Count, Prefetch
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
@@ -30,11 +31,13 @@ from core.paginators import ItemPaginator
 from core.permissions import (
     IsCourseMember,
     IsCourseTutor,
+    IsEnrolledStudent,
     IsStudent,
     IsStudentOrTutor,
     IsSubmissionOwnerOrCourseTutor,
     IsTutor,
 )
+
 
 class AssignmentView(
     viewsets.ViewSet,
@@ -51,21 +54,25 @@ class AssignmentView(
         if self.action in ["create", "update", "partial_update", "destroy", "publish"]:
             return [IsTutor(), IsCourseTutor()]
         if self.action in ("start", "submit", "save_draft"):
-            return [IsStudent(), IsCourseMember()]
+            return [IsStudent(), IsEnrolledStudent()]
         return [IsStudentOrTutor(), IsCourseMember()]
 
     def get_queryset(self):
         query = super().get_queryset()
+
         if self.request.user.is_student:
             query = query.filter(
                 published_at__isnull=False, chapter__published_at__isnull=False
             )
         if self.action == "retrieve":
             query = query.annotate(total_questions=Count("questions"))
+        if self.action in ("submit", "save_draft"):
+            query = query.prefetch_related("questions__answers")
         return query
 
+
     def get_serializer_class(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
+        if self.action in ["create", "update", "partial_update"]:
             return AssignmentWriteSerializer
         if self.action == "get_questions":
             if self.request.user.is_tutor:
@@ -78,9 +85,7 @@ class AssignmentView(
         return AssignmentDetailSerializer
 
     def perform_destroy(self, instance):
-        serializer = DeleteAssignmentSerializer(
-            instance, data={}, context=self.get_serializer_context()
-        )
+        serializer = DeleteAssignmentSerializer(instance, data={})
         serializer.is_valid(raise_exception=True)
         instance.delete()
 
@@ -94,58 +99,51 @@ class AssignmentView(
     @action(methods=["post"], url_path="publish", detail=True)
     def publish(self, request, pk):
         assignment = self.get_object()
-
         serializer = PublishAssignmentSerializer(assignment, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(methods=["post"], url_path="start", detail=True)
     def start(self, request, pk):
         assignment = self.get_object()
-
         serializer = StartAttemptSerializer(
-            assignment, data={}, context=self.get_serializer_context()
+            assignment, data={}, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
-
-        attempt = start_attempt(student=request.user, assignment=assignment)
-
+        attempt = start_attempt(
+            student=request.user,
+            assignment=assignment,
+            open_attempt=serializer.validated_data["open_attempt"],
+        )
         return Response(AttemptSerializer(attempt).data, status=status.HTTP_200_OK)
 
     @action(methods=["post"], url_path="save-draft", detail=True)
     def save_draft(self, request, pk):
         assignment = self.get_object()
-
         serializer = SubmitAssignmentSerializer(
-            assignment, data=request.data, context=self.get_serializer_context()
+            assignment, data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
-
         attempt = save_answer_draft(
             student=request.user,
             assignment=assignment,
             answers=serializer.validated_data["answers"],
         )
-
         return Response(AttemptSerializer(attempt).data, status=status.HTTP_200_OK)
 
     @action(methods=["post"], url_path="submit", detail=True)
     def submit(self, request, pk):
         assignment = self.get_object()
-        
         serializer = SubmitAssignmentSerializer(
-            assignment, data=request.data, context=self.get_serializer_context()
+            assignment, data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
-        
         submission = submit_assignment(
             student=request.user,
             assignment=assignment,
             answers=serializer.validated_data["answers"],
         )
-
         return Response(
             SubmissionSerializer(submission).data,
             status=status.HTTP_201_CREATED,
@@ -159,13 +157,18 @@ class QuestionView(
     generics.UpdateAPIView,
     generics.DestroyAPIView,
 ):
-    queryset = Question.objects.prefetch_related("answers")
     serializer_class = QuestionWriteSerializer
     permission_classes = [IsTutor, IsCourseTutor]
 
+    def get_queryset(self):
+        query = Question.objects.select_related("assignment")
+        if self.action == "destroy":
+            return query
+        return query.prefetch_related("answers")
+
     def perform_destroy(self, instance):
         serializer = DeleteQuestionSerializer(
-            instance, data={}, context=self.get_serializer_context()
+            instance, data={}
         )
         serializer.is_valid(raise_exception=True)
         instance.delete()
@@ -182,17 +185,18 @@ class SubmissionView(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
         return [IsStudentOrTutor(), IsSubmissionOwnerOrCourseTutor()]
 
     def get_serializer_class(self):
+        is_tutor = self.request.user.is_tutor
         if self.action == "grade":
             return GradeSubmissionSerializer
-
-        is_tutor = self.request.user.is_tutor
         if self.action == "retrieve":
-            return (
-                TutorSubmissionDetailSerializer
-                if is_tutor
-                else SubmissionDetailSerializer
-            )
-        return TutorSubmissionSerializer if is_tutor else SubmissionSerializer
+            if is_tutor:
+                return TutorSubmissionDetailSerializer
+            else:
+                return SubmissionDetailSerializer
+        if is_tutor:
+            return TutorSubmissionSerializer
+        else:
+            return SubmissionSerializer
 
     def get_int_query_param(self, param_name):
         raw_value = self.request.query_params.get(param_name)
@@ -229,16 +233,14 @@ class SubmissionView(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
     @action(methods=["patch"], url_path="grade", detail=True)
     def grade(self, request, pk):
         submission = self.get_object()
-
         serializer = GradeSubmissionSerializer(
-            submission, data=request.data, context=self.get_serializer_context()
+            submission, data=request.data, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
         graded = grade_submission(
             submission=submission,
             answers=serializer.validated_data["answers"],
         )
-
         return Response(
             TutorSubmissionDetailSerializer(graded).data,
             status=status.HTTP_200_OK,

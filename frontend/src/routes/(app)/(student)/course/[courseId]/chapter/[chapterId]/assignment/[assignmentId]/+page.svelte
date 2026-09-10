@@ -30,18 +30,10 @@
 		})
 	);
 
-	let timeNote = $derived(
-		assignment.timeLimitMinutes
-			? `Thời gian làm bài là ${assignment.timeLimitMinutes} phút và đồng hồ chạy ngay khi bạn vào.`
-			: 'Bài tập này không giới hạn thời gian làm.'
-	);
-
 	async function handleStart() {
 		const agreed = await confirmAction({
 			title: assignment.attemptsUsed > 0 ? 'Làm lại bài tập này?' : 'Bắt đầu làm bài?',
-			message:
-				`Bài có ${assignment.totalQuestions} câu. ${timeNote} ` +
-				`Vào làm là tính mất một lượt, sau đó bạn còn ${attemptsLeft - 1} lượt.`,
+			message: 'Bạn có chắc chắn bắt đầu làm bài?',
 			confirmLabel: 'Bắt đầu làm bài',
 			cancelLabel: 'Để sau',
 			tone: 'info'

@@ -272,27 +272,24 @@ class ChapterSerializer(serializers.ModelSerializer):
         return course
 
     def validate(self, attrs):
-        is_new_chapter = self.instance is None
-        target_course = attrs.get("course") if is_new_chapter else self.instance.course
+        if self.instance is None:
+            course = attrs.get("course")
 
-        if (
-            not is_new_chapter
-            and "course" in attrs
-            and attrs["course"] != target_course
-        ):
+            if course and course.chapters.count() >= MAX_CHAPTERS_PER_COURSE:
+                raise serializers.ValidationError(
+                    {
+                        "course": (
+                            f"Mỗi khóa học chỉ có tối đa "
+                            f"{MAX_CHAPTERS_PER_COURSE} chương."
+                        )
+                    }
+                )
+            return attrs
+
+        if "course" in attrs and attrs["course"] != self.instance.course:
             raise serializers.ValidationError(
                 {"course": "Không được chuyển chương sang khóa học khác."}
             )
-
-        if is_new_chapter and target_course:
-            current_count = target_course.chapters.count()
-            if current_count >= MAX_CHAPTERS_PER_COURSE:
-                raise serializers.ValidationError(
-                    {
-                        "course": f"Mỗi khóa học chỉ có tối đa {MAX_CHAPTERS_PER_COURSE} chương."
-                    }
-                )
-
         return attrs
 
 
@@ -344,7 +341,13 @@ class ResourceSerializer(serializers.ModelSerializer):
         }
 
     def validate_file_url(self, file):
+        if file is not None and getattr(file, "size", None) is None:
+            raise serializers.ValidationError(
+                "Chỉ chấp nhận tệp tải lên trực tiếp, không nhận đường dẫn tệp có sẵn."
+            )
+
         return validate_document_upload(file)
+
 
     def validate_video_url(self, url):
         return validate_video_url(url)
@@ -385,23 +388,28 @@ class ResourceSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"video_url": "Tài nguyên dạng video phải có đường dẫn video."}
                 )
-            if file_url:
+            if content or file_url:
                 raise serializers.ValidationError(
-                    {"file_url": "Tài nguyên dạng video không kèm tệp tài liệu."}
+                    "Tài nguyên dạng video không được có nội dung văn bản hoặc tệp tài liệu."
                 )
         elif resource_type == LearningResource.ResourceType.PDF_FILE:
             if not file_url:
                 raise serializers.ValidationError(
                     {"file_url": "Tài nguyên dạng PDF phải có tệp tài liệu."}
                 )
-            if video_url:
+            if content or video_url:
                 raise serializers.ValidationError(
-                    {"video_url": "Tài nguyên dạng PDF không kèm đường dẫn video."}
+                    "Tài nguyên dạng PDF không được có nội dung văn bản hoặc đường dẫn video."
                 )
-        elif not content and not file_url:
-            raise serializers.ValidationError(
-                "Tài nguyên phải có nội dung văn bản hoặc tệp tài liệu."
-            )
+        elif resource_type == LearningResource.ResourceType.OTHERS:
+            if not content:
+                raise serializers.ValidationError(
+                    {"content": "Tài nguyên dạng văn bản phải có nội dung."}
+                )
+            if file_url or video_url:
+                raise serializers.ValidationError(
+                    "Tài nguyên dạng văn bản không được có tệp tài liệu hoặc đường dẫn video."
+                )
         return attrs
 
     def to_representation(self, instance):
@@ -473,7 +481,6 @@ class IngestResourceSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "Tài nguyên này không có nội dung văn bản hay tệp nào để nạp."
             )
-
         return attrs
 
     def update(self, instance, validated_data):

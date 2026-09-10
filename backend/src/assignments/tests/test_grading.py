@@ -24,7 +24,11 @@ def make_submission(student, answers, assignment):
         assignment, data={}, context=make_context(student)
     )
     start_serializer.is_valid(raise_exception=True)
-    start_attempt(student=student, assignment=assignment)
+    start_attempt(
+        student=student,
+        assignment=assignment,
+        open_attempt=start_serializer.validated_data["open_attempt"],
+    )
 
     submit_serializer = SubmitAssignmentSerializer(
         assignment, data={"answers": answers}, context=make_context(student)

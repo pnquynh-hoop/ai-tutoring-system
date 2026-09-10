@@ -3,7 +3,6 @@ from django.db import transaction
 from django.db.models import Count, Max
 from django.utils import timezone
 from rest_framework import serializers
-
 from accounts.serializers import SimpleUserSerializer
 from assignments.models import Answer, Assignment, Question, StudentAnswer, Submission
 from assignments.services import (
@@ -12,7 +11,7 @@ from assignments.services import (
     POINT_STEP,
     TOTAL_SCORE,
     count_questions_without_point,
-    count_submitted_attempts,
+    count_used_attempts,
     get_open_attempt,
     has_submissions,
     is_expired,
@@ -21,7 +20,7 @@ from assignments.services import (
 )
 
 MAX_TIME_LIMIT_MINUTES = 1440
-MAX_ANSWERS_PER_QUESTION = 5
+MAX_ANSWERS_PER_QUESTION = 4
 MAX_QUESTIONS_PER_ASSIGNMENT = 100
 MAX_ANSWER_LENGTH = 1000
 MAX_QUESTION_LENGTH = 5000
@@ -40,7 +39,7 @@ class AssignmentDetailSerializer(serializers.ModelSerializer):
         return MAX_ATTEMPTS
 
     def get_attempts_used(self, obj):
-        return count_submitted_attempts(self.context["request"].user, obj)
+        return count_used_attempts(self.context["request"].user, obj)
 
     def get_question_types(self, obj):
         stats = obj.questions.values("question_type").annotate(count=Count("id"))
@@ -98,11 +97,14 @@ class AssignmentWriteSerializer(serializers.ModelSerializer):
                 "Bài tập đã công khai nên không sửa được nữa."
             )
 
-        if self.instance and "chapter" in attrs and attrs["chapter"] != self.instance.chapter:
+        if (
+            self.instance
+            and "chapter" in attrs
+            and attrs["chapter"] != self.instance.chapter
+        ):
             raise serializers.ValidationError(
                 {"chapter": "Không được chuyển bài tập sang chương khác."}
             )
-
         return attrs
 
 
@@ -119,7 +121,6 @@ class DeleteAssignmentSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "Bài tập đã có bài nộp nên không xóa được."
             )
-
         return attrs
 
 
@@ -136,6 +137,12 @@ class QuestionSerializer(serializers.ModelSerializer):
         model = Question
         fields = ["id", "content", "question_type", "point", "answers"]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.question_type != Question.QuestionType.MULTIPLE_CHOICE:
+            data["answers"] = []
+        return data
+
 
 class AnswerWriteSerializer(serializers.ModelSerializer):
 
@@ -147,7 +154,6 @@ class AnswerWriteSerializer(serializers.ModelSerializer):
 
 class QuestionWriteSerializer(serializers.ModelSerializer):
     answers = AnswerWriteSerializer(many=True)
-    order = serializers.IntegerField(required=False, allow_null=True, default=None)
 
     class Meta:
         model = Question
@@ -194,65 +200,40 @@ class QuestionWriteSerializer(serializers.ModelSerializer):
         return assignment
 
     def validate(self, attrs):
-        is_new_question = self.instance is None
-
-        if is_new_question:
-            target_assignment = attrs.get("assignment")
-        else:
-            target_assignment = self.instance.assignment
-            if "assignment" in attrs and attrs["assignment"] != target_assignment:
-                raise serializers.ValidationError(
-                    {"assignment": "Không được chuyển câu hỏi sang bài tập khác."}
-                )
-
-        if target_assignment and target_assignment.is_published:
-            raise serializers.ValidationError(
-                {"assignment": "Bài tập đã công khai nên không sửa được câu hỏi."}
+        if self.instance is None:
+            assignment = attrs["assignment"]
+            answers = attrs["answers"]
+            question_type = attrs.get(
+                "question_type", Question.QuestionType.MULTIPLE_CHOICE
             )
 
-        if is_new_question and target_assignment:
-            current_count = target_assignment.questions.count()
+            current_count = assignment.questions.count()
             if current_count >= MAX_QUESTIONS_PER_ASSIGNMENT:
                 raise serializers.ValidationError(
                     {
                         "assignment": f"Bài tập chỉ có tối đa {MAX_QUESTIONS_PER_ASSIGNMENT} câu hỏi."
                     }
                 )
-
-        question_type = attrs.get(
-            "question_type",
-            getattr(
-                self.instance, "question_type", Question.QuestionType.MULTIPLE_CHOICE
-            ),
-        )
-        if "answers" in attrs:
-            answers = attrs["answers"]
-        elif self.instance is None:
-            answers = []
         else:
-            answers = []
-            for answer in self.instance.answers.all():
-                answers.append(
-                    {
-                        "content": answer.content,
-                        "is_correct": answer.is_correct,
-                    }
+            assignment = self.instance.assignment
+            question_type = attrs.get("question_type", self.instance.question_type)
+
+            if "assignment" in attrs and attrs["assignment"] != assignment:
+                raise serializers.ValidationError(
+                    {"assignment": "Không được chuyển câu hỏi sang bài tập khác."}
                 )
 
-        if self.instance and has_submissions(self.instance.assignment):
-            raise serializers.ValidationError(
-                {"answers": "Bài tập đã có bài nộp nên không sửa được phương án."}
-            )
+            answers = attrs.get("answers")
+            if answers is None:
+                answers = []
+                for answer in self.instance.answers.all():
+                    answers.append(
+                        {"content": answer.content, "is_correct": answer.is_correct}
+                    )
 
-        if (
-            self.instance
-            and StudentAnswer.objects.filter(answer__question=self.instance).exists()
-        ):
+        if assignment.is_published:
             raise serializers.ValidationError(
-                {
-                    "answers": "Đã có học sinh chọn phương án của câu hỏi này nên "
-                    "không sửa được phương án."
-                }
+                {"assignment": "Bài tập đã công khai nên không thêm hay sửa được câu hỏi."}
             )
 
         correct_count = sum(1 for answer in answers if answer.get("is_correct"))
@@ -267,6 +248,10 @@ class QuestionWriteSerializer(serializers.ModelSerializer):
                     {"answers": "Câu trắc nghiệm phải có đúng 1 phương án đúng."}
                 )
         elif question_type == Question.QuestionType.FILL_IN_BLANK:
+            if len(answers) != 1:
+                raise serializers.ValidationError(
+                    {"answers": "Câu điền khuyết chỉ có đúng 1 đáp án."}
+                )
             if correct_count != 1:
                 raise serializers.ValidationError(
                     {"answers": "Câu điền khuyết phải có đúng 1 đáp án đúng."}
@@ -275,18 +260,18 @@ class QuestionWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"answers": "Câu tự luận không cần phương án trả lời."}
             )
-
         return attrs
-
-    def _next_order(self, assignment):
-        current_max = assignment.questions.aggregate(value=Max("order"))["value"] or 0
-        return current_max + 1
 
     @transaction.atomic
     def create(self, validated_data):
         answers = validated_data.pop("answers", [])
+
         if validated_data.get("order") is None:
-            validated_data["order"] = self._next_order(validated_data["assignment"])
+            assignment = validated_data["assignment"]
+            current_max = (
+                assignment.questions.aggregate(value=Max("order"))["value"] or 0
+            )
+            validated_data["order"] = current_max + 1
 
         question = Question.objects.create(**validated_data)
         Answer.objects.bulk_create(
@@ -325,17 +310,14 @@ class QuestionWriteSerializer(serializers.ModelSerializer):
 class DeleteQuestionSerializer(serializers.Serializer):
     def validate(self, attrs):
         assignment = self.instance.assignment
-
         if assignment.is_published:
             raise serializers.ValidationError(
                 "Bài tập đã công khai nên không xóa được câu hỏi."
             )
-
         if has_submissions(assignment):
             raise serializers.ValidationError(
                 "Bài tập đã có bài nộp nên không xóa được câu hỏi."
             )
-
         return attrs
 
 
@@ -350,21 +332,33 @@ class SubmitAnswerItemSerializer(serializers.Serializer):
     )
 
 
-def validate_item_count(items):
-    if len(items) > MAX_QUESTIONS_PER_ASSIGNMENT:
-        raise serializers.ValidationError(
-            f"Mỗi lần gửi tối đa {MAX_QUESTIONS_PER_ASSIGNMENT} câu."
-        )
-    return items
-
-
 class SubmitAssignmentSerializer(serializers.Serializer):
     answers = SubmitAnswerItemSerializer(many=True)
 
-    def validate_answers(self, answers):
-        return validate_item_count(answers)
+    def validate(self, attrs):
+        assignment = self.instance
+        student = self.context["request"].user
 
-    def check_answers_match_questions(self, questions, answers):
+        if assignment.due_date and timezone.now() > assignment.due_date:
+            raise serializers.ValidationError("Bài tập đã hết hạn nộp.")
+
+        questions = {}
+        for question in assignment.questions.all():
+            questions[question.id] = question
+
+        attempt = get_open_attempt(student, assignment)
+
+        if attempt is None:
+            raise serializers.ValidationError(
+                "Bạn chưa bắt đầu lượt làm bài nào cho bài tập này."
+            )
+
+        if is_expired(attempt):
+            raise serializers.ValidationError(
+                "Đã hết thời gian làm bài của lượt làm này."
+            )
+
+        answers = attrs["answers"]
         question_ids = [item["question_id"] for item in answers]
 
         unknown_ids = [
@@ -396,34 +390,6 @@ class SubmitAssignmentSerializer(serializers.Serializer):
                         "answers": f"Phương án {answer_id} không thuộc câu hỏi {question.id}."
                     }
                 )
-
-    def validate(self, attrs):
-        assignment = self.instance
-        student = self.context["request"].user
-
-        if assignment.due_date and timezone.now() > assignment.due_date:
-            raise serializers.ValidationError("Bài tập đã hết hạn nộp.")
-
-        questions = {}
-        for question in assignment.questions.prefetch_related("answers"):
-            questions[question.id] = question
-
-        if not questions:
-            raise serializers.ValidationError("Bài tập chưa có câu hỏi nào.")
-
-        attempt = get_open_attempt(student, assignment)
-
-        if attempt is None:
-            raise serializers.ValidationError(
-                "Bạn chưa bắt đầu lượt làm bài nào cho bài tập này."
-            )
-
-        if is_expired(attempt):
-            raise serializers.ValidationError(
-                "Đã hết thời gian làm bài của lượt làm này."
-            )
-
-        self.check_answers_match_questions(questions, attrs["answers"])
         return attrs
 
 
@@ -453,7 +419,8 @@ class SubmissionSerializer(serializers.ModelSerializer):
 class TutorSubmissionSerializer(SubmissionSerializer):
     student = SimpleUserSerializer(read_only=True)
 
-    class Meta(SubmissionSerializer.Meta):
+    class Meta:
+        model = SubmissionSerializer.Meta.model
         fields = SubmissionSerializer.Meta.fields + ["student"]
 
 
@@ -462,27 +429,21 @@ class StartAttemptSerializer(serializers.Serializer):
         assignment = self.instance
         student = self.context["request"].user
 
-        if assignment.due_date and timezone.now() > assignment.due_date:
+        if timezone.now() > assignment.due_date:
             raise serializers.ValidationError("Bài tập đã hết hạn nộp.")
 
-        if not assignment.questions.exists():
-            raise serializers.ValidationError("Bài tập chưa có câu hỏi nào.")
-
         open_attempt = get_open_attempt(student, assignment)
+        attrs["open_attempt"] = open_attempt
 
         if open_attempt is not None and not is_expired(open_attempt):
             return attrs
 
-        used_attempts = count_submitted_attempts(student, assignment)
-
-        if open_attempt is not None:
-            used_attempts += 1
+        used_attempts = count_used_attempts(student, assignment)
 
         if used_attempts >= MAX_ATTEMPTS:
             raise serializers.ValidationError(
                 f"Bạn đã dùng hết {MAX_ATTEMPTS} lượt làm bài của bài tập này."
             )
-
         return attrs
 
 
@@ -491,10 +452,21 @@ class AttemptSerializer(serializers.ModelSerializer):
     time_limit_minutes = serializers.IntegerField(
         source="assignment.time_limit_minutes", read_only=True, allow_null=True
     )
+    server_time = serializers.SerializerMethodField()
+
+    def get_server_time(self, attempt):
+        return timezone.localtime().isoformat()
 
     class Meta:
         model = Submission
-        fields = ["id", "assignment", "started_at", "deadline", "time_limit_minutes"]
+        fields = [
+            "id",
+            "assignment",
+            "started_at",
+            "deadline",
+            "time_limit_minutes",
+            "server_time",
+        ]
 
 
 class StudentAnswerSerializer(serializers.ModelSerializer):
@@ -578,7 +550,11 @@ class GradeSubmissionSerializer(serializers.Serializer):
     answers = GradeAnswerItemSerializer(many=True)
 
     def validate_answers(self, answers):
-        return validate_item_count(answers)
+        if len(answers) > MAX_QUESTIONS_PER_ASSIGNMENT:
+            raise serializers.ValidationError(
+                f"Mỗi lần gửi tối đa {MAX_QUESTIONS_PER_ASSIGNMENT} câu."
+            )
+        return answers
 
     def validate(self, attrs):
         submission = self.instance
@@ -638,9 +614,7 @@ class PublishAssignmentSerializer(serializers.ModelSerializer):
         unset_count = count_questions_without_point(assignment)
 
         if unset_count:
-            raise serializers.ValidationError(
-                f"Còn {unset_count} câu chưa đặt điểm."
-            )
+            raise serializers.ValidationError(f"Còn {unset_count} câu chưa đặt điểm.")
 
         total_points = total_question_points(assignment)
 

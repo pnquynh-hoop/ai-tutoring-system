@@ -12,7 +12,6 @@
 		buildAnswerPayload,
 		clearAnswerDraft,
 		loadAnswerDraft,
-		remainingSeconds,
 		saveAnswerDraft
 	} from '$lib/utils/assignment';
 	import { showToast } from '$lib/stores/toast.svelte';
@@ -38,7 +37,7 @@
 	let currentQuestion = $derived(questions[currentIndex]);
 	let currentAnswer = $derived(userAnswers[currentQuestion?.id]);
 
-	let durationSeconds = $derived(remainingSeconds(data.attempt.deadline));
+	const serverOffsetMs = untrack(() => new Date(data.attempt.server_time).getTime() - Date.now());
 
 	let isSubmitting = $state(false);
 	let leaving = $state(false);
@@ -59,8 +58,7 @@
 		try {
 			await saveDraft(data.assignmentId, payload);
 			lastSyncedAnswers = snapshot;
-		} catch {
-		}
+		} catch {}
 	}
 
 	$effect(() => {
@@ -303,7 +301,8 @@
 			answeredIds={Object.keys(userAnswers).map(Number)}
 			onSelectQuestion={goTo}
 			mode="taking"
-			{durationSeconds}
+			deadline={data.attempt.deadline}
+			{serverOffsetMs}
 			onFinish={handleFinish}
 			onTimeUp={handleTimeUp}
 		/>

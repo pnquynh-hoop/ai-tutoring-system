@@ -8,6 +8,7 @@ from core.paginators import CommentPaginator, ItemPaginator
 from core.permissions import (
     IsCourseMember,
     IsCourseTutor,
+    IsEnrolledStudent,
     IsStudent,
     IsStudentOrTutor,
     IsTutor,
@@ -63,7 +64,7 @@ class CourseView(
         if self.action == "tutor_stats":
             return [IsTutor(), IsCourseTutor()]
         if self.action in ["retrieve", "course_overview", "chapter_stat"]:
-            return [IsStudent(), IsCourseMember()]
+            return [IsStudent(), IsEnrolledStudent()]
         return [IsStudentOrTutor(), IsCourseMember()]
 
     def get_queryset(self):
@@ -165,7 +166,7 @@ class LessonView(
         if self.action == "get_resources":
             return [IsTutor(), IsCourseTutor()]
         if self.action in ["retrieve", "mark_complete"]:
-            return [IsStudent(), IsCourseMember()]
+            return [IsStudent(), IsEnrolledStudent()]
         return [IsStudentOrTutor(), IsCourseMember()]
 
     def get_queryset(self):
@@ -306,17 +307,14 @@ class ResourceView(
     @action(methods=["post"], url_path="publish", detail=True)
     def publish(self, request, pk):
         resource = self.get_object()
-
         serializer = PublishResourceSerializer(resource, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(methods=["post"], url_path="ingest", detail=True)
     def ingest(self, request, pk):
         resource = self.get_object()
-
         serializer = IngestResourceSerializer(resource, data={})
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -324,7 +322,7 @@ class ResourceView(
         try:
             ingest_resource_task.delay(resource.id)
         except Exception:
-            logger.exception("Không đẩy được Resource ID %s vào hàng đợi", resource.id)
+            logger.exception("Không thể đưa được Resource ID %s vào hàng đợi", resource.id)
             resource.mark_rag_failed("Hàng đợi nạp đang không hoạt động.")
             return Response(
                 {

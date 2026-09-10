@@ -12,10 +12,8 @@ SUBMIT_GRACE = timedelta(seconds=30)
 MAX_ATTEMPTS = 3
 
 
-def count_submitted_attempts(student, assignment):
-    return Submission.objects.filter(
-        assignment=assignment, student=student, submitted_at__isnull=False
-    ).count()
+def count_used_attempts(student, assignment):
+    return Submission.objects.filter(assignment=assignment, student=student).count()
 
 
 def has_submissions(assignment):
@@ -54,14 +52,12 @@ def sum_points(points):
 
 
 @transaction.atomic
-def start_attempt(student, assignment):
-    attempt = get_open_attempt(student, assignment)
+def start_attempt(student, assignment, open_attempt):
+    if open_attempt is not None:
+        if not is_expired(open_attempt):
+            return open_attempt
 
-    if attempt is not None:
-        if not is_expired(attempt):
-            return attempt
-
-        finalize_attempt(attempt, attempt.deadline)
+        finalize_attempt(open_attempt, open_attempt.deadline)
 
     return Submission.objects.create(
         assignment=assignment,
@@ -74,11 +70,12 @@ def start_attempt(student, assignment):
 @transaction.atomic
 def save_answer_draft(student, assignment, answers):
     questions = {}
-    for question in assignment.questions.prefetch_related("answers"):
+    for question in assignment.questions.all():
         questions[question.id] = question
 
     attempt = get_open_attempt(student, assignment)
 
+    rows = []
     for item in answers:
         question = questions[item["question_id"]]
 
@@ -87,16 +84,25 @@ def save_answer_draft(student, assignment, answers):
                 (a for a in question.answers.all() if a.id == item.get("answer_id")),
                 None,
             )
-            new_values = {"answer": selected, "answer_text": None}
+            answer_text = None
         else:
-            new_values = {
-                "answer": None,
-                "answer_text": (item.get("answer_text") or "").strip(),
-            }
+            selected = None
+            answer_text = (item.get("answer_text") or "").strip()
 
-        StudentAnswer.objects.update_or_create(
-            submission=attempt, question=question, defaults=new_values
+        rows.append(
+            StudentAnswer(
+                submission=attempt,
+                question=question,
+                answer=selected,
+                answer_text=answer_text,
+            )
         )
+
+    StudentAnswer.objects.bulk_create(
+        rows,
+        update_conflicts=True,
+        update_fields=["answer", "answer_text"],
+    )
 
     return attempt
 
@@ -216,9 +222,7 @@ def grade_submission(submission, answers):
 
     StudentAnswer.objects.bulk_update(graded, ["point", "tutor_comment"])
 
-    submission.score = sum_points(
-        [answer.point for answer in stu_answers.values()]
-    )
+    submission.score = sum_points([answer.point for answer in stu_answers.values()])
 
     submission.save(update_fields=["score"])
     return submission

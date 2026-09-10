@@ -1,4 +1,3 @@
-from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 from assignments.models import Assignment, Question, Submission
 from courses.models import (
@@ -84,6 +83,13 @@ class IsCourseTutor(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         return is_course_tutor(request.user, resolve_course(obj))
+
+
+class IsEnrolledStudent(BasePermission):
+    message = "Bạn chưa ghi danh khóa học này."
+
+    def has_object_permission(self, request, view, obj):
+        return is_enrolled(request.user, resolve_course(obj))
 
 
 class IsCourseMemberOrTutorWrite(BasePermission):
