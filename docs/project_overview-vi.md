@@ -7,7 +7,7 @@
 - **Quản lý học thuật.** Trung tâm duy trì một kho tài liệu dùng chung — sách giáo khoa, tài liệu tham khảo — được phân loại theo môn học và khối lớp. Kho này thuộc về trung tâm chứ không thuộc về một lớp cụ thể nào.
 - **Tổ chức giảng dạy.** Mỗi gia sư phụ trách một hoặc nhiều khoá học. Gia sư tự biên soạn nội dung khoá học của mình theo cấu trúc phân cấp, và tự quyết định thời điểm công khai từng phần cho học sinh.
 - **Đánh giá.** Gia sư ra bài tập theo chương; học sinh làm bài trong giới hạn số lượt và thời gian; hệ thống chấm tự động phần trắc nghiệm và điền khuyết, còn phần tự luận do gia sư chấm tay.
-- **Hỗ trợ bằng AI.** Học sinh có thể đặt câu hỏi cho trợ lý AI và yêu cầu sinh bài tập luyện tập. Trợ lý trả lời dựa trên tài liệu của chính khoá học và sách giáo khoa, có trích dẫn nguồn.
+- **Hỗ trợ bằng AI.** Học sinh có thể đặt câu hỏi cho trợ lý AI và yêu cầu sinh bài tập luyện tập. Trợ lý trả lời dựa trên tài liệu của chính khoá học và sách giáo khoa, có trích dẫn nguồn. Mức độ đã triển khai của từng phần được nêu ở mục 11.
 
 Bài toán trung tâm mà hệ thống giải quyết là: làm sao để trợ lý AI trả lời đúng theo giáo trình của trung tâm, có dẫn nguồn kiểm chứng được, và mỗi học sinh chỉ tiếp cận được tài liệu thuộc phạm vi mình được phép.
 
@@ -17,9 +17,9 @@ Hệ thống phân biệt ba vai trò, cài đặt bằng cơ chế nhóm ngư�
 
 | Vai trò | Phạm vi hoạt động |
 |---|---|
-| Học sinh (Student) | Ghi danh khoá học, học bài, làm bài tập, bình luận, hỏi trợ lý AI |
+| Học sinh (Student) | Học bài trong khoá đã được ghi danh, làm bài tập, bình luận, hỏi trợ lý AI |
 | Gia sư (Tutor) | Biên soạn nội dung khoá học mình phụ trách, ra đề, chấm bài tự luận |
-| Quản trị viên (Admin) | Quản lý danh mục môn học, khối lớp, kho tài liệu trung tâm; xử lý báo cáo |
+| Quản trị viên (Admin) | Quản lý tài khoản, danh mục môn học, khối lớp, kho tài liệu trung tâm và việc ghi danh |
 
 Một tài khoản người dùng gồm thông tin định danh chung — thư điện tử, số điện thoại (cả hai đều là duy nhất trong hệ thống), họ tên, ảnh đại diện — cộng với một hồ sơ chuyên biệt theo vai trò:
 
@@ -83,7 +83,9 @@ Câu hỏi (Question) thuộc một bài tập, có số thứ tự duy nhất t
 
 Mỗi câu hỏi kèm lời giải chi tiết và, với hai loại đầu, một danh sách phương án (Answer) trong đó có cờ đánh dấu phương án đúng.
 
-Một quy ước nghiệp vụ quan trọng: mọi câu hỏi trong cùng một bài tập có trọng số bằng nhau. Mô hình dữ liệu không có trường điểm riêng cho từng câu; điểm mỗi câu được tính bằng tổng điểm 10 chia đều cho số câu, làm tròn tới hai chữ số thập phân.
+Điểm của từng câu do gia sư tự đặt qua trường `point` của câu hỏi, chứ không chia đều. Giá trị phải là bội của 0.05 và nằm trong khoảng từ 0.05 tới 10. Ràng buộc quan trọng nằm ở lúc công khai: bài tập chỉ công khai được khi mọi câu đều đã có điểm và tổng điểm các câu đúng bằng 10. Nhờ vậy thang điểm 10 được bảo đảm ngay từ đề, không cần quy đổi khi chấm.
+
+Trước đây hệ thống chia đều 10 điểm cho số câu; migration `assignments/0011_split_points_for_existing_questions` là bước chuyển dữ liệu cũ sang cách đặt điểm theo từng câu.
 
 ### 4.2 Lượt làm bài
 
@@ -94,7 +96,9 @@ Vòng đời một lượt gồm hai mốc thời gian:
 - **Bắt đầu:** hệ thống tạo bản ghi với thời điểm bắt đầu, điểm để trống. Nếu bài tập có giới hạn thời gian, hạn chót của lượt này được tính bằng thời điểm bắt đầu cộng số phút cho phép.
 - **Nộp:** hệ thống ghi lại thời điểm nộp và tính điểm.
 
-Lượt chưa nộp gọi là lượt đang mở. Học sinh chỉ được có tối đa một lượt đang mở tại một thời điểm: bấm bắt đầu lần nữa sẽ trả về đúng lượt đang mở đó thay vì tạo lượt mới. Nếu lượt đang mở đã quá hạn, hệ thống tự đóng nó lại với điểm 0 rồi mới cho mở lượt mới.
+Lượt chưa nộp gọi là lượt đang mở. Học sinh chỉ được có tối đa một lượt đang mở tại một thời điểm: bấm bắt đầu lần nữa sẽ trả về đúng lượt đang mở đó thay vì tạo lượt mới. Nếu lượt đang mở đã quá hạn, hệ thống tự đóng lượt đó lại rồi mới cho mở lượt mới. Lượt bị đóng vẫn được chấm bình thường theo phần bài làm đã lưu được, chứ không mặc định 0 điểm — những câu chưa trả lời mới được 0.
+
+Việc đóng lượt quá hạn không chờ học sinh quay lại. Một tác vụ định kỳ chạy mỗi 5 phút quét mọi lượt còn mở, lượt nào vượt hạn nộp của bài tập hoặc hạn riêng của lượt thì đóng và chấm ngay.
 
 Hai loại thời hạn hoạt động độc lập và đều được kiểm tra: hạn nộp của bài tập (mốc tuyệt đối, chung cho cả lớp) và hạn của lượt làm (tính riêng cho từng học sinh từ lúc bắt đầu). Khi nộp, hệ thống cho phép trễ tối đa 30 giây so với hạn lượt làm, để bù cho độ trễ mạng.
 
@@ -108,7 +112,9 @@ Chấm chia thành hai giai đoạn:
 
 **Chấm tay sau đó.** Gia sư chấm từng câu tự luận, nhập điểm và nhận xét. Điểm mỗi câu không được vượt quá trọng số của câu đó.
 
-Điểm tổng của lượt làm tuân theo một quy tắc quan trọng: chừng nào còn một câu chưa có điểm thì điểm tổng vẫn để trống, chứ không phải bằng tổng của các câu đã chấm. Điều này bảo đảm bài có phần tự luận chưa chấm không hiển thị một con số gây hiểu nhầm cho học sinh. Điểm tổng chỉ xuất hiện khi tất cả các câu đều đã có điểm, và được quy đổi về thang 10 làm tròn tới một chữ số thập phân.
+Điểm tổng của lượt làm tuân theo một quy tắc quan trọng: chừng nào còn một câu chưa có điểm thì điểm tổng vẫn để trống, chứ không phải bằng tổng của các câu đã chấm. Điều này bảo đảm bài có phần tự luận chưa chấm không hiển thị một con số gây hiểu nhầm cho học sinh.
+
+Điểm tổng chỉ xuất hiện khi tất cả các câu đều đã có điểm, và bằng đúng tổng điểm các câu — không có bước quy đổi hay làm tròn nào. Sở dĩ không cần quy đổi là vì tổng điểm các câu đã được ép bằng 10 từ lúc công khai bài tập.
 
 ## 5. Theo dõi học tập và tương tác
 
@@ -123,11 +129,11 @@ Tiến độ bài học (LessonProgress) ghi nhận việc một học sinh đã
 
 Bình luận (Comment) gắn với một bài học, cho phép trả lời lồng nhau qua tham chiếu tới bình luận cha — tạo thành cấu trúc cây thảo luận. Gia sư có thể đánh dấu một bình luận là câu trả lời đúng, hệ thống ghi lại ai đánh dấu và vào lúc nào. Cơ chế này giúp học sinh vào sau nhận ra ngay câu trả lời đã được xác nhận trong một luồng thảo luận dài.
 
-### 5.3 Báo cáo câu hỏi
+### 5.3 Lưu bài làm dở
 
-Báo cáo (Report) cho phép học sinh báo một câu hỏi có vấn đề — sai đáp án, sai đề, lời giải không đúng — kèm ghi chú. Báo cáo đi qua ba trạng thái: đã báo cáo, đang xem xét, đã xử lý. Quản trị viên xử lý qua một trang riêng trong khu vực quản trị.
+Học sinh đang làm bài không bị mất bài khi mất mạng hoặc đóng nhầm trình duyệt, nhờ hai lớp lưu tạm. Phía trình duyệt, bài làm được lưu vào bộ nhớ cục bộ theo mã lượt làm sau mỗi lần thay đổi. Phía máy chủ, giao diện gọi điểm truy cập lưu nháp mỗi 30 giây và mỗi lần học sinh chuyển câu.
 
-Cơ chế này đặc biệt cần thiết vì hệ thống có chức năng sinh bài tập tự động bằng AI — nội dung do máy sinh ra cần một kênh phản hồi từ người dùng để phát hiện lỗi.
+Bản ghi câu trả lời dùng cơ chế ghi đè theo cặp (lượt làm, câu hỏi) nên lưu nháp nhiều lần không sinh ra bản ghi trùng. Đây cũng là dữ liệu dùng để chấm khi một lượt bị đóng do quá hạn.
 
 ## 6. Ba khái niệm xuyên suốt mọi thực thể
 
@@ -171,7 +177,9 @@ Trạng thái đi qua bốn giá trị: chờ nạp (mặc định khi vừa t�
 
 Một biến thể thường gặp là **đọc thì mở, ghi thì hẹp**: thành viên khoá học đọc được nội dung, nhưng chỉ gia sư phụ trách mới sửa được. Với bài nộp còn có quy tắc riêng: học sinh chỉ xem được bài của chính mình, gia sư phụ trách xem được của mọi học sinh trong khoá.
 
-Trường hợp đặc biệt là thao tác tạo mới, khi đối tượng chưa tồn tại nên chưa truy ngược được. Hệ thống giải quyết bằng cách khai báo trước trên mỗi điểm truy cập rằng đối tượng cha nằm ở tham số nào của yêu cầu, rồi kiểm tra quyền trên đối tượng cha đó.
+Trường hợp đặc biệt là thao tác tạo mới, khi đối tượng chưa tồn tại nên chưa truy ngược được — tầng thứ hai không có gì để kiểm tra. Hệ thống chuyển việc kiểm tra đó xuống serializer: mỗi serializer tạo mới có một hàm kiểm tra riêng cho trường khoá ngoại trỏ tới đối tượng cha, và hàm đó so người phụ trách khoá học với người đang gửi yêu cầu. Tạo chương thì kiểm tra trên khoá học, tạo bài học thì kiểm tra trên chương, tạo câu hỏi thì kiểm tra trên bài tập.
+
+Cách này có một hệ quả đáng lưu ý: dữ liệu vào từ thân yêu cầu được kiểm tra ở serializer, còn dữ liệu vào từ đường dẫn được kiểm tra ở lớp phân quyền. Khi thêm một điểm truy cập tạo mới, phải nhớ viết hàm kiểm tra ở serializer, vì lớp phân quyền sẽ không tự bắt được.
 
 ## 8. Nền tảng kỹ thuật
 
@@ -256,11 +264,40 @@ Phần này chỉ nêu các thuật ngữ cần thiết để đọc phần thi�
 | Phương án | Answer | Lựa chọn của câu trắc nghiệm, kèm cờ đúng/sai |
 | Bài nộp | Submission | Một lượt làm bài của một học sinh |
 | Câu trả lời | StudentAnswer | Bài làm của học sinh cho một câu hỏi |
-| Báo cáo | Report | Học sinh báo câu hỏi có vấn đề |
 | Xoá mềm | is_active | Ẩn bản ghi thay vì xoá khỏi cơ sở dữ liệu |
 | Nháp / công khai | published_at | Để trống là nháp, có giá trị là đã công khai |
 | Trạng thái nạp AI | rag_status | Chờ nạp, đang nạp, đã nạp, nạp lỗi |
 
+## 11. Trạng thái triển khai
+
+Mục này phân biệt phần đã chạy được đầu-cuối với phần mới hoàn thành ở tầng xử lý. Đây là hiện trạng tại thời điểm viết tài liệu, không phải mô tả thiết kế.
+
+### 11.1 Đã chạy đầu-cuối
+
+Trợ lý hỏi đáp là phần hoàn chỉnh nhất: học sinh đặt câu hỏi trong giao diện, hệ thống truy xuất tài liệu theo phạm vi của học sinh đó, sinh câu trả lời có trích dẫn nguồn và đánh dấu rõ câu trả lời có bám tài liệu hay không.
+
+Cùng nhóm này còn có: soạn và công khai nội dung khoá học, làm bài và chấm bài, thống kê tiến độ, bình luận dưới bài học, và toàn bộ luồng nạp tài liệu trung tâm vào kho vector.
+
+### 11.2 Xong phần xử lý, chưa gắn giao diện
+
+Sinh bài tập luyện tập bằng AI đã hoàn chỉnh ở tầng xử lý — nhận môn, bài học, loại câu hỏi và số lượng, trả về danh sách câu hỏi kèm phương án và lời giải theo đúng cấu trúc dữ liệu. Phần còn thiếu là màn hình cho học sinh gọi chức năng này.
+
+Bảng lưu lịch sử hỏi đáp với trợ lý AI đã có trong cơ sở dữ liệu nhưng chưa được ghi vào. Mỗi lượt hỏi hiện trả kết quả thẳng cho người dùng rồi kết thúc, không lưu lại. Hệ quả là chưa thống kê được học sinh hay hỏi gì, và chưa có dữ liệu để đánh giá chất lượng trả lời theo thời gian.
+
+### 11.3 Trạng thái dữ liệu của kho vector
+
+Kho vector hiện chứa 643 đoạn văn bản, toàn bộ đến từ tài liệu trung tâm — chủ yếu là sách giáo khoa Tiếng Anh 12 và các tài liệu ôn tập kèm theo, cả 15 tài liệu đều đã nạp xong.
+
+Nhánh tài nguyên bài học thì ngược lại: 81 tài nguyên do gia sư tạo đều đang ở trạng thái chờ nạp, chưa tài nguyên nào được đưa vào kho. Nghĩa là đường truy xuất theo khoá học đã cài đặt và kiểm thử xong, nhưng chưa có dữ liệu thật chạy qua. Trên thực tế, câu trả lời của trợ lý hiện lấy nguồn từ tài liệu trung tâm.
+
+### 11.4 Hạn chế đã biết
+
+**Phạm vi truy xuất theo bài học chưa được kiểm tra quyền.** Khi học sinh gửi câu hỏi, hệ thống kiểm tra học sinh đó có ghi danh khoá học hay không, nhưng không kiểm tra bài học đi kèm có thuộc khoá đó không. Vì ba nhánh phạm vi được ghép bằng phép hoặc, một mã bài học bất kỳ vẫn tạo thêm một nhánh truy xuất riêng. Hiện chưa khai thác được vì kho vector chưa có đoạn nào của tài nguyên bài học, nhưng lỗ hổng nằm sẵn ở đó và cần bịt trước khi nạp tài nguyên.
+
+**Số trang trong trích dẫn lệch một đơn vị.** Số trang lưu trong kho vector đã đếm từ 1, nhưng giao diện cộng thêm 1 lần nữa khi hiển thị nhãn nguồn. Nội dung trích dẫn đúng, chỉ con số trang hiển thị bị lệch.
+
+**Ghi danh và tạo tài khoản chỉ làm ở khu vực quản trị.** Không có luồng tự đăng ký cho học sinh và cũng không có luồng tự ghi danh khoá học. Đây là phạm vi đã chốt của đề tài chứ không phải phần bỏ sót, nhưng cần nói rõ để không bị hiểu là thiếu.
+
 ---
 
-**Ghi chú về độ chính xác:** toàn bộ số liệu và quy tắc nêu trên đều đọc trực tiếp từ mã nguồn hiện tại — 3 lượt làm bài, thang điểm 10, 30 giây trễ cho phép, 15 phút và 7 ngày cho hai loại token, 30 lượt AI mỗi giờ, các ngưỡng dung lượng tệp. Riêng phần mô tả bối cảnh nghiệp vụ ở mục 1 là diễn giải từ cấu trúc dữ liệu; nếu đề tài có tài liệu đặc tả yêu cầu riêng thì nên đối chiếu lại với tài liệu đó.
+**Ghi chú về độ chính xác:** toàn bộ số liệu và quy tắc nêu trên đều đọc trực tiếp từ mã nguồn hiện tại — 3 lượt làm bài, thang điểm 10, bội số 0.05 cho điểm mỗi câu, 30 giây trễ cho phép, 15 phút và 7 ngày cho hai loại token, 30 lượt AI mỗi giờ, các ngưỡng dung lượng tệp. Số liệu ở mục 11 đọc trực tiếp từ cơ sở dữ liệu và kho vector đang chạy. Riêng phần mô tả bối cảnh nghiệp vụ ở mục 1 là diễn giải từ cấu trúc dữ liệu; nếu đề tài có tài liệu đặc tả yêu cầu riêng thì nên đối chiếu lại với tài liệu đó.

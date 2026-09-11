@@ -7,7 +7,7 @@ This project builds a management system for an online tutoring center that teach
 - **Academic management.** The center maintains a shared repository of materials — textbooks, reference documents — classified by subject and grade level. This repository belongs to the center as a whole, not to any specific class.
 - **Teaching organization.** Each tutor is responsible for one or more courses. Tutors author their own course content in a hierarchical structure and decide for themselves when to publish each part to students.
 - **Assessment.** Tutors create assignments per chapter; students complete them within limits on attempts and time; the system auto-grades multiple-choice and fill-in-the-blank questions, while essay questions are graded by hand by the tutor.
-- **AI support.** Students can ask the AI assistant questions and request generated practice exercises. The assistant answers based on the course's own materials and textbooks, with citations.
+- **AI support.** Students can ask the AI assistant questions and request generated practice exercises. The assistant answers based on the course's own materials and textbooks, with citations. How far each part has actually been implemented is covered in Section 11.
 
 The core problem the system solves is: how to make the AI assistant answer correctly according to the center's curriculum, with verifiable citations, while ensuring each student can only access materials within their authorized scope.
 
@@ -17,9 +17,9 @@ The system distinguishes three roles, implemented using Django's user group mech
 
 | Role | Scope of activity |
 |---|---|
-| Student | Enroll in courses, study, complete assignments, comment, ask the AI assistant |
+| Student | Study within enrolled courses, complete assignments, comment, ask the AI assistant |
 | Tutor | Author content for courses they are responsible for, create assignments, grade essay questions |
-| Admin | Manage the subject/grade catalog and the center's material repository; handle reports |
+| Admin | Manage accounts, the subject/grade catalog, the center's material repository, and enrollments |
 
 A user account holds shared identity information — email, phone number (both unique across the system), full name, avatar — plus a role-specific profile:
 
@@ -83,7 +83,9 @@ A Question belongs to an assignment, has a unique order number within that assig
 
 Every question comes with a detailed explanation and, for the first two types, a list of Answer options with a flag marking the correct one.
 
-An important business convention: all questions within the same assignment carry equal weight. The data model has no separate score field per question; each question's score is computed by dividing a total of 10 points evenly across the number of questions, rounded to two decimal places.
+Each question's score is set by the tutor through the question's `point` field, rather than divided evenly. The value must be a multiple of 0.05 and fall between 0.05 and 10. The key constraint applies at publication time: an assignment can only be published once every question has a score and those scores add up to exactly 10. This guarantees the 10-point scale from the moment the assignment is written, with no conversion needed at grading time.
+
+Earlier versions divided 10 points evenly across the questions; the migration `assignments/0011_split_points_for_existing_questions` is the step that moved existing data onto per-question scores.
 
 ### 4.2 Attempts
 
@@ -94,7 +96,9 @@ An attempt's lifecycle has two timestamps:
 - **Start:** the system creates a record with a start time and an empty score. If the assignment has a time limit, the attempt's deadline is calculated as the start time plus the allowed number of minutes.
 - **Submit:** the system records the submission time and computes the score.
 
-An attempt not yet submitted is called "open." A student can have at most one open attempt at a time: clicking "start" again returns that same open attempt rather than creating a new one. If an open attempt has expired, the system automatically closes it with a score of 0 before allowing a new attempt to start.
+An attempt not yet submitted is called "open." A student can have at most one open attempt at a time: clicking "start" again returns that same open attempt rather than creating a new one. If an open attempt has expired, the system closes it before allowing a new attempt to start. A closed attempt is still graded normally against whatever work was saved — it does not default to zero; only unanswered questions score zero.
+
+Closing expired attempts does not wait for the student to return. A periodic job runs every 5 minutes, scans every open attempt, and closes and grades any that passed either the assignment's due date or the attempt's own deadline.
 
 Two kinds of deadlines operate independently and are both checked: the assignment's due date (an absolute deadline shared by the whole class) and the attempt's own deadline (calculated individually per student from their start time). When submitting, the system allows up to 30 seconds of lateness relative to the attempt deadline, to compensate for network latency.
 
@@ -108,7 +112,9 @@ Grading happens in two stages:
 
 **Manual grading afterward.** The tutor grades each essay question, entering a score and comments. Each question's score cannot exceed that question's weight.
 
-The attempt's total score follows an important rule: as long as even one question remains ungraded, the total score stays blank rather than equaling the sum of the graded questions so far. This ensures that an attempt with an ungraded essay portion doesn't display a misleading number to the student. The total score appears only once every question has been scored, and is then converted to a 10-point scale rounded to one decimal place.
+The attempt's total score follows an important rule: as long as even one question remains ungraded, the total score stays blank rather than equaling the sum of the graded questions so far. This ensures that an attempt with an ungraded essay portion doesn't display a misleading number to the student.
+
+The total score appears only once every question has been scored, and equals the plain sum of the question scores — there is no conversion or rounding step. No conversion is needed because the question scores were already forced to add up to 10 when the assignment was published.
 
 ## 5. Learning Tracking and Interaction
 
@@ -123,11 +129,11 @@ LessonProgress records that a student has completed a lesson, along with the com
 
 A Comment is attached to a lesson and allows nested replies via a reference to a parent comment — forming a discussion tree. A tutor can mark a comment as the correct answer, and the system records who marked it and when. This mechanism lets students who arrive later immediately spot the confirmed answer within a long discussion thread.
 
-### 5.3 Question Reports
+### 5.3 Saving Work in Progress
 
-A Report lets a student flag a problematic question — wrong answer, wrong question text, incorrect explanation — along with a note. A report passes through three states: reported, under review, resolved. Admins handle reports through a dedicated page in the admin area.
+A student taking an assignment does not lose their work to a dropped connection or a closed browser tab, thanks to two layers of draft saving. On the browser side, answers are written to local storage keyed by the attempt after every change. On the server side, the interface saves a draft every 30 seconds and every time the student moves to another question.
 
-This mechanism is especially necessary because the system has a feature for auto-generating exercises with AI — machine-generated content needs a feedback channel from users to catch errors.
+Answer records are written with upsert semantics on the (attempt, question) pair, so saving repeatedly never creates duplicates. This is also the data used for grading when an attempt is closed for being overdue.
 
 ## 6. Three Concepts Running Through Every Entity
 
@@ -171,7 +177,9 @@ The core idea is that every object in the system can be traced back to a course.
 
 A common variant is **open for reading, narrow for writing**: course members can read content, but only the responsible tutor can edit it. Submissions have an additional rule of their own: a student can only view their own submissions, while the responsible tutor can view every student's submissions in the course.
 
-A special case is the creation operation, where the object doesn't yet exist and so can't be traced back. The system handles this by pre-declaring, at each access point, which request parameter holds the parent object, then checking permission against that parent object.
+A special case is the creation operation, where the object doesn't yet exist and so can't be traced back — tier two has nothing to check. The system pushes that check down into the serializer: every create serializer has a dedicated validation method for the foreign key pointing at the parent object, and that method compares the course's responsible tutor against the requesting user. Creating a chapter checks against the course, creating a lesson checks against the chapter, creating a question checks against the assignment.
+
+This has a consequence worth noting: input arriving in the request body is checked in the serializer, while input arriving in the URL path is checked in the permission layer. When adding a new create endpoint, the serializer validation must be written by hand, because the permission layer will not catch it.
 
 ## 8. Technical Foundation
 
@@ -256,11 +264,40 @@ This section covers only the terms needed to read the design section; detailed p
 | Answer | Answer | A multiple-choice option, with a correct/incorrect flag |
 | Submission | Submission | One attempt at an assignment by a student |
 | StudentAnswer | StudentAnswer | A student's work on a single question |
-| Report | Report | A student flagging a problematic question |
 | Soft delete | is_active | Hides a record instead of deleting it from the database |
 | Draft / Published | published_at | Empty means draft; a value means published |
 | RAG indexing status | rag_status | Pending, processing, indexed, failed |
 
+## 11. Implementation Status
+
+This section separates what works end to end from what is finished only in the processing layer. It describes the state at the time of writing, not the design.
+
+### 11.1 Working End to End
+
+The AI assistant is the most complete part: a student asks a question in the interface, the system retrieves documents within that student's scope, and produces an answer with citations, clearly marked as grounded in the materials or not.
+
+Also in this group: authoring and publishing course content, taking and grading assignments, progress statistics, lesson comments, and the full pipeline that ingests center materials into the vector store.
+
+### 11.2 Processing Layer Done, Interface Missing
+
+AI exercise generation is complete in the processing layer — it takes a subject, lesson, question type and count, and returns questions with options and explanations in the system's own data shape. What is missing is the screen from which a student would invoke it.
+
+The table for storing AI conversation history exists in the database but is never written to. Each question currently returns its answer to the user and ends there, unrecorded. As a result, there is no data on what students actually ask, and no basis for evaluating answer quality over time.
+
+### 11.3 Vector Store Data
+
+The vector store currently holds 643 text chunks, all of them from center materials — mainly the Grade 12 English textbook and its companion revision documents. All 15 materials finished indexing.
+
+The lesson-resource branch is the opposite: all 81 resources created by tutors sit in the pending state, none indexed. The course-scoped retrieval path is implemented and tested, but no real data has passed through it. In practice, the assistant's answers currently draw on center materials.
+
+### 11.4 Known Limitations
+
+**Lesson-scoped retrieval is not authorization-checked.** When a student sends a question, the system checks whether they are enrolled in the course, but not whether the accompanying lesson belongs to that course. Because the three scope branches are joined by a logical OR, an arbitrary lesson identifier still adds its own retrieval branch. It is not exploitable today because the vector store holds no lesson-resource chunks, but the hole is there and must be closed before resources are ingested.
+
+**Citation page numbers are off by one.** Page numbers stored in the vector store already count from 1, but the interface adds 1 again when rendering the source label. The cited content is correct; only the displayed page number is wrong.
+
+**Enrollment and account creation happen only in the admin area.** There is no student self-registration and no self-enrollment flow. This is the agreed scope of the project rather than an oversight, but it should be stated plainly so it is not read as missing work.
+
 ---
 
-**Note on accuracy:** all figures and rules stated above are read directly from the current source code — 3 attempts, a 10-point scale, 30 seconds of allowed lateness, 15 minutes and 7 days for the two token types, 30 AI requests per hour, and the file-size thresholds. The business-context description in Section 1, specifically, is an interpretation derived from the data structures; if the project has its own requirements specification, it should be cross-checked against that document.
+**Note on accuracy:** all figures and rules stated above are read directly from the current source code — 3 attempts, a 10-point scale, the 0.05 step for per-question scores, 30 seconds of allowed lateness, 15 minutes and 7 days for the two token types, 30 AI requests per hour, and the file-size thresholds. The figures in Section 11 are read directly from the running database and vector store. The business-context description in Section 1, specifically, is an interpretation derived from the data structures; if the project has its own requirements specification, it should be cross-checked against that document.

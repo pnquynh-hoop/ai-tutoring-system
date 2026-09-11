@@ -15,5 +15,5 @@ export function resolveChatContext(
 
 export function formatSourceLabel(source: RagSource): string {
 	if (source.page === null || source.page === undefined) return source.title;
-	return `${source.title} · trang ${source.page + 1}`;
+	return `${source.title} · trang ${source.page}`;
 }

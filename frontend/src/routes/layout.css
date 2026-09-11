@@ -3,8 +3,8 @@
 @plugin '@tailwindcss/typography';
 
 @theme {
-	--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-	--font-heading: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
+	--font-sans: Tahoma, Verdana, ui-sans-serif, system-ui, sans-serif;
+	--font-heading: Tahoma, Verdana, ui-sans-serif, system-ui, sans-serif;
 
 	--color-brand-50: #eff4ff;
 	--color-brand-100: #dbe6fe;

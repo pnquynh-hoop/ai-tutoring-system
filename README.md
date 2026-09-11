@@ -33,11 +33,10 @@ AI Tutoring Center is an AI-powered Learning Management System (LMS) designed fo
 
 #### AI Features
 
-* AI Chat Tutor
-* AI Exercise Solver
-* AI Exercise Generator
-* RAG-based knowledge retrieval
-* Personalized learning support
+* AI Chat Tutor — answers grounded in course resources and center materials, with citations
+* AI Exercise Generator — backend complete, not yet wired to the interface
+* RAG-based knowledge retrieval, scoped per student
+* Personalized explanations driven by the student's academic level
 
 ### Technology Stack
 
@@ -48,14 +47,13 @@ AI Tutoring Center is an AI-powered Learning Management System (LMS) designed fo
 
 **Frontend**
 
-* Svelte
+* SvelteKit
 
 **AI & RAG**
 
-* OpenAI / Gemini
+* Google Gemini
 * LangChain
-* Vector Database
-* FAISS / ChromaDB
+* ChromaDB
 
 ### Running the Project
 

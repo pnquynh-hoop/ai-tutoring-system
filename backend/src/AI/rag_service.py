@@ -50,7 +50,6 @@ def enrolled_course_ids(student):
 
 def course_subjects_and_grades(course_ids):
     rows = Course.objects.filter(id__in=course_ids).values_list("subject_id", "grade_id")
-
     subject_ids = sorted({subject_id for subject_id, _ in rows})
     grade_ids = sorted({grade_id for _, grade_id in rows})
     return subject_ids, grade_ids

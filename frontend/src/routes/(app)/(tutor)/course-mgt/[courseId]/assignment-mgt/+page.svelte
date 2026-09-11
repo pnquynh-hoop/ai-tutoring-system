@@ -597,7 +597,7 @@
 							{#if unsetPointCount > 0}
 								Còn {unsetPointCount} câu chưa đặt điểm.
 							{:else}
-								Tổng điểm các câu phải đủ {TOTAL_SCORE} mới công khai được bài tập.
+								Tổng điểm các câu phải bằng {TOTAL_SCORE} mới được phép công khai bài tập.
 							{/if}
 						</p>
 					{/if}

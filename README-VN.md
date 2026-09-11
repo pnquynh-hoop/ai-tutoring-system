@@ -33,11 +33,10 @@ AI Tutoring Center là hệ thống quản lý học tập (LMS) tích hợp tr�
 
 #### Chức năng AI
 
-* AI Chat Tutor
-* AI Giải bài tập
-* AI Sinh bài tập
-* Truy xuất tri thức bằng RAG
-* Hỗ trợ học tập cá nhân hóa
+* Trợ lý hỏi đáp — trả lời dựa trên tài nguyên khóa học và tài liệu trung tâm, có trích dẫn nguồn
+* Sinh bài tập luyện tập — phần xử lý đã xong, chưa gắn vào giao diện
+* Truy xuất tri thức bằng RAG, giới hạn phạm vi theo từng học sinh
+* Cá nhân hóa cách giải thích theo học lực của học sinh
 
 ### Công nghệ sử dụng
 
@@ -48,14 +47,13 @@ AI Tutoring Center là hệ thống quản lý học tập (LMS) tích hợp tr�
 
 **Frontend**
 
-* Svelte
+* SvelteKit
 
 **AI & RAG**
 
-* OpenAI / Gemini
+* Google Gemini
 * LangChain
-* Vector Database
-* FAISS / ChromaDB
+* ChromaDB
 
 ### Chạy dự án
 
